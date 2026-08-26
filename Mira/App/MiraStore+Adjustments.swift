@@ -71,9 +71,12 @@ extension MiraStore {
             isAllDay: candidate.timeOfDay == .allDay,
             isImportant: false
         )
-        context.insert(CalendarItemEntity(snapshot: prepared))
-        try? context.save()
-        try? refresh()
+        let impact = previewImpact(for: prepared)
+
+        // Candidate conflicts were already surfaced when the user selected the
+        // slot. Confirmation therefore honours that explicit decision while
+        // keeping monthly progress honest by consuming any overlapped margin.
+        commitAdvisedEvent(prepared, impact: impact, resolution: .exception)
         await NotificationService.shared.cancelAdjustmentReminder(id: sessionID)
         toast = "日程を確定して、ほかの候補を解放したにゃ"
     }
@@ -117,7 +120,7 @@ extension MiraStore {
             isImportant: false
         )
         let impact = previewImpact(for: event)
-        commitEvent(event, impact: impact, resolution: .exception)
+        commitAdvisedEvent(event, impact: impact, resolution: .exception)
         invitation.status = .accepted
         try? context.save()
         try? refresh()
