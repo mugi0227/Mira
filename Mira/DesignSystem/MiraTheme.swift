@@ -19,8 +19,9 @@ struct MiraThemePalette {
     let shadow: Color
 
     init(kind: AppThemeKind, colorScheme: ColorScheme) {
-        switch (kind, colorScheme) {
-        case (.softMinimal, .light):
+        let isDark = colorScheme == .dark
+        switch (kind, isDark) {
+        case (.softMinimal, false):
             background = Color(hex: 0xF7F6F2)
             surface = .white
             elevatedSurface = Color(hex: 0xFCFCFA)
@@ -37,7 +38,7 @@ struct MiraThemePalette {
             critical = Color(hex: 0xA84545)
             success = Color(hex: 0x4F765C)
             shadow = Color.black.opacity(0.08)
-        case (.softMinimal, .dark):
+        case (.softMinimal, true):
             background = Color(hex: 0x171A17)
             surface = Color(hex: 0x222622)
             elevatedSurface = Color(hex: 0x292E29)
@@ -54,7 +55,7 @@ struct MiraThemePalette {
             critical = Color(hex: 0xED8F8F)
             success = Color(hex: 0x9BC5A6)
             shadow = Color.black.opacity(0.28)
-        case (.pixelCat, .light):
+        case (.pixelCat, false):
             background = Color(hex: 0xFFF8F2)
             surface = Color(hex: 0xFFFEFC)
             elevatedSurface = Color(hex: 0xFFF4E9)
@@ -71,7 +72,7 @@ struct MiraThemePalette {
             critical = Color(hex: 0xB84C5E)
             success = Color(hex: 0x4F8871)
             shadow = Color(hex: 0x6D4C59).opacity(0.10)
-        case (.pixelCat, .dark):
+        case (.pixelCat, true):
             background = Color(hex: 0x211B20)
             surface = Color(hex: 0x2D252B)
             elevatedSurface = Color(hex: 0x372D34)
@@ -88,8 +89,6 @@ struct MiraThemePalette {
             critical = Color(hex: 0xF08799)
             success = Color(hex: 0x90C8B2)
             shadow = Color.black.opacity(0.32)
-        @unknown default:
-            self.init(kind: kind, colorScheme: .light)
         }
     }
 
