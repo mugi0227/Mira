@@ -10,6 +10,13 @@ permissions:
   contents: read
 
 jobs:
+  runner-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm Actions runner
+        run: echo "GitHub Actions Linux runner is available"
+
   build-and-test:
     runs-on: macos-15
     timeout-minutes: 30
