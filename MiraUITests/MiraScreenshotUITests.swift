@@ -94,13 +94,23 @@ final class MiraScreenshotUITests: XCTestCase {
         let titleField = app.textFields["例：友達とご飯"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 4))
         titleField.tap()
-        titleField.typeText("カフェに行く")
-        app.keyboards.buttons["完了"].tapIfExists()
+        titleField.typeText("カフェに行く\n")
+        settle(0.5)
 
-        let secretaryMessage = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "余白と重なってるにゃ")
-        ).firstMatch
-        XCTAssertTrue(secretaryMessage.waitForExistence(timeout: 8))
+        let secretaryHeader = app.staticTexts["Miraの秘書チェック"]
+        for _ in 0..<3 where !secretaryHeader.isHittable {
+            app.swipeUp()
+            settle(0.25)
+        }
+        XCTAssertTrue(secretaryHeader.waitForExistence(timeout: 4))
+
+        let guidance = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "にゃ")
+        ).allElementsBoundByIndex
+        XCTAssertTrue(
+            guidance.contains(where: { $0.label.contains("余白") || $0.label.contains("目標") || $0.label.contains("基本時間") || $0.label.contains("大丈夫") }),
+            "Secretary guidance should be visible after event input"
+        )
         settle(0.8)
         try capture("05-event-entry-secretary")
 
@@ -168,11 +178,5 @@ final class MiraScreenshotUITests: XCTestCase {
 
     private func settle(_ seconds: TimeInterval = 0.6) {
         Thread.sleep(forTimeInterval: seconds)
-    }
-}
-
-private extension XCUIElement {
-    func tapIfExists() {
-        if exists && isHittable { tap() }
     }
 }
