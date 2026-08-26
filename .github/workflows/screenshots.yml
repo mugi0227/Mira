@@ -1,0 +1,70 @@
+name: Simulator Screenshots
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/screenshot-trigger-*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select available Xcode
+        run: |
+          if [ -d /Applications/Xcode_16.4.app ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app
+          else
+            XCODE_PATH=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+            sudo xcode-select -s "$XCODE_PATH"
+          fi
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Resolve iPhone simulator
+        run: |
+          SIMULATOR_UDID=$(python3 - <<'PY'
+          import json
+          import subprocess
+
+          data = json.loads(subprocess.check_output([
+              "xcrun", "simctl", "list", "devices", "available", "-j"
+          ]))
+          for devices in data.get("devices", {}).values():
+              for device in devices:
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          raise SystemExit("No available iPhone Simulator found")
+          PY
+          )
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "Using simulator $SIMULATOR_UDID"
+      - name: Capture representative screens
+        run: |
+          rm -rf /tmp/mira-screenshots
+          mkdir -p /tmp/mira-screenshots
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MiraUITests/MiraScreenshotUITests/testCaptureRepresentativeScreens \
+            test | xcbeautify
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-simulator-screenshots
+          path: /tmp/mira-screenshots/*.png
+          if-no-files-found: error
+          retention-days: 7
