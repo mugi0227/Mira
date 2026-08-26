@@ -123,7 +123,12 @@ struct ConflictEngine: Sendable {
                 guard let ruleStart = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let ruleEnd = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       ruleStart < ruleEnd else { continue }
-                if DateInterval(start: ruleStart, end: ruleEnd).intersects(interval) {
+
+                // Calendar ranges are treated as [start, end): an event beginning
+                // exactly when work ends should remain selectable.
+                let overlapStart = max(ruleStart, interval.start)
+                let overlapEnd = min(ruleEnd, interval.end)
+                if overlapStart < overlapEnd {
                     return true
                 }
             }
