@@ -9,6 +9,8 @@ struct PendingInvitationDetailSheet: View {
 
     @State private var preparedEvent: CalendarItemSnapshot?
     @State private var impact: ScheduleImpact = .none
+    @State private var conflicts: [String] = []
+    @State private var worsenedGoalDeficits: [MarginKind: Int] = [:]
     @State private var isAnalyzing = false
     @State private var showAcceptOptions = false
 
@@ -31,18 +33,22 @@ struct PendingInvitationDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
             }
             .task { await analyze() }
-            .confirmationDialog("余白をどうしますか？", isPresented: $showAcceptOptions, titleVisibility: .visible) {
+            .confirmationDialog(reviewTitle, isPresented: $showAcceptOptions, titleVisibility: .visible) {
                 ForEach(impact.relocationCandidates.prefix(3), id: \.self) { date in
                     Button("余白を \(date.japaneseShortDate) へ移して参加") {
                         commit(resolution: .relocate, relocation: date)
                     }
                 }
-                Button("今回は例外として参加") {
+                Button(impact.protectionLevel == .finalDefense ? "今回は例外として参加" : "このまま参加する") {
                     commit(resolution: .exception, relocation: nil)
                 }
-                Button("やめる", role: .cancel) {}
+                Button("日程を調整する") {
+                    store.convertPendingToAdjustment(invitation)
+                    dismiss()
+                }
+                Button("いったん戻る", role: .cancel) {}
             } message: {
-                Text(impact.message)
+                Text(reviewMessage)
             }
         }
         .tint(palette.accent)
@@ -105,7 +111,7 @@ struct PendingInvitationDetailSheet: View {
         if isAnalyzing {
             HStack(spacing: MiraSpacing.sm) {
                 ProgressView()
-                Text("この予定を入れたときの余白を確認中…")
+                Text("この予定を入れたときの生活への影響を確認中…")
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
             }
@@ -113,13 +119,35 @@ struct PendingInvitationDetailSheet: View {
             .miraCard(palette)
         } else {
             VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-                Label(impactTitle, systemImage: impact.overlappingMargins.isEmpty ? "checkmark.circle.fill" : "leaf.fill")
+                Label(impactTitle, systemImage: impactSymbol)
                     .font(.headline)
-                    .foregroundStyle(impact.overlappingMargins.isEmpty ? palette.success : palette.warning)
-                Text(impact.message)
+                    .foregroundStyle(needsReview ? palette.warning : palette.success)
+
+                Text(impactBody)
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(conflicts, id: \.self) { conflict in
+                    Label(conflict, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(palette.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                ForEach(worsenedGoalDeficits.keys.sorted(by: { $0.defaultPriority > $1.defaultPriority }), id: \.self) { kind in
+                    HStack {
+                        Label(kind.title, systemImage: kind.symbolName)
+                        Spacer()
+                        Text("不足 \(worsenedGoalDeficits[kind] ?? 0)回")
+                            .fontWeight(.semibold)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(palette.warning)
+                }
+
                 if let event = preparedEvent {
+                    Divider()
                     HStack {
                         Text("推定負荷")
                         Spacer()
@@ -137,10 +165,10 @@ struct PendingInvitationDetailSheet: View {
     private var actions: some View {
         VStack(spacing: MiraSpacing.sm) {
             PrimaryButton(title: "参加する", symbol: "checkmark", palette: palette, isDisabled: preparedEvent == nil) {
-                if impact.overlappingMargins.isEmpty {
-                    commit(resolution: .exception, relocation: nil)
-                } else {
+                if needsReview {
                     showAcceptOptions = true
+                } else {
+                    commit(resolution: .exception, relocation: nil)
                 }
             }
 
@@ -166,8 +194,49 @@ struct PendingInvitationDetailSheet: View {
         }
     }
 
+    private var needsReview: Bool {
+        !impact.overlappingMargins.isEmpty
+            || impact.protectionLevel != .flexible
+            || !conflicts.isEmpty
+            || !worsenedGoalDeficits.isEmpty
+    }
+
     private var impactTitle: String {
-        impact.overlappingMargins.isEmpty ? "余白を守ったまま参加できます" : "移動したい余白があります"
+        if impact.protectionLevel == .finalDefense { return "このままだと大事な余白がなくなるにゃ" }
+        if !conflicts.isEmpty { return "この予定、少し気になるところがあるにゃ" }
+        if !worsenedGoalDeficits.isEmpty { return "今月の目標が少し遠のきそうだにゃ" }
+        if !impact.overlappingMargins.isEmpty { return "移動したい余白があります" }
+        return "今のところ大きな問題はなさそうにゃ"
+    }
+
+    private var impactBody: String {
+        if needsReview {
+            return "影響は見えるようにするけど、Miraが勝手に断ったり禁止したりはしないにゃ。日程調整か、このまま参加するかを選べます。"
+        }
+        return "余白・基本時間・ほかの予定・月の目標を見た限り、そのまま参加してもよさそうです。"
+    }
+
+    private var impactSymbol: String {
+        needsReview ? "sparkles" : "checkmark.circle.fill"
+    }
+
+    private var reviewTitle: String {
+        impact.protectionLevel == .finalDefense ? "最後の余白をどうする？" : "この予定、どうするにゃ？"
+    }
+
+    private var reviewMessage: String {
+        var lines = conflicts
+        if !worsenedGoalDeficits.isEmpty {
+            lines.append(contentsOf: worsenedGoalDeficits.keys
+                .sorted(by: { $0.defaultPriority > $1.defaultPriority })
+                .prefix(2)
+                .map { kind in "\(kind.title)があと\(worsenedGoalDeficits[kind] ?? 0)回不足する見込みです" })
+        }
+        if !impact.overlappingMargins.isEmpty {
+            lines.append(impact.message)
+        }
+        lines.append("おすすめは示しますが、最終的にはあなたが選べます。")
+        return lines.joined(separator: "\n")
     }
 
     @MainActor
@@ -183,12 +252,14 @@ struct PendingInvitationDetailSheet: View {
         )
         preparedEvent = event
         impact = store.previewImpact(for: event)
+        conflicts = store.eventEntryConflicts(for: event)
+        worsenedGoalDeficits = store.worsenedGoalDeficits(afterAdding: event)
         isAnalyzing = false
     }
 
     private func commit(resolution: MiraStore.ImpactResolution, relocation: Date?) {
         guard let preparedEvent else { return }
-        store.commitEvent(
+        store.commitAdvisedEvent(
             preparedEvent,
             impact: impact,
             resolution: resolution,
