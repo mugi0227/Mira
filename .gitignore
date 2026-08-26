@@ -1,0 +1,9 @@
+.DS_Store
+DerivedData/
+.build/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+Mira.xcodeproj/project.xcworkspace/xcuserdata/
+Mira.xcodeproj/xcuserdata/
+.swiftpm/
