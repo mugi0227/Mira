@@ -5,4 +5,7 @@
 - Use up to three full-width event strips per day before a compact overflow label.
 - Add weekday-specific “do not schedule” hours to onboarding.
 - Allow those hours to be edited later from My Margins.
+- Apply base hours to both margin placement and adjustment candidate conflicts.
 - Re-capture Simulator screenshots for visual QA.
+
+Validation revision: 1
