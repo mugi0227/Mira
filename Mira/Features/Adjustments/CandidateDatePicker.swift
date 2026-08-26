@@ -129,12 +129,16 @@ struct CandidateDatePicker: View {
         let hasConfirmedConflict = conflicts.contains("確定予定と重なっています")
         let hasAdjustmentConflict = conflicts.contains("別の日程調整でも候補になっています")
         let hasMarginConflict = conflicts.contains("守っている余白と重なっています")
+        let hasBaseRuleConflict = conflicts.contains("基本的に予定を入れない時間と重なっています")
+        let isUnavailable = hasConfirmedConflict || hasBaseRuleConflict
 
         Button {
             if selected {
                 selectedDates.remove(normalized)
             } else if hasConfirmedConflict {
                 store.toast = "確定予定があるので候補にはできないにゃ"
+            } else if hasBaseRuleConflict {
+                store.toast = "基本的に予定を入れない時間と重なるにゃ"
             } else if hasAdjustmentConflict {
                 pendingOverrideDate = normalized
                 overrideMessage = conflicts.joined(separator: "。") + "。"
@@ -146,6 +150,11 @@ struct CandidateDatePicker: View {
                 Text("\(calendar.component(.day, from: date))")
                     .font(.subheadline.weight(selected ? .bold : .medium))
                 HStack(spacing: 2) {
+                    if hasBaseRuleConflict {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 5.5, weight: .bold))
+                            .foregroundStyle(palette.secondaryText)
+                    }
                     if hasAdjustmentConflict {
                         Circle().fill(palette.warning).frame(width: 4, height: 4)
                     }
@@ -153,13 +162,13 @@ struct CandidateDatePicker: View {
                         Circle().fill(palette.success).frame(width: 4, height: 4)
                     }
                 }
-                .frame(height: 5)
+                .frame(height: 6)
             }
-            .foregroundStyle(selected ? Color.white : (hasConfirmedConflict ? palette.secondaryText.opacity(0.45) : palette.primaryText))
+            .foregroundStyle(selected ? Color.white : (isUnavailable ? palette.secondaryText.opacity(0.42) : palette.primaryText))
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(selected ? palette.accent : palette.surface, in: RoundedRectangle(cornerRadius: 10))
             .overlay {
-                if hasAdjustmentConflict && !selected {
+                if hasAdjustmentConflict && !selected && !isUnavailable {
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(palette.warning, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                 }
@@ -167,6 +176,7 @@ struct CandidateDatePicker: View {
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel(accessibilityLabel(date: date, selected: selected, conflicts: conflicts))
+        .accessibilityValue(isUnavailable ? "選択不可" : "選択可能")
     }
 
     private func makeCandidate(on date: Date) -> CandidateSlotSnapshot {
