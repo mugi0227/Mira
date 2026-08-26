@@ -30,8 +30,10 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
             CODE_SIGNING_ALLOWED=NO \
             build | xcbeautify
-      - name: Test
+      - name: Test and capture screenshots
         run: |
+          rm -rf /tmp/mira-screenshots
+          mkdir -p /tmp/mira-screenshots
           set -o pipefail
           xcodebuild \
             -project Mira.xcodeproj \
@@ -39,3 +41,11 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
             CODE_SIGNING_ALLOWED=NO \
             test | xcbeautify
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-simulator-screenshots
+          path: /tmp/mira-screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 7
