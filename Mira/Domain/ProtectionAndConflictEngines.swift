@@ -76,10 +76,17 @@ struct ProtectionEngine: Sendable {
 }
 
 struct ConflictEngine: Sendable {
+    private let calendar: Calendar
+
+    init(calendar: Calendar = .mira) {
+        self.calendar = calendar
+    }
+
     func conflicts(
         candidate: CandidateSlotSnapshot,
         events: [CalendarItemSnapshot],
-        otherCandidates: [CandidateSlotSnapshot]
+        otherCandidates: [CandidateSlotSnapshot],
+        baseRules: [BaseAvailabilityRule] = []
     ) -> [String] {
         var result: [String] = []
         if events.contains(where: { $0.kind == .confirmed && $0.occupiedInterval.intersects(candidate.interval) }) {
@@ -93,7 +100,37 @@ struct ConflictEngine: Sendable {
         }) {
             result.append("別の日程調整でも候補になっています")
         }
+        if overlapsBaseRule(candidate.interval, rules: baseRules) {
+            result.append("基本的に予定を入れない時間と重なっています")
+        }
         return result
+    }
+
+    private func overlapsBaseRule(
+        _ interval: DateInterval,
+        rules: [BaseAvailabilityRule]
+    ) -> Bool {
+        guard !rules.isEmpty else { return false }
+
+        let startDay = calendar.startOfDay(for: interval.start)
+        let endProbe = interval.end.addingTimeInterval(-1)
+        let endDay = calendar.startOfDay(for: max(endProbe, interval.start))
+        var day = startDay
+
+        while day <= endDay {
+            let weekday = calendar.component(.weekday, from: day)
+            for rule in rules where rule.weekday == weekday {
+                guard let ruleStart = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
+                      let ruleEnd = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
+                      ruleStart < ruleEnd else { continue }
+                if DateInterval(start: ruleStart, end: ruleEnd).intersects(interval) {
+                    return true
+                }
+            }
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
+        }
+        return false
     }
 }
 

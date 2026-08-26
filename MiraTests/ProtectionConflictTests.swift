@@ -24,7 +24,7 @@ final class ProtectionConflictTests: XCTestCase {
         XCTAssertEqual(impact.projectedGoalDeficits[.rest], 1)
     }
 
-    func testConflictEngineFindsConfirmedMarginAndOtherCandidate() {
+    func testConflictEngineFindsConfirmedMarginOtherCandidateAndBaseHours() {
         let candidate = CandidateSlotSnapshot(
             startDate: TestFixtures.date(day: 12, hour: 13),
             endDate: TestFixtures.date(day: 12, hour: 17),
@@ -45,10 +45,41 @@ final class ProtectionConflictTests: XCTestCase {
             endDate: TestFixtures.date(day: 12, hour: 17),
             timeOfDay: .afternoon
         )
-        let conflicts = ConflictEngine().conflicts(candidate: candidate, events: [confirmed, margin], otherCandidates: [other])
+        let weekday = Calendar.mira.component(.weekday, from: candidate.startDate)
+        let conflicts = ConflictEngine().conflicts(
+            candidate: candidate,
+            events: [confirmed, margin],
+            otherCandidates: [other],
+            baseRules: [BaseAvailabilityRule(
+                weekday: weekday,
+                startMinute: 9 * 60,
+                endMinute: 18 * 60
+            )]
+        )
         XCTAssertTrue(conflicts.contains("確定予定と重なっています"))
         XCTAssertTrue(conflicts.contains("守っている余白と重なっています"))
         XCTAssertTrue(conflicts.contains("別の日程調整でも候補になっています"))
+        XCTAssertTrue(conflicts.contains("基本的に予定を入れない時間と重なっています"))
+    }
+
+    func testBaseHoursDoNotBlockAnEveningCandidate() {
+        let candidate = CandidateSlotSnapshot(
+            startDate: TestFixtures.date(day: 12, hour: 18),
+            endDate: TestFixtures.date(day: 12, hour: 22),
+            timeOfDay: .evening
+        )
+        let weekday = Calendar.mira.component(.weekday, from: candidate.startDate)
+        let conflicts = ConflictEngine().conflicts(
+            candidate: candidate,
+            events: [],
+            otherCandidates: [],
+            baseRules: [BaseAvailabilityRule(
+                weekday: weekday,
+                startMinute: 9 * 60,
+                endMinute: 18 * 60
+            )]
+        )
+        XCTAssertFalse(conflicts.contains("基本的に予定を入れない時間と重なっています"))
     }
 
     func testFreeEveningCountsLowLoadShortItemAsMostlyFree() {

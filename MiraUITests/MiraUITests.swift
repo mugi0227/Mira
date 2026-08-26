@@ -8,10 +8,10 @@ final class MiraUITests: XCTestCase {
 
         let next = app.buttons["次へ"]
         if next.waitForExistence(timeout: 4) {
-            next.tap()
-            next.tap()
-            next.tap()
-            next.tap()
+            for _ in 0..<5 {
+                XCTAssertTrue(next.waitForExistence(timeout: 3))
+                next.tap()
+            }
             let start = app.buttons["余白を置いて始める"]
             XCTAssertTrue(start.waitForExistence(timeout: 3))
             start.tap()

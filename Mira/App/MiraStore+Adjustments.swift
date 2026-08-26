@@ -56,7 +56,7 @@ extension MiraStore {
         guard let session = adjustments.first(where: { $0.id == sessionID }),
               let candidate = session.candidates.first(where: { $0.id == candidateID }) else { return }
 
-        var updated = session.candidates.map { slot -> CandidateSlotSnapshot in
+        let updated = session.candidates.map { slot -> CandidateSlotSnapshot in
             var copy = slot
             copy.status = slot.id == candidateID ? .confirmed : .released
             return copy
@@ -102,7 +102,8 @@ extension MiraStore {
         ConflictEngine().conflicts(
             candidate: candidate,
             events: items,
-            otherCandidates: heldCandidates(excluding: sessionID)
+            otherCandidates: heldCandidates(excluding: sessionID),
+            baseRules: fetchBaseRules()
         )
     }
 

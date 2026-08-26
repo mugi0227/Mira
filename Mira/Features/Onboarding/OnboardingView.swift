@@ -15,8 +15,9 @@ struct OnboardingView: View {
         .importantPeople: 2
     ]
     @State private var freeEveningsPerWeek = 2
+    @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
 
-    private let totalSteps = 5
+    private let totalSteps = 6
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,7 +30,8 @@ struct OnboardingView: View {
                 chooseMargins.tag(1)
                 chooseAmounts.tag(2)
                 freeEvenings.tag(3)
-                ready.tag(4)
+                basicUnavailableTimes.tag(4)
+                ready.tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(MiraMotion.standard, value: step)
@@ -179,29 +181,75 @@ struct OnboardingView: View {
         .padding(MiraSpacing.lg)
     }
 
+    private var basicUnavailableTimes: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                onboardingTitle(
+                    "普段、予定を入れたくない時間はある？",
+                    subtitle: "仕事や学校などを曜日ごとに設定します。余白や日程候補はこの時間を避けます。"
+                )
+
+                HStack(spacing: MiraSpacing.sm) {
+                    Image(systemName: "lock.clock.fill")
+                        .font(.title2)
+                        .foregroundStyle(palette.accent)
+                        .frame(width: 48, height: 48)
+                        .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                        .accessibilityHidden(true)
+                    Text("平日はまとめて設定して、違う曜日だけ時刻を変えられます。設定なしでも始められます。")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .miraCard(palette, padding: MiraSpacing.sm)
+
+                AvailabilityRuleEditor(rules: $availabilityRules, palette: palette)
+            }
+            .padding(MiraSpacing.lg)
+            .padding(.bottom, MiraSpacing.md)
+        }
+    }
+
     private var ready: some View {
-        VStack(spacing: MiraSpacing.lg) {
-            Spacer()
-            PixelCatView(mood: .celebrating, size: 132)
-            onboardingTitle("あなたの余白を置いてみるにゃ", subtitle: "今ある予定を避けて、休む日や自分の時間をおすすめ配置します。")
-                .multilineTextAlignment(.center)
-            VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-                ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
-                    HStack {
-                        Image(systemName: kind.symbolName)
+        ScrollView {
+            VStack(spacing: MiraSpacing.lg) {
+                Spacer(minLength: MiraSpacing.lg)
+                PixelCatView(mood: .celebrating, size: 124)
+                onboardingTitle("あなたの余白を置いてみるにゃ", subtitle: "今ある予定と基本時間を避けて、休む日や自分の時間をおすすめ配置します。")
+                    .multilineTextAlignment(.center)
+
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
+                        HStack {
+                            Image(systemName: kind.symbolName)
+                                .foregroundStyle(palette.accent)
+                                .accessibilityHidden(true)
+                            Text(kind.title)
+                            Spacer()
+                            Text("\(targets[kind, default: 0])回")
+                                .font(.subheadline.monospacedDigit().weight(.semibold))
+                        }
+                    }
+
+                    Divider().overlay(palette.primaryText.opacity(0.08))
+
+                    HStack(spacing: MiraSpacing.sm) {
+                        Image(systemName: "lock.clock.fill")
                             .foregroundStyle(palette.accent)
                             .accessibilityHidden(true)
-                        Text(kind.title)
+                        Text("予定を入れない基本時間")
                         Spacer()
-                        Text("\(targets[kind, default: 0])回")
-                            .font(.subheadline.monospacedDigit().weight(.semibold))
+                        Text(availabilitySummary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
+                .miraCard(palette)
+                Spacer(minLength: MiraSpacing.lg)
             }
-            .miraCard(palette)
-            Spacer()
+            .padding(MiraSpacing.lg)
         }
-        .padding(MiraSpacing.lg)
     }
 
     private var navigationButtons: some View {
@@ -222,12 +270,27 @@ struct OnboardingView: View {
                 isDisabled: step == 1 && selections.isEmpty
             ) {
                 if step == totalSteps - 1 {
-                    store.finishOnboarding(targets: targets.filter { selections.contains($0.key) })
+                    store.finishOnboarding(
+                        targets: targets.filter { selections.contains($0.key) },
+                        baseRules: availabilityRules.compactMap(\.domainRule)
+                    )
                 } else {
                     step += 1
                 }
             }
         }
+    }
+
+    private var availabilitySummary: String {
+        let enabled = availabilityRules.filter(\.isEnabled)
+        guard !enabled.isEmpty else { return "設定なし" }
+        let weekdays = Set(enabled.map(\.weekday))
+        let standardDays = Set(2...6)
+        let standardTime = enabled.allSatisfy { $0.startMinute == 9 * 60 && $0.endMinute == 18 * 60 }
+        if weekdays == standardDays && standardTime {
+            return "月〜金 9:00–18:00"
+        }
+        return "\(enabled.count)曜日を設定"
     }
 
     private func onboardingTitle(_ title: String, subtitle: String) -> some View {

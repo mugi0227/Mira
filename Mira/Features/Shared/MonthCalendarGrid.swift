@@ -5,103 +5,142 @@ struct MonthCalendarGrid: View {
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    var referenceDate: Date = .now
     var allowsDragging = true
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
 
     private let calendar = Calendar.mira
     private let weekdaySymbols = ["月", "火", "水", "木", "金", "土", "日"]
+    private let cellHeight: CGFloat = 86
 
     var body: some View {
-        VStack(spacing: MiraSpacing.xs) {
+        VStack(spacing: 0) {
             LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(weekdaySymbols, id: \.self) { symbol in
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(palette.secondaryText)
-                        .frame(maxWidth: .infinity, minHeight: 24)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(weekdayColor(for: index))
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .overlay(alignment: .trailing) {
+                            if index < weekdaySymbols.count - 1 {
+                                gridLine.frame(width: 0.5)
+                            }
+                        }
                 }
             }
+            .background(palette.background)
 
-            LazyVGrid(columns: columns, spacing: 5) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, date in
-                    if let date {
-                        dayCell(date)
-                    } else {
-                        Color.clear.frame(height: 68)
-                    }
+            gridLine.frame(height: 0.5)
+
+            LazyVGrid(columns: columns, spacing: 0) {
+                ForEach(Array(cells.enumerated()), id: \.offset) { index, date in
+                    dayCell(date, index: index)
                 }
             }
         }
+        .background(palette.surface.opacity(0.42))
+        .overlay(alignment: .top) { gridLine.frame(height: 0.5) }
+        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
+        .accessibilityElement(children: .contain)
     }
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 36), spacing: 5), count: 7)
+        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
-    private var cells: [Date?] {
+    /// A stable six-week grid keeps the month view from jumping and also shows
+    /// the neighboring dates that users need when they are planning ahead.
+    private var cells: [Date] {
         let first = MonthKey(date: month, calendar: calendar).firstDay
         let weekday = calendar.component(.weekday, from: first)
         let leading = (weekday + 5) % 7
-        guard let range = calendar.range(of: .day, in: .month, for: first) else { return [] }
-        var result = Array<Date?>(repeating: nil, count: leading)
-        result.append(contentsOf: range.compactMap { day in
-            calendar.date(byAdding: .day, value: day - 1, to: first)
-        })
-        while result.count % 7 != 0 { result.append(nil) }
-        return result
+        let gridStart = calendar.date(byAdding: .day, value: -leading, to: first) ?? first
+        return (0..<42).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: gridStart)
+        }
+    }
+
+    private var gridLine: some View {
+        Rectangle().fill(palette.primaryText.opacity(0.11))
+    }
+
+    private func weekdayColor(for index: Int) -> Color {
+        switch index {
+        case 5: palette.accent
+        case 6: palette.critical.opacity(0.86)
+        default: palette.secondaryText
+        }
     }
 
     @ViewBuilder
-    private func dayCell(_ date: Date) -> some View {
-        let dayItems = items.filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+    private func dayCell(_ date: Date, index: Int) -> some View {
+        let dayItems = items
+            .filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+            .sorted { lhs, rhs in
+                if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
+                return lhs.startDate < rhs.startDate
+            }
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
-        let isToday = calendar.isDate(date, inSameDayAs: .now)
+        let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
+        let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
+        let column = index % 7
 
-        Button {
-            selectedDate = date
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 2) {
-                    Text("\(calendar.component(.day, from: date))")
-                        .font(.caption.weight(isSelected ? .bold : .medium).monospacedDigit())
-                        .foregroundStyle(isSelected ? .white : palette.primaryText)
-                    if isToday {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Spacer(minLength: 0)
+                ZStack {
+                    if isSelected {
                         Circle()
-                            .fill(isSelected ? Color.white : palette.accent)
-                            .frame(width: 4, height: 4)
+                            .fill(palette.accent)
+                            .frame(width: 27, height: 27)
+                    } else if isToday {
+                        Circle()
+                            .stroke(palette.accent, lineWidth: 1.5)
+                            .frame(width: 27, height: 27)
                     }
-                    Spacer(minLength: 0)
-                }
 
-                VStack(spacing: 3) {
-                    ForEach(dayItems.prefix(2)) { item in
-                        CalendarMicroBar(item: item, palette: palette)
-                            .onTapGesture { onSelectItem?(item) }
-                            .draggable(allowsDragging ? item.id.uuidString : "")
-                    }
-                    if dayItems.count > 2 {
-                        Text("+\(dayItems.count - 2)")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(isSelected ? .white.opacity(0.9) : palette.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    Text("\(calendar.component(.day, from: date))")
+                        .font(.caption.weight(isSelected || isToday ? .bold : .medium).monospacedDigit())
+                        .foregroundStyle(dateForeground(
+                            isSelected: isSelected,
+                            isInDisplayedMonth: isInDisplayedMonth,
+                            column: column
+                        ))
                 }
+                .frame(height: 28)
                 Spacer(minLength: 0)
             }
-            .padding(6)
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .topLeading)
-            .background(
-                isSelected ? palette.accent : palette.surface.opacity(dayItems.isEmpty ? 0.55 : 0.92),
-                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(isSelected ? Color.clear : palette.primaryText.opacity(0.06), lineWidth: 1)
+
+            VStack(spacing: 2) {
+                ForEach(dayItems.prefix(3)) { item in
+                    CalendarEventStrip(item: item, palette: palette)
+                        .onTapGesture { onSelectItem?(item) }
+                        .draggable(allowsDragging ? item.id.uuidString : "")
+                }
+
+                if dayItems.count > 3 {
+                    Text("ほか \(dayItems.count - 3)件")
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 2)
+                }
             }
+
+            Spacer(minLength: 0)
         }
-        .buttonStyle(MiraPressStyle())
-        .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
+        .padding(.top, 2)
+        .padding(.horizontal, 2)
+        .padding(.bottom, 3)
+        .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
+        .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selectedDate = date }
+        .overlay(alignment: .trailing) {
+            if column < 6 { gridLine.frame(width: 0.5) }
+        }
+        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
         .dropDestination(for: String.self) { payloads, _ in
             guard allowsDragging,
                   let raw = payloads.first,
@@ -109,6 +148,22 @@ struct MonthCalendarGrid: View {
             onMoveItem?(id, date)
             return true
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: "日付を選択") { selectedDate = date }
+    }
+
+    private func dateForeground(
+        isSelected: Bool,
+        isInDisplayedMonth: Bool,
+        column: Int
+    ) -> Color {
+        if isSelected { return .white }
+        if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
+        if column == 5 { return palette.accent }
+        if column == 6 { return palette.critical.opacity(0.88) }
+        return palette.primaryText
     }
 
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
@@ -120,30 +175,42 @@ struct MonthCalendarGrid: View {
     }
 }
 
-private struct CalendarMicroBar: View {
+private struct CalendarEventStrip: View {
     let item: CalendarItemSnapshot
     let palette: MiraThemePalette
 
     var body: some View {
         HStack(spacing: 2) {
-            Image(systemName: symbol)
-                .font(.system(size: 6, weight: .bold))
-                .accessibilityHidden(true)
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: 6.5, weight: .bold))
+                    .accessibilityHidden(true)
+            }
+
             Text(item.title)
-                .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
                 .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
-        .foregroundStyle(Color(hex: 0x352D31))
+        .foregroundStyle(palette.primaryText)
         .padding(.horizontal, 3)
-        .frame(maxWidth: .infinity, minHeight: 11, alignment: .leading)
-        .background(palette.color(for: item), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 15, alignment: .leading)
+        .background(palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96))
+        .overlay {
+            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                .stroke(
+                    item.kind == .margin ? palette.primaryText.opacity(0.28) : Color.clear,
+                    style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
         .accessibilityHidden(true)
     }
 
-    private var symbol: String {
+    private var symbol: String? {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
-        return "circle.fill"
+        return nil
     }
 }

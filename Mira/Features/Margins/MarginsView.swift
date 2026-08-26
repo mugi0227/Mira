@@ -6,6 +6,7 @@ struct MarginsView: View {
 
     @State private var selectedGoal: MarginGoalSnapshot?
     @State private var showAddMargin = false
+    @State private var showBaseRulesEditor = false
 
     var body: some View {
         ScrollView {
@@ -39,6 +40,9 @@ struct MarginsView: View {
         }
         .sheet(isPresented: $showAddMargin) {
             NewItemSheet(palette: palette, initialDate: store.selectedDate)
+        }
+        .sheet(isPresented: $showBaseRulesEditor) {
+            BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
         }
     }
 
@@ -132,18 +136,43 @@ struct MarginsView: View {
     }
 
     private var baseRulesCard: some View {
-        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-            Label("普段は予定を置かない時間", systemImage: "lock.clock")
-                .font(.headline)
-                .foregroundStyle(palette.primaryText)
-            Text("平日 9:00–18:00 を基本拘束時間として扱っています。余白や候補日はここへ置きません。")
-                .font(.subheadline)
-                .foregroundStyle(palette.secondaryText)
-            Label("曜日ごとの詳細設定は本番版で編集可能", systemImage: "info.circle")
-                .font(.caption)
-                .foregroundStyle(palette.secondaryText)
+        Button {
+            showBaseRulesEditor = true
+        } label: {
+            HStack(alignment: .top, spacing: MiraSpacing.sm) {
+                Image(systemName: "lock.clock.fill")
+                    .font(.title3)
+                    .foregroundStyle(palette.accent)
+                    .frame(width: 44, height: 44)
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("普段は予定を置かない時間")
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text(baseRulesSummary)
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("タップして曜日ごとに変更")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(.top, 14)
+                    .accessibilityHidden(true)
+            }
+            .miraCard(palette)
         }
-        .miraCard(palette)
+        .buttonStyle(MiraPressStyle())
+        .accessibilityLabel("普段は予定を置かない時間。\(baseRulesSummary)")
+        .accessibilityHint("曜日ごとの時間を編集")
     }
 
     private var futureMonthCard: some View {
@@ -169,6 +198,46 @@ struct MarginsView: View {
             }
         }
         .miraCard(palette)
+    }
+
+    private var baseRulesSummary: String {
+        let rules = store.fetchBaseRules()
+        guard !rules.isEmpty else {
+            return "設定なし。どの時間にも余白や候補日を提案できます。"
+        }
+
+        let weekdays = Set(rules.map(\.weekday))
+        let standardWeekdays = Set(2...6)
+        let standardHours = rules.allSatisfy { $0.startMinute == 9 * 60 && $0.endMinute == 18 * 60 }
+        if weekdays == standardWeekdays && standardHours {
+            return "月〜金 9:00–18:00。余白や候補日はこの時間を避けます。"
+        }
+
+        let sorted = AvailabilityRuleDraft.orderedWeekdays.compactMap { weekday in
+            rules.first(where: { $0.weekday == weekday })
+        }
+        let details = sorted.prefix(4).map { rule in
+            "\(weekdayTitle(rule.weekday)) \(timeText(rule.startMinute))–\(timeText(rule.endMinute))"
+        }
+        let remaining = max(0, sorted.count - details.count)
+        return details.joined(separator: "・") + (remaining > 0 ? "・ほか\(remaining)日" : "")
+    }
+
+    private func weekdayTitle(_ weekday: Int) -> String {
+        switch weekday {
+        case 1: "日"
+        case 2: "月"
+        case 3: "火"
+        case 4: "水"
+        case 5: "木"
+        case 6: "金"
+        case 7: "土"
+        default: "?"
+        }
+    }
+
+    private func timeText(_ minute: Int) -> String {
+        String(format: "%d:%02d", minute / 60, minute % 60)
     }
 
     private var overallMood: CatMood {
