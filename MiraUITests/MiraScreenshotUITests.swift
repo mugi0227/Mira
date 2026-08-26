@@ -14,39 +14,50 @@ final class MiraScreenshotUITests: XCTestCase {
         try capture("01-onboarding-welcome")
 
         for _ in 0..<4 {
-            let next = app.buttons["次へ"]
-            XCTAssertTrue(next.waitForExistence(timeout: 4))
-            next.tap()
-            settle()
+            tapNext(in: app)
         }
 
-        try capture("02-onboarding-ready")
+        XCTAssertTrue(app.staticTexts["普段、予定を入れたくない時間はある？"].waitForExistence(timeout: 4))
+        try capture("02-onboarding-base-hours")
+
+        tapNext(in: app)
+        try capture("03-onboarding-ready")
 
         let start = app.buttons["余白を置いて始める"]
         XCTAssertTrue(start.waitForExistence(timeout: 4))
         start.tap()
         XCTAssertTrue(app.tabBars.buttons["ホーム"].waitForExistence(timeout: 8))
         settle(1.0)
-        try capture("03-home-pixel-cat")
+        try capture("04-home-full-width-calendar")
 
         app.tabBars.buttons["調整"].tap()
         settle()
-        try capture("04-adjustments")
+        try capture("05-adjustments")
 
         app.tabBars.buttons["マイ余白"].tap()
         settle()
-        try capture("05-my-margins")
+        try capture("06-my-margins")
+
+        let baseHours = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "普段は予定を置かない時間")).firstMatch
+        if baseHours.waitForExistence(timeout: 3) {
+            baseHours.tap()
+            XCTAssertTrue(app.navigationBars["基本時間"].waitForExistence(timeout: 4))
+            settle()
+            try capture("07-base-hours-editor")
+            app.buttons["キャンセル"].tap()
+            settle()
+        }
 
         app.tabBars.buttons["設定"].tap()
         settle()
-        try capture("06-settings")
+        try capture("08-settings")
 
         let skinText = app.staticTexts["スキン"]
         if skinText.waitForExistence(timeout: 3) {
             skinText.tap()
             XCTAssertTrue(app.navigationBars["スキン"].waitForExistence(timeout: 4))
             settle()
-            try capture("07-skin-picker")
+            try capture("09-skin-picker")
             app.navigationBars["スキン"].buttons.firstMatch.tap()
             settle()
         }
@@ -56,20 +67,27 @@ final class MiraScreenshotUITests: XCTestCase {
         importText.tap()
         XCTAssertTrue(app.navigationBars["カレンダーの引っ越し"].waitForExistence(timeout: 4))
         settle()
-        try capture("08-legacy-import-intro")
+        try capture("10-legacy-import-intro")
 
         let tryImport = app.buttons["移行を試す"]
         XCTAssertTrue(tryImport.waitForExistence(timeout: 3))
         tryImport.tap()
         settle()
-        try capture("09-legacy-import-source")
+        try capture("11-legacy-import-source")
 
         let analyze = app.buttons["サンプルPDFを読み取る"]
         XCTAssertTrue(analyze.waitForExistence(timeout: 3))
         analyze.tap()
         XCTAssertTrue(app.staticTexts["読み取った予定"].waitForExistence(timeout: 6))
         settle()
-        try capture("10-legacy-import-review")
+        try capture("12-legacy-import-review")
+    }
+
+    private func tapNext(in app: XCUIApplication) {
+        let next = app.buttons["次へ"]
+        XCTAssertTrue(next.waitForExistence(timeout: 4))
+        next.tap()
+        settle()
     }
 
     private func ensureOnboarding(in app: XCUIApplication) throws {
