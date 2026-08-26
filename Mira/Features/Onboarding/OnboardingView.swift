@@ -190,7 +190,7 @@ struct OnboardingView: View {
                 )
 
                 HStack(spacing: MiraSpacing.sm) {
-                    Image(systemName: "lock.clock.fill")
+                    Image(systemName: "clock.fill")
                         .font(.title2)
                         .foregroundStyle(palette.accent)
                         .frame(width: 48, height: 48)
@@ -234,7 +234,7 @@ struct OnboardingView: View {
                     Divider().overlay(palette.primaryText.opacity(0.08))
 
                     HStack(spacing: MiraSpacing.sm) {
-                        Image(systemName: "lock.clock.fill")
+                        Image(systemName: "clock.fill")
                             .foregroundStyle(palette.accent)
                             .accessibilityHidden(true)
                         Text("予定を入れない基本時間")
