@@ -24,8 +24,38 @@ extension MiraStore {
         )
     }
 
+    func currentGoalDeficits(in month: Date) -> [MarginKind: Int] {
+        goalDeficits(in: month, using: items)
+    }
+
+    /// Projects the monthly goals if the user chooses to add the event as-is.
+    /// Any protected margin that the event occupies is treated as consumed.
+    func projectedGoalDeficits(afterAdding event: CalendarItemSnapshot) -> [MarginKind: Int] {
+        let occupiedMarginIDs = Set(
+            items.filter {
+                $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
+            }.map(\.id)
+        )
+        var hypothetical = items.filter { !occupiedMarginIDs.contains($0.id) }
+        hypothetical.append(event)
+        return goalDeficits(in: event.startDate, using: hypothetical)
+    }
+
+    func worsenedGoalDeficits(afterAdding event: CalendarItemSnapshot) -> [MarginKind: Int] {
+        let current = currentGoalDeficits(in: event.startDate)
+        let projected = projectedGoalDeficits(afterAdding: event)
+        var result: [MarginKind: Int] = [:]
+        for (kind, projectedDeficit) in projected {
+            if projectedDeficit > (current[kind] ?? 0) {
+                result[kind] = projectedDeficit
+            }
+        }
+        return result
+    }
+
     /// Finds nearby slots at the same clock time that avoid confirmed events,
-    /// protected margins, base unavailable hours, and other held adjustments.
+    /// protected margins, base unavailable hours, other held adjustments, and
+    /// do not worsen the user's monthly goal deficits.
     func alternativeEventStartDates(
         for event: CalendarItemSnapshot,
         limit: Int = 3,
@@ -39,6 +69,7 @@ extension MiraStore {
         let startHour = startComponents.hour ?? 18
         let startMinute = startComponents.minute ?? 0
         let originalDay = event.startDate.startOfDay(calendar: calendar)
+        let baselineDeficits = currentGoalDeficits(in: event.startDate)
         var results: [Date] = []
 
         for offset in 1...searchDays {
@@ -54,12 +85,87 @@ extension MiraStore {
             moved.startDate = start
             moved.endDate = end
 
-            if eventEntryConflicts(for: moved).isEmpty {
+            let hasConflict = !eventEntryConflicts(for: moved).isEmpty
+            let projected = projectedGoalDeficits(afterAdding: moved)
+            let worsensGoals = projected.contains { kind, deficit in
+                deficit > (baselineDeficits[kind] ?? 0)
+            }
+
+            if !hasConflict && !worsensGoals {
                 results.append(start)
             }
             if results.count >= limit { break }
         }
         return results
+    }
+
+    /// Commits a user-reviewed event. Choosing an exception consumes any
+    /// protected margin under the event so goal progress reflects reality.
+    func commitAdvisedEvent(
+        _ event: CalendarItemSnapshot,
+        impact: ScheduleImpact,
+        resolution: ImpactResolution,
+        chosenRelocationDate: Date? = nil
+    ) {
+        do {
+            switch resolution {
+            case .relocate:
+                if let date = chosenRelocationDate ?? impact.relocationCandidates.first {
+                    for margin in impact.overlappingMargins {
+                        try moveMargin(margin, to: date)
+                    }
+                }
+            case .exception:
+                for margin in impact.overlappingMargins {
+                    if let entity = try entity(id: margin.id) {
+                        context.delete(entity)
+                    }
+                }
+            }
+
+            context.insert(CalendarItemEntity(snapshot: event))
+            try context.save()
+            try refresh()
+            toast = resolution == .exception && !impact.overlappingMargins.isEmpty
+                ? "例外として予定を追加したにゃ"
+                : "予定を追加したにゃ"
+        } catch {
+            toast = "予定を保存できませんでした"
+        }
+    }
+
+    private func goalDeficits(in month: Date, using sourceItems: [CalendarItemSnapshot]) -> [MarginKind: Int] {
+        let key = MonthKey(date: month)
+        let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month && $0.isEnabled }
+        var deficits: [MarginKind: Int] = [:]
+
+        for goal in monthGoals {
+            let current: Int
+            switch goal.kind {
+            case .importantPeople:
+                current = sourceItems.filter {
+                    $0.isImportantTime && key.interval.contains($0.startDate)
+                }.count
+            case .freeEvening:
+                let engine = FreeEveningEngine()
+                current = Int(daysInMonth(key.firstDay).reduce(0.0) { total, date in
+                    let dayItems = sourceItems.filter {
+                        Calendar.mira.isDate($0.startDate, inSameDayAs: date)
+                    }
+                    return total + engine.value(for: date, items: dayItems)
+                }.rounded(.down))
+            default:
+                current = sourceItems.filter {
+                    $0.kind == .margin && $0.marginKind == goal.kind && key.interval.contains($0.startDate)
+                }.count
+            }
+
+            let deficit = max(0, goal.targetCount - current)
+            if deficit > 0 {
+                deficits[goal.kind] = deficit
+            }
+        }
+        return deficits
     }
 
     private func timeOfDay(for date: Date) -> TimeOfDayKind {
