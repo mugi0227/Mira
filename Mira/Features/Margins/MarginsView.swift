@@ -140,7 +140,7 @@ struct MarginsView: View {
             showBaseRulesEditor = true
         } label: {
             HStack(alignment: .top, spacing: MiraSpacing.sm) {
-                Image(systemName: "lock.clock.fill")
+                Image(systemName: "clock.fill")
                     .font(.title3)
                     .foregroundStyle(palette.accent)
                     .frame(width: 44, height: 44)
