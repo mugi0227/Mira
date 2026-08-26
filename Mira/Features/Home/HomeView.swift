@@ -11,12 +11,18 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: MiraSpacing.lg) {
                 monthHeader
+                    .padding(.horizontal, MiraSpacing.md)
+
                 progressSummary
+                    .padding(.horizontal, MiraSpacing.md)
+
                 if store.assistantEnabled {
                     AssistantCard(message: store.currentAssistantMessage, palette: palette) {
                         store.autoPlaceMargins(for: store.selectedMonth)
                     }
+                    .padding(.horizontal, MiraSpacing.md)
                 }
+
                 MonthCalendarGrid(
                     month: store.selectedMonth,
                     selectedDate: Binding(
@@ -25,14 +31,14 @@ struct HomeView: View {
                     ),
                     items: monthItems,
                     palette: palette,
+                    referenceDate: store.now,
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                     onSelectItem: { selectedItem = $0 }
                 )
-                .miraCard(palette, padding: MiraSpacing.sm)
 
                 selectedDaySection
+                    .padding(.horizontal, MiraSpacing.md)
             }
-            .padding(.horizontal, MiraSpacing.md)
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
         }
