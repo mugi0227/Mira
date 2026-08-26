@@ -1,6 +1,8 @@
 name: Simulator Screenshots
 
 on:
+  push:
+    branches: ["qa/calendar-grid-screenshots-v3"]
   pull_request:
     branches: [main]
     paths:
