@@ -1,6 +1,8 @@
 name: Simulator Screenshots
 
 on:
+  push:
+    branches: ["feature/advisory-event-entry"]
   pull_request:
     branches: [main]
     paths:
