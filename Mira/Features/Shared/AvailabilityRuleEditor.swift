@@ -77,7 +77,7 @@ struct AvailabilityRuleEditor: View {
             HStack(spacing: MiraSpacing.sm) {
                 Button {
                     withAnimation(MiraMotion.standard) {
-                        rules = .standardWeekdays
+                        rules = AvailabilityRuleDraft.standardWeekdays
                     }
                 } label: {
                     Label("平日 9–18時", systemImage: "briefcase.fill")
@@ -104,7 +104,7 @@ struct AvailabilityRuleEditor: View {
             VStack(spacing: 0) {
                 ForEach($rules) { $rule in
                     AvailabilityRuleRow(rule: $rule, palette: palette)
-                    if rule.weekday != AvailabilityRuleDraft.orderedWeekdays.last {
+                    if rule.weekday != 1 {
                         Divider().overlay(palette.primaryText.opacity(0.08))
                     }
                 }
