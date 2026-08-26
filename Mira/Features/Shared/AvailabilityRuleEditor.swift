@@ -115,6 +115,8 @@ struct AvailabilityRuleEditor: View {
                     .stroke(palette.primaryText.opacity(0.08), lineWidth: 1)
             }
         }
+        .environment(\.locale, Locale(identifier: "ja_JP"))
+        .environment(\.timeZone, Calendar.mira.timeZone)
     }
 }
 
