@@ -1,0 +1,90 @@
+name: Validate Grill-Me Q61-Q82
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Mira/**
+      - MiraTests/**
+      - MiraUITests/**
+      - project.yml
+      - scripts/**
+      - .github/workflows/validate-grill-me.yml
+  workflow_dispatch:
+
+concurrency:
+  group: validate-grill-me-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Apply idempotent final patches
+        run: python3 scripts/grill_me_compile_fixes.py
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show available simulators
+        run: xcrun simctl list devices available
+
+      - name: Build app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee build.log
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -only-testing:MiraTests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee unit-tests.log
+
+      - name: Run Grill-Me UI tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -only-testing:MiraUITests/GrillMeFlowUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee ui-tests.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grill-me-validation-logs
+          path: |
+            build.log
+            unit-tests.log
+            ui-tests.log
+          if-no-files-found: ignore
