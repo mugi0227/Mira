@@ -17,18 +17,27 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         searchCandidates: [ContextSearchResult],
         recentTurns: [ConversationTurnSnapshot]
     ) async -> ConversationInterpretation {
+        let normalized = normalize(text)
         var result = await base.interpret(
-            text: text,
+            text: normalized,
             now: now,
             pinnedContext: pinnedContext,
             searchCandidates: searchCandidates,
             recentTurns: recentTurns
         )
 
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        applySupplementalDates(from: normalized, now: now, to: &result)
+        applyExactTime(from: normalized, now: now, pinnedContext: pinnedContext, to: &result)
         applyColloquialDefaults(text: normalized, to: &result)
 
         let resolvedContext = pinnedContext ?? uniquelyResolvedContext(searchCandidates)
+        if resolvedContext != nil && containsConcreteUpdate(normalized) {
+            result.intent = .updateExisting
+            result.needsClarification = false
+            result.clarificationQuestion = nil
+            result.clarificationOptions = []
+        }
+
         guard let resolvedContext,
               isFollowUp(normalized),
               let previousText = recentTurns.reversed().first(where: { $0.role == .user })?.text else {
@@ -36,7 +45,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         }
 
         let previous = await RuleBasedConversationInterpreter(calendar: calendar).interpret(
-            text: previousText,
+            text: normalize(previousText),
             now: now,
             pinnedContext: resolvedContext,
             searchCandidates: [resolvedContext],
@@ -84,6 +93,47 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         return result
     }
 
+    private func normalize(_ text: String) -> String {
+        text
+            .folding(
+                options: [.widthInsensitive, .caseInsensitive, .diacriticInsensitive],
+                locale: Locale(identifier: "ja_JP")
+            )
+            .replacingOccurrences(of: "／", with: "/")
+            .replacingOccurrences(of: "：", with: ":")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func applySupplementalDates(
+        from text: String,
+        now: Date,
+        to result: inout ConversationInterpretation
+    ) {
+        let dates = relativeDates(in: text, now: now) + slashDates(in: text, now: now)
+        guard !dates.isEmpty else { return }
+        result.candidateDates = uniqueDays(result.candidateDates + dates)
+        result.dateRangeStart = result.candidateDates.min()
+        result.dateRangeEnd = result.candidateDates.max()?.setting(hour: 23, minute: 59)
+        result.inferredFields.remove("dateRange")
+    }
+
+    private func applyExactTime(
+        from text: String,
+        now: Date,
+        pinnedContext: ContextSearchResult?,
+        to result: inout ConversationInterpretation
+    ) {
+        guard let (hour, minute) = exactClockTime(in: text) else { return }
+        let day = result.candidateDates.first
+            ?? pinnedContext?.startDate
+            ?? result.dateRangeStart
+            ?? now
+        let start = day.setting(hour: hour, minute: minute, calendar: calendar)
+        let durationMinutes = result.durationBucket?.representativeMinutes ?? 120
+        result.exactStartDate = start
+        result.exactEndDate = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+    }
+
     private func applyColloquialDefaults(
         text: String,
         to result: inout ConversationInterpretation
@@ -121,17 +171,76 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         return cues.contains(where: text.contains)
     }
 
+    private func containsConcreteUpdate(_ text: String) -> Bool {
+        ["になった", "に変更", "からになった", "へずら", "にずら", "確定した"].contains(where: text.contains)
+    }
+
     private func containsExplicitDate(_ text: String) -> Bool {
-        if ["今日", "明日", "今週", "来週", "再来週", "今月", "来月"].contains(where: text.contains) {
+        if ["今日", "明日", "明後日", "今週", "来週", "再来週", "今月", "来月"].contains(where: text.contains) {
             return true
         }
-        if text.range(of: "(?:[0-9０-９]{1,2}月)?[0-9０-９]{1,2}日", options: .regularExpression) != nil {
+        if text.range(of: "(?:[0-9]{1,2}月)?[0-9]{1,2}日", options: .regularExpression) != nil {
             return true
         }
-        if text.range(of: "[0-9０-９]{1,2}/[0-9０-９]{1,2}", options: .regularExpression) != nil {
+        if text.range(of: "[0-9]{1,2}/[0-9]{1,2}", options: .regularExpression) != nil {
             return true
         }
         return ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"].contains(where: text.contains)
+    }
+
+    private func relativeDates(in text: String, now: Date) -> [Date] {
+        if text.contains("明後日") { return [now.addingDays(2, calendar: calendar)] }
+        if text.contains("明日") { return [now.addingDays(1, calendar: calendar)] }
+        if text.contains("今日") { return [now] }
+        return []
+    }
+
+    private func slashDates(in text: String, now: Date) -> [Date] {
+        guard let regex = try? NSRegularExpression(pattern: "(?<![0-9])([0-9]{1,2})[/-]([0-9]{1,2})(?![0-9])") else {
+            return []
+        }
+        let nsText = text as NSString
+        let currentYear = calendar.component(.year, from: now)
+        return regex.matches(in: text, range: NSRange(location: 0, length: nsText.length)).compactMap { match in
+            guard let month = Int(nsText.substring(with: match.range(at: 1))),
+                  let day = Int(nsText.substring(with: match.range(at: 2))) else { return nil }
+            var components = DateComponents(year: currentYear, month: month, day: day)
+            guard var date = calendar.date(from: components) else { return nil }
+            if date < calendar.startOfDay(for: now) {
+                components.year = currentYear + 1
+                date = calendar.date(from: components) ?? date
+            }
+            return date
+        }
+    }
+
+    private func exactClockTime(in text: String) -> (Int, Int)? {
+        let patterns = [
+            "(?<![0-9])([0-9]{1,2}):([0-9]{2})(?![0-9])",
+            "(?<![0-9])([0-9]{1,2})時(半|[0-9]{1,2}分)?"
+        ]
+        let nsText = text as NSString
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)),
+                  let hour = Int(nsText.substring(with: match.range(at: 1))) else { continue }
+            var minute = 0
+            if match.numberOfRanges > 2, match.range(at: 2).location != NSNotFound {
+                let token = nsText.substring(with: match.range(at: 2))
+                if token == "半" {
+                    minute = 30
+                } else {
+                    minute = Int(token.replacingOccurrences(of: "分", with: "")) ?? 0
+                }
+            }
+            guard (0...23).contains(hour), (0...59).contains(minute) else { continue }
+            return (hour, minute)
+        }
+        return nil
+    }
+
+    private func uniqueDays(_ dates: [Date]) -> [Date] {
+        Array(Set(dates.map { calendar.startOfDay(for: $0) })).sorted()
     }
 
     private func applyExclusions(

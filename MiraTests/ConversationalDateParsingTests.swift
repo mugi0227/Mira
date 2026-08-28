@@ -5,7 +5,7 @@ final class ConversationalDateParsingTests: XCTestCase {
     private var calendar: Calendar { .mira }
 
     func testSlashDateInvitationParsesCandidateDate() async {
-        let interpreter = RuleBasedConversationInterpreter(calendar: calendar)
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
         let result = await interpreter.interpret(
             text: "9/12これ誘われたわ、いけそう？",
             now: makeDate(2026, 8, 29, 10, 0),
@@ -21,7 +21,7 @@ final class ConversationalDateParsingTests: XCTestCase {
     }
 
     func testFullWidthDateAndColonTimeAreNormalized() async {
-        let interpreter = RuleBasedConversationInterpreter(calendar: calendar)
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
         let result = await interpreter.interpret(
             text: "９／１６の焼肉、１９:３０からになった",
             now: makeDate(2026, 8, 29, 10, 0),
@@ -51,7 +51,7 @@ final class ConversationalDateParsingTests: XCTestCase {
     }
 
     func testTomorrowCreatesOneDayRange() async {
-        let interpreter = RuleBasedConversationInterpreter(calendar: calendar)
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
         let now = makeDate(2026, 8, 29, 10, 0)
         let result = await interpreter.interpret(
             text: "明日カフェ行けそう？",
