@@ -1,0 +1,49 @@
+name: Apply Grill-Me Logic Fixes
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+    paths:
+      - scripts/grill_me_logic_fixes.py
+      - Mira/**
+      - .github/workflows/grill-me-logic-fixes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: grill-me-logic-fixes
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message || '', '[logic-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/grill-me-q61-q82
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply conversation refinements
+        run: |
+          python scripts/grill_me_hardening.py
+          python scripts/grill_me_logic_fixes.py
+
+      - name: Commit refinements
+        run: |
+          if git diff --quiet; then
+            echo "No logic refinements needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Mira README.md docs scripts
+          git commit -m "fix: refine Grill-Me conversation logic [logic-fixed]"
+          git push origin HEAD:feature/grill-me-q61-q82
