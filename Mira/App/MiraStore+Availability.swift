@@ -24,9 +24,12 @@ extension MiraStore {
                 comfort: marginComfort
             )
             let selectedKinds = Set(targets.keys)
-            let resolvedTargets: [MarginKind: Int]
+            var resolvedTargets: [MarginKind: Int]
             if useRecommendedTargets {
                 resolvedTargets = recommendation.targets.filter { selectedKinds.contains($0.key) }
+                if let explicitFreeEvenings = targets[.freeEvening], selectedKinds.contains(.freeEvening) {
+                    resolvedTargets[.freeEvening] = explicitFreeEvenings
+                }
             } else {
                 resolvedTargets = targets
             }
@@ -54,6 +57,7 @@ extension MiraStore {
         do {
             try replaceBaseRules(with: rules)
             try context.save()
+            recalculateBalance(for: selectedMonth)
             toast = rules.isEmpty
                 ? "基本時間の設定を外したにゃ"
                 : "基本時間を更新したにゃ。おすすめ配置にも反映できるよ"
