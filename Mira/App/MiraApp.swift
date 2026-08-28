@@ -11,7 +11,7 @@ struct MiraApp: App {
         modelContainer = container
         _store = State(initialValue: MiraStore(
             container: container,
-            conversationInterpreter: RobustConversationInterpreter()
+            conversationInterpreter: ProductionConversationInterpreter()
         ))
     }
 

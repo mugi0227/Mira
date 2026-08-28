@@ -6,7 +6,7 @@ final class ConversationalAssistantTests: XCTestCase {
 
     func testPastedInvitationIsStructuredWithoutRequiringAgenticTools() async {
         let now = makeDate(2026, 8, 29, 10)
-        let interpreter = RuleBasedConversationInterpreter(calendar: calendar)
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
 
         let result = await interpreter.interpret(
             text: "来週の金曜日か土曜日どっちか飲まん？",
@@ -106,7 +106,7 @@ final class ConversationalAssistantTests: XCTestCase {
             durationBucket: .short,
             exactTimeKnown: false,
             isRecommended: true,
-            recommendationScore: 98
+            recommendationScore: 98.0
         )
 
         let data = try JSONEncoder().encode(slot)
@@ -116,7 +116,7 @@ final class ConversationalAssistantTests: XCTestCase {
         XCTAssertEqual(decoded.durationBucket, .short)
         XCTAssertEqual(decoded.exactTimeKnown, false)
         XCTAssertEqual(decoded.isRecommended, true)
-        XCTAssertEqual(decoded.recommendationScore, 98)
+        XCTAssertEqual(decoded.recommendationScore, 98.0)
     }
 
     private func makeDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
