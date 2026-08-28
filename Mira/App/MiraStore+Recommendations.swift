@@ -62,7 +62,7 @@ extension MiraStore {
             }
 
             guard let proposal else {
-                existing.forEach(context.delete)
+                for entity in existing { context.delete(entity) }
                 try context.save()
                 activeRebalanceProposal = nil
                 try refresh()
@@ -74,7 +74,7 @@ extension MiraStore {
                 return
             }
 
-            existing.forEach(context.delete)
+            for entity in existing { context.delete(entity) }
             context.insert(RebalanceProposalEntity(proposal: proposal))
             try context.save()
             try refresh()
