@@ -74,6 +74,7 @@ struct DeclineDraftSheet: View {
                             RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
                                 .stroke(palette.primaryText.opacity(0.08), lineWidth: 1)
                         }
+                        .accessibilityIdentifier("declineDraftEditor")
 
                     HStack(spacing: MiraSpacing.sm) {
                         Button {
@@ -212,7 +213,9 @@ struct ChangePreviewSheet: View {
                 Label("変更後の影響", systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                     .foregroundStyle(palette.warning)
-                ForEach(conflicts, id: \.self) { Text("・\($0)").font(.subheadline) }
+                ForEach(conflicts, id: \.self) { conflict in
+                    Text("・\(conflict)").font(.subheadline)
+                }
                 if !impact.overlappingMargins.isEmpty {
                     Text("・\(impact.message)").font(.subheadline)
                 }
@@ -260,12 +263,17 @@ struct EventCreationPreviewSheet: View {
                                 Text("気になる点")
                                     .font(.headline)
                                     .foregroundStyle(palette.warning)
-                                ForEach(preview.conflicts, id: \.self) { Text("・\($0)") }
+                                ForEach(preview.conflicts, id: \.self) { conflict in
+                                    Text("・\(conflict)")
+                                }
                                 if !preview.impact.overlappingMargins.isEmpty {
                                     Text("・\(preview.impact.message)")
                                 }
-                                ForEach(preview.impact.projectedGoalDeficits.sorted(by: { $0.key.rawValue < $1.key.rawValue }), id: \.key) { kind, deficit in
-                                    Text("・\(kind.title) が目標より\(deficit)枠不足")
+                                ForEach(
+                                    preview.impact.projectedGoalDeficits.sorted(by: { $0.key.rawValue < $1.key.rawValue }),
+                                    id: \.key
+                                ) { entry in
+                                    Text("・\(entry.key.title) が目標より\(entry.value)枠不足")
                                 }
                             }
                             .font(.subheadline)
@@ -358,15 +366,21 @@ struct RebalanceProposalSheet: View {
                         ForEach(proposal.moves) { move in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(move.title).font(.headline)
-                                HStack {
-                                    Text(move.from.japaneseShortDate)
-                                        .strikethrough(move.marginItemID != UUID())
-                                    Image(systemName: "arrow.right")
+                                if isExistingMargin(move) {
+                                    HStack {
+                                        Text(move.from.japaneseShortDate)
+                                            .strikethrough()
+                                        Image(systemName: "arrow.right")
+                                            .foregroundStyle(palette.accent)
+                                        Text(move.to.japaneseShortDate)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .font(.subheadline)
+                                } else {
+                                    Label("\(move.to.japaneseShortDate) に新しく追加", systemImage: "plus.circle.fill")
+                                        .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(palette.accent)
-                                    Text(move.to.japaneseShortDate)
-                                        .fontWeight(.semibold)
                                 }
-                                .font(.subheadline)
                                 Text(move.benefit)
                                     .font(.caption)
                                     .foregroundStyle(palette.secondaryText)
@@ -400,5 +414,9 @@ struct RebalanceProposalSheet: View {
             }
         }
         .tint(palette.accent)
+    }
+
+    private func isExistingMargin(_ move: RebalanceMove) -> Bool {
+        store.items.contains { $0.id == move.marginItemID && $0.kind == .margin }
     }
 }
