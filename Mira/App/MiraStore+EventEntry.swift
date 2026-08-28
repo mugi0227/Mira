@@ -5,7 +5,10 @@ extension MiraStore {
     /// Returns advisory conflicts for a proposed confirmed event.
     /// These are intentionally warnings, not hard blockers: the user may still
     /// explicitly choose to add the event after reviewing the impact.
-    func eventEntryConflicts(for event: CalendarItemSnapshot) -> [String] {
+    func eventEntryConflicts(
+        for event: CalendarItemSnapshot,
+        excludingItemID: UUID? = nil
+    ) -> [String] {
         let occupied = event.occupiedInterval
         let candidate = CandidateSlotSnapshot(
             startDate: occupied.start,
@@ -18,7 +21,7 @@ extension MiraStore {
 
         return ConflictEngine(calendar: .mira).conflicts(
             candidate: candidate,
-            events: items,
+            events: items.filter { $0.id != excludingItemID },
             otherCandidates: heldCandidates,
             baseRules: fetchBaseRules()
         )
@@ -36,7 +39,7 @@ extension MiraStore {
                 $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
             }.map(\.id)
         )
-        var hypothetical = items.filter { !occupiedMarginIDs.contains($0.id) }
+        var hypothetical = items.filter { !occupiedMarginIDs.contains($0.id) && $0.id != event.id }
         hypothetical.append(event)
         return goalDeficits(in: event.startDate, using: hypothetical)
     }
@@ -85,7 +88,7 @@ extension MiraStore {
             moved.startDate = start
             moved.endDate = end
 
-            let hasConflict = !eventEntryConflicts(for: moved).isEmpty
+            let hasConflict = !eventEntryConflicts(for: moved, excludingItemID: event.id).isEmpty
             let projected = projectedGoalDeficits(afterAdding: moved)
             let worsensGoals = projected.contains { kind, deficit in
                 deficit > (baselineDeficits[kind] ?? 0)
@@ -126,6 +129,8 @@ extension MiraStore {
             context.insert(CalendarItemEntity(snapshot: event))
             try context.save()
             try refresh()
+            updateMarginRecommendation(for: event.startDate)
+            recalculateBalance(for: event.startDate)
             toast = resolution == .exception && !impact.overlappingMargins.isEmpty
                 ? "例外として予定を追加したにゃ"
                 : "予定を追加したにゃ"
