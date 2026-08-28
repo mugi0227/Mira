@@ -5,7 +5,7 @@ struct AdjustmentsView: View {
     let palette: MiraThemePalette
 
     @State private var segment: AdjustmentSegment = .adjustments
-    @State private var showCreate = false
+    @State private var showPendingCreate = false
     @State private var selectedAdjustment: AdjustmentEntity?
     @State private var selectedInvitation: PendingInvitationEntity?
 
@@ -37,19 +37,24 @@ struct AdjustmentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showCreate = true } label: {
+                Button {
+                    if segment == .adjustments {
+                        store.startManualScheduling()
+                    } else {
+                        showPendingCreate = true
+                    }
+                } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel(segment == .adjustments ? "日程調整を作成" : "検討中の誘いを追加")
+                .accessibilityLabel(segment == .adjustments ? "日程を探す" : "検討中の誘いを追加")
             }
         }
-        .sheet(isPresented: $showCreate) {
-            if segment == .adjustments {
-                NewAdjustmentSheet(palette: palette)
-            } else {
-                NewPendingInvitationSheet(palette: palette)
-            }
+        .sheet(isPresented: $showPendingCreate) {
+            NewPendingInvitationSheet(palette: palette)
+        }
+        .sheet(isPresented: schedulingModeBinding) {
+            SchedulingModeView(palette: palette)
         }
         .sheet(item: $selectedAdjustment) { session in
             AdjustmentDetailSheet(session: session, palette: palette)
@@ -66,7 +71,7 @@ struct AdjustmentsView: View {
             EmptyStateView(
                 symbol: "calendar.badge.plus",
                 title: "調整中の日程はありません",
-                message: "候補日を仮押さえして、ダブルブッキングを防げます。",
+                message: "ホームで雑に頼むか、右上から日程を探せます。Miraが候補を先に選びます。",
                 palette: palette
             )
             .miraCard(palette)
@@ -88,7 +93,7 @@ struct AdjustmentsView: View {
             EmptyStateView(
                 symbol: "tray",
                 title: "検討中の誘いはありません",
-                message: "その場で返事せず、一度ここへ置いて余白への影響を見られます。",
+                message: "その場で返事せず、一度ここへ置いて余白への影響や断り文を確認できます。",
                 palette: palette
             )
             .miraCard(palette)
@@ -101,6 +106,13 @@ struct AdjustmentsView: View {
                 .buttonStyle(MiraPressStyle())
             }
         }
+    }
+
+    private var schedulingModeBinding: Binding<Bool> {
+        Binding(
+            get: { store.activeSchedulingDraft != nil },
+            set: { if !$0 { store.activeSchedulingDraft = nil } }
+        )
     }
 }
 
@@ -130,9 +142,14 @@ private struct AdjustmentRow: View {
                 Text(session.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
-                Text("候補 \(session.candidates.filter { $0.status == .held }.count)件" + contactSuffix)
+                Text(statusLine + contactSuffix)
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
+                if let first = session.candidates.first(where: { $0.status == .held }) {
+                    Text("第一候補 \(first.startDate.japaneseShortDate) \(first.displayTimeBand.title)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                }
                 if let deadline = session.responseDeadline {
                     Label("返事期限 \(deadline.japaneseShortDate)", systemImage: "bell")
                         .font(.caption2)
@@ -146,6 +163,15 @@ private struct AdjustmentRow: View {
         }
         .miraCard(palette, padding: MiraSpacing.sm)
         .accessibilityElement(children: .combine)
+    }
+
+    private var statusLine: String {
+        switch session.status {
+        case .draft: "候補を編集中"
+        case .waiting: "返事待ち・\(session.candidates.filter { $0.status == .held }.count)枠を仮押さえ"
+        case .confirmed: "日程確定"
+        case .cancelled: "キャンセル"
+        }
     }
 
     private var contactSuffix: String {
@@ -172,9 +198,15 @@ private struct PendingInvitationRow: View {
                 Text(invitation.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
-                Text(invitation.candidates.first?.startDate.japaneseShortDate ?? "日付未定")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
+                if let first = invitation.candidates.first {
+                    Text("\(first.startDate.japaneseShortDate)・\(first.displayTimeBand.title)")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                } else {
+                    Text("日付未定")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
                 if let deadline = invitation.replyDeadline {
                     Text("返事は \(deadline.japaneseShortDate) まで")
                         .font(.caption2)
