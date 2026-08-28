@@ -13,6 +13,8 @@ struct PendingInvitationDetailSheet: View {
     @State private var worsenedGoalDeficits: [MarginKind: Int] = [:]
     @State private var isAnalyzing = false
     @State private var showAcceptOptions = false
+    @State private var showDeclineDraft = false
+    @State private var showConversationHistory = false
 
     var body: some View {
         NavigationStack {
@@ -22,6 +24,17 @@ struct PendingInvitationDetailSheet: View {
                     candidateCard
                     impactCard
                     actions
+                    if invitation.conversationCaseID != nil {
+                        Button {
+                            showConversationHistory = true
+                        } label: {
+                            Label("この誘いの会話を見る", systemImage: "bubble.left.and.bubble.right")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.accent)
+                    }
                 }
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
@@ -49,6 +62,12 @@ struct PendingInvitationDetailSheet: View {
                 Button("いったん戻る", role: .cancel) {}
             } message: {
                 Text(reviewMessage)
+            }
+            .sheet(isPresented: $showDeclineDraft) {
+                DeclineDraftSheet(palette: palette)
+            }
+            .sheet(isPresented: $showConversationHistory) {
+                ConversationHistorySheet(palette: palette, caseID: invitation.conversationCaseID)
             }
         }
         .tint(palette.accent)
@@ -90,7 +109,7 @@ struct PendingInvitationDetailSheet: View {
                 HStack {
                     Text(candidate.startDate.japaneseDayTitle)
                     Spacer()
-                    Text(candidate.timeOfDay.title)
+                    Text(candidateDescription(candidate))
                         .foregroundStyle(palette.secondaryText)
                 }
                 .font(.subheadline)
@@ -182,11 +201,23 @@ struct PendingInvitationDetailSheet: View {
             .buttonStyle(.bordered)
             .tint(palette.accent)
 
+            Button {
+                Task {
+                    await store.prepareDeclineDraft(for: invitation)
+                    showDeclineDraft = true
+                }
+            } label: {
+                Label("断り文を作る", systemImage: "text.bubble")
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.warning)
+
             Button(role: .destructive) {
                 store.declinePending(invitation)
                 dismiss()
             } label: {
-                Text("今回は見送る")
+                Text("文章は作らず、今回は見送る")
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.bordered)
@@ -243,13 +274,17 @@ struct PendingInvitationDetailSheet: View {
     private func analyze() async {
         guard let candidate = invitation.candidates.first else { return }
         isAnalyzing = true
-        let event = await store.prepareEvent(
+        var event = await store.prepareEvent(
             title: invitation.title,
             startDate: candidate.startDate,
             endDate: candidate.endDate,
             isAllDay: candidate.timeOfDay == .allDay,
             isImportant: false
         )
+        event.schedulingTimeBand = candidate.displayTimeBand
+        event.durationBucket = candidate.displayDuration
+        event.exactTimeKnown = candidate.exactTimeKnown ?? true
+        event.conversationCaseID = invitation.conversationCaseID
         preparedEvent = event
         impact = store.previewImpact(for: event)
         conflicts = store.eventEntryConflicts(for: event)
@@ -267,5 +302,15 @@ struct PendingInvitationDetailSheet: View {
         )
         store.markPending(invitation, as: .accepted)
         dismiss()
+    }
+
+    private func candidateDescription(_ candidate: CandidateSlotSnapshot) -> String {
+        if candidate.exactTimeKnown == false {
+            return "\(candidate.displayTimeBand.title)・\(candidate.displayDuration.title)"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "H:mm"
+        return "\(formatter.string(from: candidate.startDate))–\(formatter.string(from: candidate.endDate))"
     }
 }
