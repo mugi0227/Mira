@@ -46,8 +46,10 @@ extension MiraStore {
             adjustments: adjustments,
             invitations: pendingInvitations
         )
-        let activeContext = contextResult(forCaseID: activeConversationCaseID)
-        let effectivePinned = pinnedContext ?? activeContext
+        let continuationContext = shouldContinueActiveConversation(for: text)
+            ? contextResult(forCaseID: activeConversationCaseID)
+            : nil
+        let effectivePinned = pinnedContext ?? continuationContext
         let recentTurns = conversationCase(id: effectivePinned?.relatedCaseID)?.turns ?? []
 
         let interpretation = await conversationInterpreter.interpret(
@@ -139,10 +141,17 @@ extension MiraStore {
     func answerClarification(_ option: String) async {
         guard let clarification = activeClarification else { return }
         activeClarification = nil
+        let previousPinned = pinnedContext
         if let caseID = clarification.caseID {
             activeConversationCaseID = caseID
+            if pinnedContext == nil {
+                pinnedContext = contextResult(forCaseID: caseID)
+            }
         }
         await handleConversationInput("\(clarification.originalText) \(option)")
+        if previousPinned == nil {
+            pinnedContext = nil
+        }
     }
 
     func generateNextDeclineDraft(softer: Bool = false) async {
@@ -165,7 +174,7 @@ extension MiraStore {
     }
 
     func startManualScheduling() {
-        let start = Calendar.mira.startOfDay(for: selectedMonth)
+        let start = max(Calendar.mira.startOfDay(for: selectedMonth), Calendar.mira.startOfDay(for: now))
         let end = start.addingDays(28)
         let interpretation = ConversationInterpretation(
             intent: .findDates,
@@ -223,10 +232,13 @@ extension MiraStore {
             draft.inferredFields.remove("timeBands")
         }
         if let month {
-            draft.month = month
             let key = MonthKey(date: month)
-            draft.dateRangeStart = max(draft.dateRangeStart, key.firstDay)
-            draft.dateRangeEnd = min(draft.dateRangeEnd, key.interval.end.addingTimeInterval(-1))
+            draft.month = key.firstDay
+            draft.dateRangeStart = max(key.firstDay, Calendar.mira.startOfDay(for: now))
+            draft.dateRangeEnd = key.interval.end.addingTimeInterval(-1)
+            if draft.dateRangeStart > draft.dateRangeEnd {
+                draft.dateRangeStart = key.firstDay
+            }
         }
         activeSchedulingDraft = recommendations(for: draft, preserveManualSelection: false)
     }
@@ -265,7 +277,7 @@ extension MiraStore {
             return
         }
 
-        let candidates = selected.map(\.candidateSnapshot)
+        let candidates = selected.map { candidateSnapshot(from: $0, draft: draft) }
         let message = DemoSeeder.message(title: draft.title, candidates: candidates)
         let caseEntity = conversationCase(id: draft.conversationCaseID)
 
@@ -327,6 +339,7 @@ extension MiraStore {
         guard let preview = pendingChangePreview else { return }
         do {
             guard let entity = try entity(id: preview.itemID) else { return }
+            let previousDate = preview.before.startDate
             entity.apply(preview.after)
             if let caseEntity = conversationCase(id: preview.caseID) {
                 caseEntity.appendTurn(role: .assistant, text: "変更を保存したにゃ", at: now)
@@ -340,8 +353,12 @@ extension MiraStore {
             try context.save()
             try refresh()
             pendingChangePreview = nil
+            updateMarginRecommendation(for: previousDate)
             updateMarginRecommendation(for: preview.after.startDate)
-            recalculateBalance(for: preview.after.startDate)
+            recalculateBalance(for: previousDate)
+            if !Calendar.mira.isDate(previousDate, equalTo: preview.after.startDate, toGranularity: .month) {
+                recalculateBalance(for: preview.after.startDate)
+            }
             toast = "変更を保存したにゃ"
         } catch {
             toast = "変更を保存できませんでした"
@@ -371,8 +388,6 @@ extension MiraStore {
             try? refresh()
         }
         pendingEventCreationPreview = nil
-        updateMarginRecommendation(for: preview.event.startDate)
-        recalculateBalance(for: preview.event.startDate)
     }
 
     // MARK: - Private routing helpers
@@ -381,6 +396,19 @@ extension MiraStore {
         guard let first = candidates.first else { return nil }
         let second = candidates.dropFirst().first?.score ?? 0
         return first.score >= 75 && first.score - second >= 18 ? first : nil
+    }
+
+    private func shouldContinueActiveConversation(for text: String) -> Bool {
+        guard pinnedContext == nil,
+              let active = conversationCase(id: activeConversationCaseID),
+              now.timeIntervalSince(active.lastActivityAt) < 7 * 24 * 60 * 60,
+              text.count <= 48 else { return false }
+        let cues = [
+            "夜は", "昼は", "朝は", "夜なし", "昼なし", "朝なし", "土曜", "日曜", "平日",
+            "やっぱ", "じゃあ", "それで", "その件", "この件", "候補", "断る文", "柔らかく",
+            "来週なら", "別の日", "時間は", "何時", "なしで", "外して"
+        ]
+        return cues.contains(where: text.contains)
     }
 
     private func contextResult(forCaseID caseID: UUID?) -> ContextSearchResult? {
@@ -565,6 +593,22 @@ extension MiraStore {
         "\(Int(Calendar.mira.startOfDay(for: day).timeIntervalSince1970))-\(band.rawValue)"
     }
 
+    private func candidateSnapshot(
+        from recommendation: CandidateRecommendation,
+        draft: SchedulingDraft
+    ) -> CandidateSlotSnapshot {
+        var candidate = recommendation.candidateSnapshot
+        guard draft.detailedTimeEnabled,
+              let hour = draft.detailedStartHour else { return candidate }
+        let minute = draft.detailedStartMinute ?? 0
+        let start = recommendation.day.setting(hour: hour, minute: minute)
+        candidate.startDate = start
+        candidate.endDate = start.addingTimeInterval(TimeInterval(draft.durationBucket.representativeMinutes * 60))
+        candidate.exactTimeKnown = true
+        candidate.schedulingTimeBand = schedulingBand(for: start)
+        return candidate
+    }
+
     private func makeChangePreview(
         interpretation: ConversationInterpretation,
         resolvedContext: ContextSearchResult?,
@@ -574,10 +618,26 @@ extension MiraStore {
         guard let itemID, let before = items.first(where: { $0.id == itemID }) else { return nil }
         var after = before
 
-        if let exactStart = interpretation.exactStartDate {
+        if let parsedStart = interpretation.exactStartDate {
             let oldDuration = max(30 * 60, before.endDate.timeIntervalSince(before.startDate))
+            let exactStart: Date
+            if interpretation.candidateDates.isEmpty {
+                let components = Calendar.mira.dateComponents([.hour, .minute], from: parsedStart)
+                exactStart = before.startDate.setting(
+                    hour: components.hour ?? Calendar.mira.component(.hour, from: before.startDate),
+                    minute: components.minute ?? 0
+                )
+            } else {
+                exactStart = parsedStart
+            }
             after.startDate = exactStart
-            after.endDate = interpretation.exactEndDate ?? exactStart.addingTimeInterval(oldDuration)
+            after.endDate = interpretation.exactEndDate.map { parsedEnd in
+                if interpretation.candidateDates.isEmpty {
+                    let components = Calendar.mira.dateComponents([.hour, .minute], from: parsedEnd)
+                    return before.startDate.setting(hour: components.hour ?? 21, minute: components.minute ?? 0)
+                }
+                return parsedEnd
+            } ?? exactStart.addingTimeInterval(oldDuration)
             after.exactTimeKnown = true
             after.schedulingTimeBand = schedulingBand(for: exactStart)
         } else if let date = interpretation.candidateDates.first {
@@ -591,10 +651,7 @@ extension MiraStore {
             after.exactTimeKnown = false
         }
 
-        let conflicts = eventEntryConflicts(for: after).filter { message in
-            if message.contains(before.title) { return false }
-            return true
-        }
+        let conflicts = eventEntryConflicts(for: after, excludingItemID: before.id)
         return ChangePreview(
             caseID: caseEntity.id,
             itemID: itemID,
