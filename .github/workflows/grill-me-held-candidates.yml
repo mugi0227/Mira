@@ -1,0 +1,37 @@
+name: Apply Grill-Me Held Candidate Fixes
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+    paths:
+      - scripts/grill_me_held_candidates.py
+      - Mira/App/MiraStore+ConversationContext.swift
+      - .github/workflows/grill-me-held-candidates.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message || '', '[held-candidates]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/grill-me-q61-q82
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/grill_me_held_candidates.py
+      - name: Commit fixes
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Mira scripts
+          git commit -m "fix: unify held candidates and case state [held-candidates]"
+          git pull --rebase origin feature/grill-me-q61-q82
+          git push origin HEAD:feature/grill-me-q61-q82
