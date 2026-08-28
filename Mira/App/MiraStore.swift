@@ -17,6 +17,12 @@ final class MiraStore {
     let protectionEngine = ProtectionEngine()
     let assistantEngine = AssistantEngine()
     let classifier: any EventSemanticClassifying
+    let conversationInterpreter: any ConversationInterpreting
+    let declineGenerator: any DeclineDraftGenerating
+    let caseSearchEngine = CaseSearchEngine()
+    let schedulingRecommendationEngine = SchedulingRecommendationEngine()
+    let marginRecommendationEngine = MarginRecommendationEngine()
+    let rebalanceEngine = RebalanceEngine()
 
     private(set) var isReady = false
     private(set) var items: [CalendarItemSnapshot] = []
@@ -24,7 +30,10 @@ final class MiraStore {
     private(set) var adjustments: [AdjustmentEntity] = []
     private(set) var pendingInvitations: [PendingInvitationEntity] = []
     private(set) var importantPeople: [ImportantPersonEntity] = []
+    private(set) var conversationCases: [ConversationCaseEntity] = []
+    private(set) var rebalanceProposalEntities: [RebalanceProposalEntity] = []
     private(set) var aiStatus = "確認中"
+    private(set) var isInterpretingConversation = false
 
     var selectedMonth: Date
     var selectedDate: Date
@@ -34,16 +43,35 @@ final class MiraStore {
     var characterNotificationsEnabled = true
     var notificationsEnabled = false
     var demoModeEnabled = true
+    var marginComfortLevel: MarginComfortLevel = .standard
     var presentedAddSheet = false
     var toast: String?
+
+    var activeSchedulingDraft: SchedulingDraft?
+    var pinnedContext: ContextSearchResult?
+    var pendingInterpretation: ConversationInterpretation?
+    var pendingChangePreview: ChangePreview?
+    var activeDeclineDraft: DeclineDraft?
+    var activeConversationCaseID: UUID?
+    var clarificationQuestion: String?
+    var clarificationOptions: [String] = []
+    var currentMarginRecommendation: MarginRecommendation?
+    var activeRebalanceProposal: RebalanceProposal?
 
     var settingsEntity: AppSettingsEntity?
     var clock: any MiraClock
 
-    init(container: ModelContainer, classifier: any EventSemanticClassifying = HybridSemanticClassifier()) {
+    init(
+        container: ModelContainer,
+        classifier: any EventSemanticClassifying = HybridSemanticClassifier(),
+        conversationInterpreter: any ConversationInterpreting = HybridConversationInterpreter(),
+        declineGenerator: any DeclineDraftGenerating = HybridDeclineDraftGenerator()
+    ) {
         self.container = container
         self.context = ModelContext(container)
         self.classifier = classifier
+        self.conversationInterpreter = conversationInterpreter
+        self.declineGenerator = declineGenerator
         self.clock = DemoClock.standard
         self.selectedMonth = DemoClock.standard.now
         self.selectedDate = DemoClock.standard.now
@@ -63,7 +91,17 @@ final class MiraStore {
     }
 
     var currentAssistantMessage: AssistantMessage {
-        assistantEngine.message(
+        if let proposal = activeRebalanceProposal,
+           Calendar.mira.isDate(proposal.month, equalTo: selectedMonth, toGranularity: .month) {
+            return AssistantMessage(
+                title: "今月の余白を組み直せるにゃ",
+                body: proposal.summary,
+                mood: .thinking,
+                severity: 2,
+                actionTitle: "完成案を見る"
+            )
+        }
+        return assistantEngine.message(
             theme: theme,
             month: selectedMonth,
             goals: currentMonthGoals,
@@ -90,6 +128,8 @@ final class MiraStore {
             try DemoSeeder.seedBaseline(in: context, clock: clock)
             try refresh()
             aiStatus = await classifier.availabilityDescription
+            updateMarginRecommendation(for: selectedMonth)
+            recalculateBalance(for: selectedMonth)
             isReady = true
         } catch {
             toast = "データを準備できませんでした"
@@ -104,5 +144,8 @@ final class MiraStore {
         adjustments = try context.fetch(FetchDescriptor<AdjustmentEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         pendingInvitations = try context.fetch(FetchDescriptor<PendingInvitationEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         importantPeople = try context.fetch(FetchDescriptor<ImportantPersonEntity>())
+        conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
+        rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
+        activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
     }
 }
