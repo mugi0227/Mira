@@ -1,0 +1,37 @@
+name: Apply Grill-Me Context Linking
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+    paths:
+      - Mira/App/MiraStore+ConversationLinking.swift
+      - scripts/grill_me_context_linking.py
+      - .github/workflows/grill-me-context-linking.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message || '', '[context-linking]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/grill-me-q61-q82
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/grill_me_context_linking.py
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Mira scripts
+          git commit -m "feat: persist legacy context links [context-linking]"
+          git pull --rebase origin feature/grill-me-q61-q82
+          git push origin HEAD:feature/grill-me-q61-q82
