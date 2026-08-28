@@ -5,27 +5,45 @@ import SwiftData
 extension MiraStore {
     func finishOnboarding(
         targets: [MarginKind: Int],
-        baseRules: [BaseAvailabilityRule]
+        baseRules: [BaseAvailabilityRule],
+        marginComfort: MarginComfortLevel = .standard,
+        useRecommendedTargets: Bool = true
     ) {
         do {
             onboardingCompleted = true
+            marginComfortLevel = marginComfort
             settingsEntity?.onboardingCompleted = true
+            settingsEntity?.marginComfortRaw = marginComfort.rawValue
             settingsEntity?.updatedAt = .now
 
             try replaceBaseRules(with: baseRules)
+
+            let recommendation = marginRecommendationEngine.recommend(
+                month: selectedMonth,
+                items: items,
+                comfort: marginComfort
+            )
+            let selectedKinds = Set(targets.keys)
+            let resolvedTargets: [MarginKind: Int]
+            if useRecommendedTargets {
+                resolvedTargets = recommendation.targets.filter { selectedKinds.contains($0.key) }
+            } else {
+                resolvedTargets = targets
+            }
 
             for offset in 0...2 {
                 let month = selectedMonth.addingMonths(offset)
                 try DemoSeeder.seedDefaultGoals(
                     in: context,
                     month: month,
-                    targets: targets,
+                    targets: resolvedTargets,
                     calendar: .mira
                 )
             }
 
             try context.save()
             try refresh()
+            currentMarginRecommendation = recommendation
             autoPlaceMargins(for: selectedMonth)
         } catch {
             toast = "初期設定を保存できませんでした"
