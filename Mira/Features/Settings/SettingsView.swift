@@ -27,6 +27,24 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
+                NavigationLink {
+                    MarginComfortSettingsView(palette: palette)
+                } label: {
+                    SettingsRow(
+                        symbol: "sparkles.rectangle.stack.fill",
+                        title: "余白のおまかせ",
+                        value: store.marginComfortLevel.title,
+                        tint: palette.success
+                    )
+                }
+            } header: {
+                Text("余白の設計")
+            } footer: {
+                Text("予定負荷を見て必要な休息量を自動計算します。少なめ・ふつう・多めから調整できます。")
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
                 Toggle("調整期限・余白不足を知らせる", systemImage: "bell.fill", isOn: Binding(
                     get: { store.notificationsEnabled },
                     set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
@@ -208,15 +226,16 @@ private struct AIStatusView: View {
                 }
                 VStack(spacing: MiraSpacing.xs) {
                     Text(store.aiStatus).font(.title2.bold()).foregroundStyle(palette.primaryText)
-                    Text("対応端末では、Appleのオンデバイスモデルが予定タイトルを分類し、猫の言葉を自然にします。")
+                    Text("対応端末では、Appleのオンデバイスモデルが雑な入力を構造化し、予定タイトルの負荷も分類します。")
                         .font(.body).foregroundStyle(palette.secondaryText).multilineTextAlignment(.center)
                 }
                 .miraCard(palette)
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
                     CapabilityRow(symbol: "checkmark.shield.fill", text: "予定を外部サーバーへ送らない", palette: palette)
-                    CapabilityRow(symbol: "function", text: "日程の可否は決定論的ロジックが判断", palette: palette)
+                    CapabilityRow(symbol: "magnifyingglass", text: "案件検索はモデルより先に端末内で高速実行", palette: palette)
+                    CapabilityRow(symbol: "function", text: "空き・余白・候補ランキングは決定論ロジック", palette: palette)
                     CapabilityRow(symbol: "arrow.triangle.2.circlepath", text: "非対応端末ではルールと定型文へ自動切替", palette: palette)
-                    CapabilityRow(symbol: "eye.slash.fill", text: "行動履歴から勝手に学習しない", palette: palette)
+                    CapabilityRow(symbol: "eye.slash.fill", text: "行動履歴から勝手に性格を学習しない", palette: palette)
                 }
                 .miraCard(palette)
             }
