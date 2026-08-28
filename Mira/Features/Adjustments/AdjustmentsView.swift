@@ -23,6 +23,7 @@ struct AdjustmentsView: View {
             ScrollView {
                 LazyVStack(spacing: MiraSpacing.sm) {
                     if segment == .adjustments {
+                        manualSchedulingCard
                         adjustmentList
                     } else {
                         invitationList
@@ -53,15 +54,41 @@ struct AdjustmentsView: View {
         .sheet(isPresented: $showPendingCreate) {
             NewPendingInvitationSheet(palette: palette)
         }
-        .sheet(isPresented: schedulingModeBinding) {
-            SchedulingModeView(palette: palette)
-        }
         .sheet(item: $selectedAdjustment) { session in
             AdjustmentDetailSheet(session: session, palette: palette)
         }
         .sheet(item: $selectedInvitation) { invitation in
             PendingInvitationDetailSheet(invitation: invitation, palette: palette)
         }
+    }
+
+    private var manualSchedulingCard: some View {
+        Button {
+            store.startManualScheduling()
+        } label: {
+            HStack(spacing: MiraSpacing.sm) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(palette.accent)
+                    .frame(width: 48, height: 48)
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("新しい日程を探す")
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text("Miraが良い候補を先に選び、カレンダー上で追加・削除できます。")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(palette.secondaryText)
+            }
+            .miraCard(palette, padding: MiraSpacing.sm)
+        }
+        .buttonStyle(MiraPressStyle())
     }
 
     @ViewBuilder
@@ -71,11 +98,11 @@ struct AdjustmentsView: View {
             EmptyStateView(
                 symbol: "calendar.badge.plus",
                 title: "調整中の日程はありません",
-                message: "ホームで雑に頼むか、右上から日程を探せます。Miraが候補を先に選びます。",
+                message: "候補日を仮押さえして、ダブルブッキングを防げます。",
                 palette: palette
             )
             .miraCard(palette)
-            .padding(.top, MiraSpacing.lg)
+            .padding(.top, MiraSpacing.sm)
         } else {
             ForEach(active, id: \.id) { session in
                 Button { selectedAdjustment = session } label: {
@@ -93,7 +120,7 @@ struct AdjustmentsView: View {
             EmptyStateView(
                 symbol: "tray",
                 title: "検討中の誘いはありません",
-                message: "その場で返事せず、一度ここへ置いて余白への影響や断り文を確認できます。",
+                message: "LINEの文章をホームへ貼るか、＋から誘いを一度ここへ置けます。",
                 palette: palette
             )
             .miraCard(palette)
@@ -106,13 +133,6 @@ struct AdjustmentsView: View {
                 .buttonStyle(MiraPressStyle())
             }
         }
-    }
-
-    private var schedulingModeBinding: Binding<Bool> {
-        Binding(
-            get: { store.activeSchedulingDraft != nil },
-            set: { if !$0 { store.activeSchedulingDraft = nil } }
-        )
     }
 }
 
@@ -142,16 +162,15 @@ private struct AdjustmentRow: View {
                 Text(session.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
-                Text(statusLine + contactSuffix)
+                Text("候補 \(session.candidates.filter { $0.status == .held }.count)件" + contactSuffix)
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
-                if let first = session.candidates.first(where: { $0.status == .held }) {
-                    Text("第一候補 \(first.startDate.japaneseShortDate) \(first.displayTimeBand.title)")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(palette.accent)
-                }
                 if let deadline = session.responseDeadline {
                     Label("返事期限 \(deadline.japaneseShortDate)", systemImage: "bell")
+                        .font(.caption2)
+                        .foregroundStyle(palette.warning)
+                } else if session.status == .waiting {
+                    Text("返事待ち・候補を仮押さえ中")
                         .font(.caption2)
                         .foregroundStyle(palette.warning)
                 }
@@ -163,15 +182,6 @@ private struct AdjustmentRow: View {
         }
         .miraCard(palette, padding: MiraSpacing.sm)
         .accessibilityElement(children: .combine)
-    }
-
-    private var statusLine: String {
-        switch session.status {
-        case .draft: "候補を編集中"
-        case .waiting: "返事待ち・\(session.candidates.filter { $0.status == .held }.count)枠を仮押さえ"
-        case .confirmed: "日程確定"
-        case .cancelled: "キャンセル"
-        }
     }
 
     private var contactSuffix: String {
@@ -198,15 +208,9 @@ private struct PendingInvitationRow: View {
                 Text(invitation.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
-                if let first = invitation.candidates.first {
-                    Text("\(first.startDate.japaneseShortDate)・\(first.displayTimeBand.title)")
-                        .font(.caption)
-                        .foregroundStyle(palette.secondaryText)
-                } else {
-                    Text("日付未定")
-                        .font(.caption)
-                        .foregroundStyle(palette.secondaryText)
-                }
+                Text(invitation.candidates.first?.startDate.japaneseShortDate ?? "日付未定")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
                 if let deadline = invitation.replyDeadline {
                     Text("返事は \(deadline.japaneseShortDate) まで")
                         .font(.caption2)
