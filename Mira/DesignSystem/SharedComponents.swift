@@ -79,3 +79,66 @@ struct EmptyStateView: View {
         .padding(.vertical, MiraSpacing.xl)
     }
 }
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = MiraSpacing.xs
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        arrangement(proposal: proposal, subviews: subviews).size
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let result = arrangement(
+            proposal: ProposedViewSize(width: bounds.width, height: proposal.height),
+            subviews: subviews
+        )
+        for (index, point) in result.points.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y),
+                anchor: .topLeading,
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func arrangement(proposal: ProposedViewSize, subviews: Subviews) -> Arrangement {
+        let maxWidth = proposal.width ?? .greatestFiniteMagnitude
+        var points: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var usedWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            points.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            usedWidth = max(usedWidth, max(0, x - spacing))
+        }
+
+        return Arrangement(
+            size: CGSize(width: min(maxWidth, usedWidth), height: y + rowHeight),
+            points: points
+        )
+    }
+
+    private struct Arrangement {
+        var size: CGSize
+        var points: [CGPoint]
+    }
+}
