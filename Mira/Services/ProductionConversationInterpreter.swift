@@ -29,6 +29,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         applySupplementalDates(from: normalized, now: now, to: &result)
         applyExactTime(from: normalized, now: now, pinnedContext: pinnedContext, to: &result)
         applyColloquialDefaults(text: normalized, to: &result)
+        applyExplicitExclusionPhrases(from: normalized, to: &result)
 
         let resolvedContext = pinnedContext ?? uniquelyResolvedContext(searchCandidates)
         if resolvedContext != nil && containsConcreteUpdate(normalized) {
@@ -38,34 +39,36 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
             result.clarificationOptions = []
         }
 
-        guard let resolvedContext,
-              isFollowUp(normalized),
-              let previousText = recentTurns.reversed().first(where: { $0.role == .user })?.text else {
-            return result
+        if let resolvedContext,
+           isFollowUp(normalized),
+           let previousText = recentTurns.reversed().first(where: { $0.role == .user })?.text {
+            let previous = await RuleBasedConversationInterpreter(calendar: calendar).interpret(
+                text: normalize(previousText),
+                now: now,
+                pinnedContext: resolvedContext,
+                searchCandidates: [resolvedContext],
+                recentTurns: []
+            )
+
+            result.title = resolvedContext.title
+            result.matchedContextID = resolvedContext.id
+            result.durationBucket = result.durationBucket ?? previous.durationBucket
+
+            if !containsExplicitDate(normalized) {
+                result.candidateDates = previous.candidateDates
+                result.dateRangeStart = previous.dateRangeStart ?? resolvedContext.startDate
+                result.dateRangeEnd = previous.dateRangeEnd ?? resolvedContext.endDate
+            }
+
+            if result.timeBands.isEmpty {
+                result.timeBands = previous.timeBands
+            }
+            result.intent = resolvedContext.kind == .invitation ? .checkInvitation : .findDates
+            result.source += " + CaseContinuation"
         }
 
-        let previous = await RuleBasedConversationInterpreter(calendar: calendar).interpret(
-            text: normalize(previousText),
-            now: now,
-            pinnedContext: resolvedContext,
-            searchCandidates: [resolvedContext],
-            recentTurns: []
-        )
-
-        result.title = resolvedContext.title
-        result.matchedContextID = resolvedContext.id
-        result.durationBucket = result.durationBucket ?? previous.durationBucket
-
-        if !containsExplicitDate(normalized) {
-            result.candidateDates = previous.candidateDates
-            result.dateRangeStart = previous.dateRangeStart ?? resolvedContext.startDate
-            result.dateRangeEnd = previous.dateRangeEnd ?? resolvedContext.endDate
-        }
-
-        if result.timeBands.isEmpty {
-            result.timeBands = previous.timeBands
-        }
         applyExclusions(from: result.explicitConstraints, to: &result.timeBands)
+        applyDayExclusions(to: &result)
 
         if result.timeBands.isEmpty, let duration = result.durationBucket {
             result.timeBands = duration.selectableBands.filter { band in
@@ -74,22 +77,23 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
             result.inferredFields.insert("timeBands")
         }
 
-        result.intent = resolvedContext.kind == .invitation ? .checkInvitation : .findDates
-        result.needsClarification = result.durationBucket == nil || result.timeBands.isEmpty
-        if result.needsClarification {
-            result.clarificationQuestion = result.durationBucket == nil
-                ? "どのくらいの予定になりそう？"
-                : "朝・昼・夜のどこなら行けそう？"
-            result.clarificationOptions = result.durationBucket == nil
-                ? DurationBucket.allCases.map(\.title)
-                : (result.durationBucket ?? .short).selectableBands
-                    .filter { !isExcluded($0, by: result.explicitConstraints) }
-                    .map(\.title)
-        } else {
-            result.clarificationQuestion = nil
-            result.clarificationOptions = []
+        if isFollowUp(normalized), resolvedContext != nil {
+            result.needsClarification = result.durationBucket == nil || result.timeBands.isEmpty
+            if result.needsClarification {
+                result.clarificationQuestion = result.durationBucket == nil
+                    ? "どのくらいの予定になりそう？"
+                    : "朝・昼・夜のどこなら行けそう？"
+                result.clarificationOptions = result.durationBucket == nil
+                    ? DurationBucket.allCases.map(\.title)
+                    : (result.durationBucket ?? .short).selectableBands
+                        .filter { !isExcluded($0, by: result.explicitConstraints) }
+                        .map(\.title)
+            } else {
+                result.clarificationQuestion = nil
+                result.clarificationOptions = []
+            }
         }
-        result.source += " + CaseContinuation"
+
         return result
     }
 
@@ -154,6 +158,21 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         }
     }
 
+    private func applyExplicitExclusionPhrases(
+        from text: String,
+        to result: inout ConversationInterpretation
+    ) {
+        if ["夜は無理", "夜なし", "夜はなし", "夜を外して"].contains(where: text.contains) {
+            appendUnique("夜を除外", to: &result.explicitConstraints)
+        }
+        if ["土曜は無理", "土曜なし", "土曜はなし", "土曜は外して", "土曜日は外して"].contains(where: text.contains) {
+            appendUnique("土曜を除外", to: &result.explicitConstraints)
+        }
+        if ["日曜は無理", "日曜なし", "日曜はなし", "日曜は外して", "日曜日は外して"].contains(where: text.contains) {
+            appendUnique("日曜を除外", to: &result.explicitConstraints)
+        }
+    }
+
     private func uniquelyResolvedContext(
         _ candidates: [ContextSearchResult]
     ) -> ContextSearchResult? {
@@ -176,6 +195,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
     }
 
     private func containsExplicitDate(_ text: String) -> Bool {
+        if isWeekdayExclusion(text) { return false }
         if ["今日", "明日", "明後日", "今週", "来週", "再来週", "今月", "来月"].contains(where: text.contains) {
             return true
         }
@@ -186,6 +206,12 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
             return true
         }
         return ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"].contains(where: text.contains)
+    }
+
+    private func isWeekdayExclusion(_ text: String) -> Bool {
+        let hasWeekday = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"].contains(where: text.contains)
+        let hasExclusion = ["なし", "無理", "外して", "除外"].contains(where: text.contains)
+        return hasWeekday && hasExclusion
     }
 
     private func relativeDates(in text: String, now: Date) -> [Date] {
@@ -250,11 +276,55 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         bands.removeAll { isExcluded($0, by: constraints) }
     }
 
+    private func applyDayExclusions(to result: inout ConversationInterpretation) {
+        let excludesSaturday = result.explicitConstraints.contains("土曜を除外")
+        let excludesSunday = result.explicitConstraints.contains("日曜を除外")
+        guard excludesSaturday || excludesSunday else { return }
+
+        let sourceDates: [Date]
+        if !result.candidateDates.isEmpty {
+            sourceDates = result.candidateDates
+        } else if let start = result.dateRangeStart, let end = result.dateRangeEnd {
+            sourceDates = days(from: start, through: end)
+        } else {
+            return
+        }
+
+        result.candidateDates = uniqueDays(sourceDates).filter { date in
+            let weekday = calendar.component(.weekday, from: date)
+            if excludesSaturday && weekday == 7 { return false }
+            if excludesSunday && weekday == 1 { return false }
+            return true
+        }
+
+        if result.candidateDates.isEmpty {
+            result.needsClarification = true
+            result.clarificationQuestion = "除外した曜日以外で、どの期間から探す？"
+            result.clarificationOptions = ["来週", "再来週", "来月"]
+        }
+    }
+
+    private func days(from start: Date, through end: Date) -> [Date] {
+        var result: [Date] = []
+        var cursor = calendar.startOfDay(for: start)
+        let last = calendar.startOfDay(for: end)
+        var safety = 0
+        while cursor <= last, safety < 370 {
+            result.append(cursor)
+            cursor = cursor.addingDays(1, calendar: calendar)
+            safety += 1
+        }
+        return result
+    }
+
     private func isExcluded(
         _ band: SchedulingTimeBand,
         by constraints: [String]
     ) -> Bool {
-        if constraints.contains("夜を除外"), band == .evening { return true }
-        return false
+        constraints.contains("夜を除外") && band == .evening
+    }
+
+    private func appendUnique(_ value: String, to values: inout [String]) {
+        if !values.contains(value) { values.append(value) }
     }
 }

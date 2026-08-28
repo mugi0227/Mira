@@ -40,6 +40,75 @@ final class ConversationalAssistantTests: XCTestCase {
         XCTAssertTrue(result.clarificationOptions.contains("半日"))
     }
 
+    func testFollowUpRestoresCaseRangeAndExcludesNight() async {
+        let now = makeDate(2026, 8, 29, 10)
+        let caseID = UUID()
+        let context = ContextSearchResult(
+            id: caseID,
+            kind: .adjustment,
+            title: "友達と焼肉",
+            subtitle: "進行中",
+            startDate: makeDate(2026, 9, 1, 0),
+            endDate: makeDate(2026, 9, 30, 23),
+            relatedCaseID: caseID,
+            relatedItemID: nil,
+            relatedAdjustmentID: UUID(),
+            relatedInvitationID: nil,
+            score: 200,
+            isPast: false
+        )
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
+        let result = await interpreter.interpret(
+            text: "夜はなしで",
+            now: now,
+            pinnedContext: context,
+            searchCandidates: [context],
+            recentTurns: [ConversationTurnSnapshot(role: .user, text: "来月友達と焼肉行きたい")]
+        )
+
+        XCTAssertEqual(result.intent, .findDates)
+        XCTAssertEqual(result.title, "友達と焼肉")
+        XCTAssertEqual(result.durationBucket, .short)
+        XCTAssertFalse(result.timeBands.contains(.evening))
+        XCTAssertNotNil(result.dateRangeStart)
+        XCTAssertNotNil(result.dateRangeEnd)
+        XCTAssertFalse(result.needsClarification)
+    }
+
+    func testFollowUpCanExcludeSaturdayWithoutLosingTheOriginalRange() async {
+        let now = makeDate(2026, 8, 29, 10)
+        let caseID = UUID()
+        let context = ContextSearchResult(
+            id: caseID,
+            kind: .adjustment,
+            title: "友達と焼肉",
+            subtitle: "進行中",
+            startDate: makeDate(2026, 9, 1, 0),
+            endDate: makeDate(2026, 9, 30, 23),
+            relatedCaseID: caseID,
+            relatedItemID: nil,
+            relatedAdjustmentID: UUID(),
+            relatedInvitationID: nil,
+            score: 200,
+            isPast: false
+        )
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
+        let result = await interpreter.interpret(
+            text: "土曜は外して",
+            now: now,
+            pinnedContext: context,
+            searchCandidates: [context],
+            recentTurns: [ConversationTurnSnapshot(role: .user, text: "来月友達と焼肉行きたい")]
+        )
+
+        XCTAssertTrue(result.explicitConstraints.contains("土曜を除外"))
+        XCTAssertFalse(result.candidateDates.isEmpty)
+        XCTAssertTrue(result.candidateDates.allSatisfy {
+            calendar.component(.weekday, from: $0) != 7
+        })
+        XCTAssertFalse(result.needsClarification)
+    }
+
     func testCaseSearchExcludesPastByDefaultAndIncludesItExplicitly() {
         let now = makeDate(2026, 8, 29, 10)
         let past = CalendarItemSnapshot(
