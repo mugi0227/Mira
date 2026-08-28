@@ -29,7 +29,9 @@ struct MiraApp: App {
             AdjustmentEntity.self,
             PendingInvitationEntity.self,
             LoadRuleEntity.self,
-            ImportantPersonEntity.self
+            ImportantPersonEntity.self,
+            ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
         ])
         do {
             return try ModelContainer(
