@@ -96,7 +96,7 @@ struct ConflictEngine: Sendable {
             result.append("守っている余白と重なっています")
         }
         if otherCandidates.contains(where: {
-            $0.status == .held && $0.id != candidate.id && $0.interval.intersects(candidate.interval)
+            $0.status == .held && $0.id != candidate.id && coarseCandidatesConflict($0, candidate)
         }) {
             result.append("別の日程調整でも候補になっています")
         }
@@ -104,6 +104,21 @@ struct ConflictEngine: Sendable {
             result.append("基本的に予定を入れない時間と重なっています")
         }
         return result
+    }
+
+    private func coarseCandidatesConflict(
+        _ lhs: CandidateSlotSnapshot,
+        _ rhs: CandidateSlotSnapshot
+    ) -> Bool {
+        guard calendar.isDate(lhs.startDate, inSameDayAs: rhs.startDate) else { return false }
+        let lhsExact = lhs.exactTimeKnown ?? true
+        let rhsExact = rhs.exactTimeKnown ?? true
+        if !lhsExact || !rhsExact {
+            let lhsBand = lhs.displayTimeBand
+            let rhsBand = rhs.displayTimeBand
+            return lhsBand == .allDay || rhsBand == .allDay || lhsBand == rhsBand
+        }
+        return lhs.interval.intersects(rhs.interval)
     }
 
     private func overlapsBaseRule(
@@ -150,15 +165,16 @@ struct FreeEveningEngine: Sendable {
         let start = date.setting(hour: 18, calendar: calendar)
         let end = date.addingDays(1, calendar: calendar).setting(hour: 0, calendar: calendar)
         let evening = DateInterval(start: start, end: end)
-        let occupiedSeconds = items
-            .filter { $0.occupiedInterval.intersects(evening) && $0.kind != .birthday }
+        let confirmedItems = items.filter { $0.kind == .confirmed }
+        let occupiedSeconds = confirmedItems
+            .filter { $0.occupiedInterval.intersects(evening) }
             .reduce(0.0) { partial, item in
                 let intersectionStart = max(item.occupiedInterval.start, evening.start)
                 let intersectionEnd = min(item.occupiedInterval.end, evening.end)
                 return partial + max(0, intersectionEnd.timeIntervalSince(intersectionStart))
             }
         let freeHours = max(0, 6 - occupiedSeconds / 3600)
-        let hasHeavy = items.contains {
+        let hasHeavy = confirmedItems.contains {
             $0.loadClass >= .heavy && $0.occupiedInterval.intersects(evening)
         }
         if freeHours >= 4, !hasHeavy { return 1 }
