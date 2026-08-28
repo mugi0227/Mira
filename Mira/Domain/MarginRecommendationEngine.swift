@@ -179,7 +179,7 @@ struct RebalanceEngine: Sendable {
         }
 
         guard !moves.isEmpty else { return nil }
-        let stateHash = hash(items: monthItems, goals: goals)
+        let stateHash = stableStateHash(items: monthItems, goals: goals)
         let summary = moves.count == 1
             ? "この1枠を動かすと、今月の余白が整います。"
             : "この\(moves.count)枠を組み直すと、今月の余白が整います。"
@@ -201,7 +201,12 @@ struct RebalanceEngine: Sendable {
                 let engine = FreeEveningEngine()
                 let days = daysInMonth(month)
                 current = Int(days.reduce(0.0) { total, date in
-                    total + engine.value(for: date, items: items.filter { calendar.isDate($0.startDate, inSameDayAs: date) })
+                    total + engine.value(
+                        for: date,
+                        items: items.filter {
+                            calendar.isDate($0.startDate, inSameDayAs: date) && $0.kind != .margin
+                        }
+                    )
                 }.rounded(.down))
             default:
                 current = items.filter { $0.kind == .margin && $0.marginKind == goal.kind }.count
@@ -217,13 +222,23 @@ struct RebalanceEngine: Sendable {
         return range.compactMap { calendar.date(byAdding: .day, value: $0 - 1, to: key.firstDay) }
     }
 
-    private func hash(items: [CalendarItemSnapshot], goals: [MarginGoalSnapshot]) -> String {
+    private func stableStateHash(items: [CalendarItemSnapshot], goals: [MarginGoalSnapshot]) -> String {
         let itemPart = items.sorted { $0.id.uuidString < $1.id.uuidString }.map {
-            "\($0.id.uuidString):\(Int($0.startDate.timeIntervalSince1970)):\($0.loadClass.rawValue)"
+            "\($0.id.uuidString):\(Int($0.startDate.timeIntervalSince1970)):\(Int($0.endDate.timeIntervalSince1970)):\($0.loadClass.rawValue):\($0.kind.rawValue)"
         }.joined(separator: "|")
         let goalPart = goals.sorted { $0.id.uuidString < $1.id.uuidString }.map {
-            "\($0.kind.rawValue):\($0.targetCount)"
+            "\($0.kind.rawValue):\($0.targetCount):\($0.isEnabled)"
         }.joined(separator: "|")
-        return String((itemPart + "#" + goalPart).hashValue)
+        return fnv1a64(itemPart + "#" + goalPart)
+    }
+
+    private func fnv1a64(_ value: String) -> String {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        let prime: UInt64 = 1_099_511_628_211
+        for byte in value.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* prime
+        }
+        return String(hash, radix: 16)
     }
 }
