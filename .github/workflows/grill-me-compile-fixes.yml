@@ -1,0 +1,50 @@
+name: Apply Grill-Me Compile Fixes
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+    paths:
+      - scripts/grill_me_compile_fixes.py
+      - scripts/finalize_grill_me.py
+      - Mira/**
+      - README.md
+      - docs/**
+      - .github/workflows/grill-me-compile-fixes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: grill-me-compile-fixes
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message || '', '[compiled-fixes]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/grill-me-q61-q82
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply final patches
+        run: python scripts/grill_me_compile_fixes.py
+
+      - name: Commit fixups
+        run: |
+          if git diff --quiet; then
+            echo "No compile fixups needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Mira README.md docs scripts
+          git commit -m "chore: apply Grill-Me compile fixups [compiled-fixes]"
+          git push origin HEAD:feature/grill-me-q61-q82
