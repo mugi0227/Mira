@@ -96,8 +96,6 @@ extension MiraStore {
 
         try? context.save()
         try? refresh()
-        updateMarginRecommendation(for: prepared.startDate)
-        recalculateBalance(for: prepared.startDate)
         await NotificationService.shared.cancelAdjustmentReminder(id: sessionID)
         toast = "日程を確定して、ほかの候補を解放したにゃ"
     }
@@ -171,12 +169,27 @@ extension MiraStore {
         }
         try? context.save()
         try? refresh()
-        updateMarginRecommendation(for: event.startDate)
-        recalculateBalance(for: event.startDate)
     }
 
     func markPending(_ invitation: PendingInvitationEntity, as status: InvitationStatus) {
         invitation.status = status
+        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
+            switch status {
+            case .accepted:
+                caseEntity.kind = .confirmedEvent
+                caseEntity.status = .confirmed
+            case .adjustment:
+                caseEntity.kind = .adjustment
+                caseEntity.status = .waiting
+            case .declined:
+                caseEntity.status = .completed
+            case .archived:
+                caseEntity.status = .archived
+            case .considering:
+                caseEntity.kind = .invitation
+                caseEntity.status = .active
+            }
+        }
         try? context.save()
         try? refresh()
     }
@@ -184,7 +197,6 @@ extension MiraStore {
     func declinePending(_ invitation: PendingInvitationEntity) {
         markPending(invitation, as: .declined)
         if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
-            caseEntity.status = .completed
             caseEntity.appendTurn(role: .assistant, text: "今回は見送ることにしたにゃ", at: now)
             try? context.save()
             try? refresh()
@@ -193,12 +205,7 @@ extension MiraStore {
     }
 
     func archivePending(_ invitation: PendingInvitationEntity) {
-        invitation.status = .archived
-        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
-            caseEntity.status = .archived
-        }
-        try? context.save()
-        try? refresh()
+        markPending(invitation, as: .archived)
     }
 
     func cancelAdjustment(_ session: AdjustmentEntity) async {
