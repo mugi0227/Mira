@@ -87,19 +87,19 @@ struct CandidateDatePicker: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .confirmationDialog("この日を候補に追加しますか？", isPresented: Binding(
+        .confirmationDialog("この日、ちょっと気になるにゃ", isPresented: Binding(
             get: { pendingOverrideDate != nil },
             set: { if !$0 { pendingOverrideDate = nil } }
         ), titleVisibility: .visible) {
-            Button("重複を承知して追加") {
+            Button("それでも候補に追加") {
                 if let pendingOverrideDate {
                     selectedDates.insert(pendingOverrideDate)
                 }
                 pendingOverrideDate = nil
             }
-            Button("やめる", role: .cancel) { pendingOverrideDate = nil }
+            Button("別の日を選ぶ", role: .cancel) { pendingOverrideDate = nil }
         } message: {
-            Text(overrideMessage)
+            Text(overrideMessage + "\n候補から外すことをおすすめするけど、最終的には選べるにゃ。")
         }
     }
 
@@ -130,16 +130,13 @@ struct CandidateDatePicker: View {
         let hasAdjustmentConflict = conflicts.contains("別の日程調整でも候補になっています")
         let hasMarginConflict = conflicts.contains("守っている余白と重なっています")
         let hasBaseRuleConflict = conflicts.contains("基本的に予定を入れない時間と重なっています")
-        let isUnavailable = hasConfirmedConflict || hasBaseRuleConflict
+        let needsReview = !conflicts.isEmpty
+        let strongConflict = hasConfirmedConflict || hasBaseRuleConflict
 
         Button {
             if selected {
                 selectedDates.remove(normalized)
-            } else if hasConfirmedConflict {
-                store.toast = "確定予定があるので候補にはできないにゃ"
-            } else if hasBaseRuleConflict {
-                store.toast = "基本的に予定を入れない時間と重なるにゃ"
-            } else if hasAdjustmentConflict {
+            } else if needsReview {
                 pendingOverrideDate = normalized
                 overrideMessage = conflicts.joined(separator: "。") + "。"
             } else {
@@ -155,6 +152,9 @@ struct CandidateDatePicker: View {
                             .font(.system(size: 5.5, weight: .bold))
                             .foregroundStyle(palette.secondaryText)
                     }
+                    if hasConfirmedConflict {
+                        Circle().fill(palette.critical).frame(width: 4, height: 4)
+                    }
                     if hasAdjustmentConflict {
                         Circle().fill(palette.warning).frame(width: 4, height: 4)
                     }
@@ -164,19 +164,27 @@ struct CandidateDatePicker: View {
                 }
                 .frame(height: 6)
             }
-            .foregroundStyle(selected ? Color.white : (isUnavailable ? palette.secondaryText.opacity(0.42) : palette.primaryText))
+            .foregroundStyle(selected ? Color.white : palette.primaryText)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .background(selected ? palette.accent : palette.surface, in: RoundedRectangle(cornerRadius: 10))
+            .background(
+                selected
+                    ? palette.accent
+                    : (strongConflict ? palette.critical.opacity(0.06) : palette.surface),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
             .overlay {
-                if hasAdjustmentConflict && !selected && !isUnavailable {
+                if needsReview && !selected {
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(palette.warning, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        .stroke(
+                            strongConflict ? palette.critical.opacity(0.72) : palette.warning,
+                            style: StrokeStyle(lineWidth: 1, dash: [3, 2])
+                        )
                 }
             }
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel(accessibilityLabel(date: date, selected: selected, conflicts: conflicts))
-        .accessibilityValue(isUnavailable ? "選択不可" : "選択可能")
+        .accessibilityValue(needsReview ? "要確認・選択可能" : "選択可能")
     }
 
     private func makeCandidate(on date: Date) -> CandidateSlotSnapshot {
@@ -198,6 +206,9 @@ struct CandidateDatePicker: View {
         var parts = [date.japaneseDayTitle]
         parts.append(selected ? "選択済み" : "未選択")
         parts.append(contentsOf: conflicts)
+        if !conflicts.isEmpty {
+            parts.append("確認後に選択できます")
+        }
         return parts.joined(separator: "、")
     }
 }
