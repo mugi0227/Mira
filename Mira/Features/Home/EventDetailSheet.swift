@@ -80,7 +80,23 @@ struct EventDetailSheet: View {
         VStack(spacing: MiraSpacing.sm) {
             DetailRow(symbol: "calendar", title: "日付", value: item.startDate.japaneseDayTitle, palette: palette)
             Divider().overlay(palette.primaryText.opacity(0.08))
-            DetailRow(symbol: "clock", title: "時間", value: timeText, palette: palette)
+            DetailRow(
+                symbol: item.exactTimeKnown ? "clock" : "clock.badge.questionmark",
+                title: "時間",
+                value: item.timeDescription,
+                palette: palette
+            )
+            if !item.exactTimeKnown {
+                Divider().overlay(palette.primaryText.opacity(0.08))
+                HStack(alignment: .top, spacing: MiraSpacing.sm) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(palette.accent)
+                        .frame(width: 28)
+                    Text("日付と時間帯は確定済みです。正確な集合時刻は、決まった後から雑入力でも追記できます。")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
             if item.bufferBeforeMinutes > 0 || item.bufferAfterMinutes > 0 {
                 Divider().overlay(palette.primaryText.opacity(0.08))
                 DetailRow(
@@ -161,15 +177,7 @@ struct EventDetailSheet: View {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
-        return "calendar"
-    }
-
-    private var timeText: String {
-        if item.isAllDay { return "終日" }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "H:mm"
-        return "\(formatter.string(from: item.startDate))–\(formatter.string(from: item.endDate))"
+        return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }
 }
 
