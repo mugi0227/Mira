@@ -1,0 +1,47 @@
+name: Authoritative Grill-Me Finalizer
+
+on:
+  push:
+    branches:
+      - feature/grill-me-q61-q82
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: authoritative-grill-me-finalizer
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message || '', '[authoritative-final]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/grill-me-q61-q82
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply every idempotent patch
+        run: |
+          python scripts/grill_me_hardening.py
+          python scripts/grill_me_logic_fixes.py
+          python scripts/grill_me_style_compat.py
+
+      - name: Commit and rebase safely
+        run: |
+          if git diff --quiet; then
+            echo "Branch is already finalized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Mira README.md docs scripts
+          git commit -m "chore: authoritative Grill-Me finalization [authoritative-final]"
+          git pull --rebase origin feature/grill-me-q61-q82
+          git push origin HEAD:feature/grill-me-q61-q82
