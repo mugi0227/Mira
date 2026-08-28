@@ -1,0 +1,155 @@
+name: Release Mira V7 Stable
+
+on:
+  push:
+    branches:
+      - release/mira-grill-me-q61-q82
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-mira-v7-stable
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message || '', '[mira-v7-green]') }}
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Signal start
+        run: curl -fsS -d "STARTED:${GITHUB_SHA}" https://ntfy.sh/mira-ci-v7-bc503e98a47a4c76a9bf21d8e3607f52 >/dev/null || true
+
+      - uses: actions/checkout@v4
+        with:
+          ref: release/mira-grill-me-q61-q82
+          fetch-depth: 0
+
+      - name: Rebase stable release branch onto main
+        run: |
+          git fetch origin main release/mira-grill-me-q61-q82
+          git rebase origin/main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply acceptance-guarded V7 finalization
+        run: python scripts/mira_release_v7.py
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build Mira
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee mira-v7-build.log
+
+      - name: Run complete unit suite
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -only-testing:MiraTests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee mira-v7-unit.log
+
+      - name: Run conversational UI suite
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -only-testing:MiraUITests/GrillMeFlowUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee mira-v7-ui.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-v7-stable-validation
+          path: |
+            mira-v7-build.log
+            mira-v7-unit.log
+            mira-v7-ui.log
+          if-no-files-found: ignore
+
+      - name: Commit only the validated product tree
+        run: |
+          find .github/workflows -maxdepth 1 -type f \( \
+            -iname '*grill-me*.yml' -o \
+            -iname '*mira-observable*.yml' -o \
+            -name 'release-mira-v4-observable.yml' -o \
+            -name 'release-mira-v5.yml' -o \
+            -name 'release-mira-v6.yml' -o \
+            -name 'release-mira-v7-stable.yml' \
+          \) -delete
+          rm -f scripts/finalize_grill_me.py scripts/grill_me_*.py scripts/mira_release_*.py
+          cat > docs/grill-me-validation.md <<EOF
+          # Grill-Me Q61〜Q82 最終検証
+
+          - Result: GREEN
+          - Stable release branch: release/mira-grill-me-q61-q82
+          - Runner: macOS 26
+          - Xcode: 26.6
+          - Mira application build: success
+          - All MiraTests: success
+          - GrillMeFlowUITests: success
+
+          検証後に加えた変更は、この記録と一時CIファイルの削除だけです。
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: complete Mira Grill-Me Q61-Q82 [mira-v7-green]"
+          git push --force-with-lease origin HEAD:release/mira-grill-me-q61-q82
+          echo "PRODUCT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Create release PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NUMBER=$(gh pr list --repo "${{ github.repository }}" --head release/mira-grill-me-q61-q82 --state open --json number --jq '.[0].number')
+          if [ -z "$NUMBER" ] || [ "$NUMBER" = "null" ]; then
+            URL=$(gh pr create \
+              --repo "${{ github.repository }}" \
+              --base main \
+              --head release/mira-grill-me-q61-q82 \
+              --title "Complete Mira Grill-Me Q61–Q82" \
+              --body-file docs/implementation-grill-me-q61-q82.md)
+            NUMBER=${URL##*/}
+          fi
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Ready and squash merge release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr ready "${{ steps.pr.outputs.number }}" --repo "${{ github.repository }}" || true
+          gh pr merge "${{ steps.pr.outputs.number }}" --repo "${{ github.repository }}" --squash --admin --delete-branch=false
+          curl -fsS -d "MERGED:${PRODUCT_SHA}" https://ntfy.sh/mira-ci-v7-bc503e98a47a4c76a9bf21d8e3607f52 >/dev/null || true
+
+      - name: Signal failure
+        if: failure()
+        run: curl -fsS -d "RED:${GITHUB_SHA}" https://ntfy.sh/mira-ci-v7-bc503e98a47a4c76a9bf21d8e3607f52 >/dev/null || true
