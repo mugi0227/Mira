@@ -19,6 +19,7 @@ struct CaseSearchEngine: Sendable {
         limit: Int = 20
     ) -> [ContextSearchResult] {
         let normalizedQuery = normalize(query)
+        let compactQuery = compact(normalizedQuery)
         let tokens = searchTokens(from: normalizedQuery)
         var results: [ContextSearchResult] = []
 
@@ -33,6 +34,7 @@ struct CaseSearchEngine: Sendable {
 
             let score = score(
                 query: normalizedQuery,
+                compactQuery: compactQuery,
                 tokens: tokens,
                 title: conversationCase.title,
                 person: state.person,
@@ -69,6 +71,7 @@ struct CaseSearchEngine: Sendable {
 
             let score = score(
                 query: normalizedQuery,
+                compactQuery: compactQuery,
                 tokens: tokens,
                 title: item.title,
                 person: nil,
@@ -105,6 +108,7 @@ struct CaseSearchEngine: Sendable {
             guard includePast || !isPast else { continue }
             let score = score(
                 query: normalizedQuery,
+                compactQuery: compactQuery,
                 tokens: tokens,
                 title: adjustment.title,
                 person: adjustment.contactName,
@@ -140,6 +144,7 @@ struct CaseSearchEngine: Sendable {
             guard includePast || !isPast else { continue }
             let score = score(
                 query: normalizedQuery,
+                compactQuery: compactQuery,
                 tokens: tokens,
                 title: invitation.title,
                 person: invitation.contactName,
@@ -201,6 +206,7 @@ struct CaseSearchEngine: Sendable {
 
     private func score(
         query: String,
+        compactQuery: String,
         tokens: [String],
         title: String,
         person: String?,
@@ -209,26 +215,80 @@ struct CaseSearchEngine: Sendable {
         now: Date
     ) -> Double {
         let normalizedTitle = normalize(title)
+        let compactTitle = compact(normalizedTitle)
         let normalizedPerson = normalize(person ?? "")
+        let compactPerson = compact(normalizedPerson)
         var value = statusBoost
+        var matched = false
 
         if query.isEmpty {
             value += recencyScore(date: date, now: now)
             return value
         }
 
-        if normalizedTitle == query { value += 120 }
-        if normalizedTitle.contains(query) || query.contains(normalizedTitle) { value += 75 }
-        if !normalizedPerson.isEmpty, normalizedPerson.contains(query) { value += 55 }
-
-        for token in tokens where token.count >= 2 {
-            if normalizedTitle.contains(token) { value += 26 }
-            if normalizedPerson.contains(token) { value += 18 }
+        if normalizedTitle == query || compactTitle == compactQuery {
+            value += 120
+            matched = true
+        }
+        if normalizedTitle.contains(query) || query.contains(normalizedTitle) || compactQuery.contains(compactTitle) {
+            value += 75
+            matched = true
+        }
+        if !compactPerson.isEmpty, compactQuery.contains(compactPerson) {
+            value += 55
+            matched = true
         }
 
-        if value == statusBoost { return 0 }
+        for token in tokens where token.count >= 2 {
+            if normalizedTitle.contains(token) {
+                value += 26
+                matched = true
+            }
+            if normalizedPerson.contains(token) {
+                value += 18
+                matched = true
+            }
+        }
+
+        let titleMatches = matchingFragments(from: compactTitle, in: compactQuery)
+        if let longest = titleMatches.max() {
+            value += Double(longest * 14)
+            matched = true
+        }
+        let personMatches = matchingFragments(from: compactPerson, in: compactQuery)
+        if let longest = personMatches.max() {
+            value += Double(longest * 9)
+            matched = true
+        }
+
+        guard matched else { return 0 }
         value += recencyScore(date: date, now: now)
         return value
+    }
+
+    private func matchingFragments(from source: String, in query: String) -> [Int] {
+        guard source.count >= 2, query.count >= 2 else { return [] }
+        let characters = Array(source)
+        let maximumLength = min(6, characters.count)
+        var lengths: [Int] = []
+        for length in stride(from: maximumLength, through: 2, by: -1) {
+            guard characters.count >= length else { continue }
+            for start in 0...(characters.count - length) {
+                let fragment = String(characters[start..<(start + length)])
+                guard !isNoisyFragment(fragment) else { continue }
+                if query.contains(fragment) {
+                    lengths.append(length)
+                    break
+                }
+            }
+            if !lengths.isEmpty { break }
+        }
+        return lengths
+    }
+
+    private func isNoisyFragment(_ fragment: String) -> Bool {
+        let noise = ["友達", "予定", "調整", "一緒", "さんと", "との", "の件", "これ", "それ"]
+        return noise.contains(fragment)
     }
 
     private func recencyScore(date: Date?, now: Date) -> Double {
@@ -245,6 +305,10 @@ struct CaseSearchEngine: Sendable {
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
             .lowercased()
+    }
+
+    private func compact(_ text: String) -> String {
+        text.replacingOccurrences(of: " ", with: "")
     }
 
     private func searchTokens(from normalized: String) -> [String] {
