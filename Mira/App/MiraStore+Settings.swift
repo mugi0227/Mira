@@ -75,6 +75,7 @@ extension MiraStore {
             try context.delete(model: PendingInvitationEntity.self)
             try context.delete(model: LoadRuleEntity.self)
             try context.delete(model: BaseRuleEntity.self)
+            try context.delete(model: ImportantPersonEntity.self)
             try context.delete(model: ConversationCaseEntity.self)
             try context.delete(model: RebalanceProposalEntity.self)
             settingsEntity?.onboardingCompleted = false

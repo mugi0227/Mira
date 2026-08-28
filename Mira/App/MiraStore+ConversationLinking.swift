@@ -22,8 +22,8 @@ extension MiraStore {
 
         if let itemID = contextResult.relatedItemID,
            let itemEntity = try? entity(id: itemID) {
-            itemEntity?.conversationCaseID = caseID
-            itemEntity?.updatedAt = now
+            itemEntity.conversationCaseID = caseID
+            itemEntity.updatedAt = now
         }
     }
 }
