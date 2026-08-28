@@ -58,6 +58,7 @@ final class MiraStore {
     var activeClarification: ConversationClarification?
     var currentMarginRecommendation: MarginRecommendation?
     var activeRebalanceProposal: RebalanceProposal?
+    var isRebalanceProposalPresented = false
 
     var settingsEntity: AppSettingsEntity?
     var clock: any MiraClock
