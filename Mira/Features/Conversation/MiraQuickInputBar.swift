@@ -30,6 +30,7 @@ struct MiraQuickInputBar: View {
                 .padding(.horizontal, 10)
                 .frame(minHeight: 30)
                 .background(palette.accentSoft, in: Capsule())
+                .accessibilityIdentifier("pinnedContextChip")
             }
 
             HStack(spacing: MiraSpacing.xs) {
@@ -43,6 +44,7 @@ struct MiraQuickInputBar: View {
                         .background(palette.surface, in: Circle())
                 }
                 .accessibilityLabel("この話について予定を指定")
+                .accessibilityIdentifier("contextPickerButton")
 
                 TextField("Miraに雑に投げる…", text: $text, axis: .vertical)
                     .lineLimit(1...4)
@@ -57,6 +59,7 @@ struct MiraQuickInputBar: View {
                         RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
                             .stroke(palette.primaryText.opacity(0.07), lineWidth: 1)
                     }
+                    .accessibilityIdentifier("miraQuickInput")
 
                 Button(action: send) {
                     if store.isInterpretingConversation {
@@ -73,6 +76,7 @@ struct MiraQuickInputBar: View {
                 .background(canSend ? palette.accent : palette.secondaryText.opacity(0.35), in: Circle())
                 .disabled(!canSend)
                 .accessibilityLabel("Miraへ送る")
+                .accessibilityIdentifier("miraSendButton")
             }
 
             HStack {
@@ -121,8 +125,6 @@ struct ContextPickerSheet: View {
     @State private var selectedKind: ConversationCaseKind = .adjustment
     @State private var includePast = false
 
-    private let tabs: [ConversationCaseKind] = [.adjustment, .invitation, .confirmedEvent]
-
     var body: some View {
         NavigationStack {
             VStack(spacing: MiraSpacing.sm) {
@@ -133,6 +135,7 @@ struct ContextPickerSheet: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, MiraSpacing.md)
+                .accessibilityIdentifier("contextKindPicker")
 
                 List {
                     if results.isEmpty {
@@ -168,6 +171,7 @@ struct ContextPickerSheet: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("contextResult-\(result.id.uuidString)")
                         }
                     }
                 }
@@ -183,6 +187,7 @@ struct ContextPickerSheet: View {
                     .padding(.horizontal, MiraSpacing.md)
                     .frame(minHeight: 52)
                     .background(.regularMaterial)
+                    .accessibilityIdentifier("includePastToggle")
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -227,7 +232,7 @@ struct ConversationHistorySheet: View {
                     } else {
                         ForEach(turns) { turn in
                             HStack {
-                                if turn.role == .assistant { Spacer(minLength: 36) }
+                                if turn.role == .user { Spacer(minLength: 36) }
                                 Text(turn.text)
                                     .font(.subheadline)
                                     .foregroundStyle(turn.role == .user ? .white : palette.primaryText)
@@ -237,7 +242,7 @@ struct ConversationHistorySheet: View {
                                         turn.role == .user ? palette.accent : palette.surface,
                                         in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
                                     )
-                                if turn.role == .user { Spacer(minLength: 36) }
+                                if turn.role == .assistant { Spacer(minLength: 36) }
                             }
                         }
                     }
