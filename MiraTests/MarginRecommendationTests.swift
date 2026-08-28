@@ -1,7 +1,7 @@
 import XCTest
 @testable import Mira
 
-final class MarginRecommendationTests: XCTestCase {
+final class MarginRecommendationLoadTests: XCTestCase {
     private var calendar: Calendar { .mira }
 
     func testHeavierMonthReceivesMoreRestThanQuietMonth() {

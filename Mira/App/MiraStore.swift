@@ -33,7 +33,7 @@ final class MiraStore {
     private(set) var conversationCases: [ConversationCaseEntity] = []
     private(set) var rebalanceProposalEntities: [RebalanceProposalEntity] = []
     private(set) var aiStatus = "確認中"
-    private(set) var isInterpretingConversation = false
+    var isInterpretingConversation = false
 
     var selectedMonth: Date
     var selectedDate: Date
@@ -123,6 +123,11 @@ final class MiraStore {
                 settingsEntity = settings
                 try context.save()
             }
+
+            if ProcessInfo.processInfo.arguments.contains("-reset-demo") {
+                try resetPersistentTestState()
+            }
+
             applySettings()
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()
             selectedMonth = clock.now
@@ -149,5 +154,22 @@ final class MiraStore {
         conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
         rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
+    }
+
+    private func resetPersistentTestState() throws {
+        try context.delete(model: CalendarItemEntity.self)
+        try context.delete(model: MarginGoalEntity.self)
+        try context.delete(model: BaseRuleEntity.self)
+        try context.delete(model: AdjustmentEntity.self)
+        try context.delete(model: PendingInvitationEntity.self)
+        try context.delete(model: LoadRuleEntity.self)
+        try context.delete(model: ImportantPersonEntity.self)
+        try context.delete(model: ConversationCaseEntity.self)
+        try context.delete(model: RebalanceProposalEntity.self)
+        settingsEntity?.onboardingCompleted = false
+        settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+        settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
+        settingsEntity?.updatedAt = .now
+        try context.save()
     }
 }

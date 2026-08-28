@@ -6,7 +6,7 @@ final class GrillMeFlowUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         app.launch()
         completeOnboardingIfNeeded()
     }
@@ -58,7 +58,7 @@ final class GrillMeFlowUITests: XCTestCase {
 
         let preview = app.navigationBars["予定の確認"]
         if preview.waitForExistence(timeout: 15) {
-            XCTAssertTrue(app.staticTexts["影響と別候補を見てから、最後は自分で決められます。"].exists)
+            XCTAssertTrue(app.staticTexts["決めるのはあなた。影響と別案を先に見るにゃ。"].exists)
             capture("04-grill-event-preview")
         } else {
             XCTAssertTrue(app.navigationBars["日程を探す"].exists)

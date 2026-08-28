@@ -5,7 +5,6 @@ struct HomeView: View {
     let palette: MiraThemePalette
 
     @State private var showAddSheet = false
-    @State private var showRebalanceSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
 
     var body: some View {
@@ -23,7 +22,7 @@ struct HomeView: View {
                 if store.assistantEnabled {
                     AssistantCard(message: store.currentAssistantMessage, palette: palette) {
                         if store.activeRebalanceProposal != nil {
-                            showRebalanceSheet = true
+                            store.isRebalanceProposalPresented = true
                         } else {
                             store.autoPlaceMargins(for: store.selectedMonth)
                         }
@@ -78,24 +77,6 @@ struct HomeView: View {
         }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
-        }
-        .sheet(isPresented: schedulingModeBinding) {
-            SchedulingModeView(palette: palette)
-        }
-        .sheet(isPresented: clarificationBinding) {
-            ConversationClarificationSheet(palette: palette)
-        }
-        .sheet(isPresented: declineBinding) {
-            DeclineDraftSheet(palette: palette)
-        }
-        .sheet(isPresented: changePreviewBinding) {
-            ChangePreviewSheet(palette: palette)
-        }
-        .sheet(isPresented: eventCreationBinding) {
-            EventCreationPreviewSheet(palette: palette)
-        }
-        .sheet(isPresented: $showRebalanceSheet) {
-            RebalanceProposalSheet(palette: palette)
         }
     }
 
@@ -207,8 +188,8 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let items = store.selectedDayItems.filter { $0.kind != .birthday }
-        guard let maxLoad = items.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
+        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
         case .normal: return "ほどよい予定量"
@@ -224,41 +205,6 @@ struct HomeView: View {
         case .importantPeople: "大切な時間"
         default: kind.title
         }
-    }
-
-    private var schedulingModeBinding: Binding<Bool> {
-        Binding(
-            get: { store.activeSchedulingDraft != nil },
-            set: { if !$0 { store.activeSchedulingDraft = nil } }
-        )
-    }
-
-    private var clarificationBinding: Binding<Bool> {
-        Binding(
-            get: { store.activeClarification != nil },
-            set: { if !$0 { store.activeClarification = nil } }
-        )
-    }
-
-    private var declineBinding: Binding<Bool> {
-        Binding(
-            get: { store.activeDeclineDraft != nil },
-            set: { if !$0 { store.activeDeclineDraft = nil } }
-        )
-    }
-
-    private var changePreviewBinding: Binding<Bool> {
-        Binding(
-            get: { store.pendingChangePreview != nil },
-            set: { if !$0 { store.pendingChangePreview = nil } }
-        )
-    }
-
-    private var eventCreationBinding: Binding<Bool> {
-        Binding(
-            get: { store.pendingEventCreationPreview != nil },
-            set: { if !$0 { store.pendingEventCreationPreview = nil } }
-        )
     }
 }
 

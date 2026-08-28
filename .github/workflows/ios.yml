@@ -16,11 +16,11 @@ concurrency:
 jobs:
   xcode26-build:
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode 26.6
-        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
@@ -33,19 +33,26 @@ jobs:
             -scheme Mira \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            build | xcbeautify
+            build | tee xcode26-build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode26-build-log
+          path: xcode26-build.log
+          if-no-files-found: ignore
 
   simulator-tests:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Select available Xcode
         run: |
-          if [ -d /Applications/Xcode_16.4.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.4.app
+          if [ -d /Applications/Xcode_16.4.app/Contents/Developer ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
           else
-            XCODE_PATH=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+            XCODE_PATH=$(ls -d /Applications/Xcode*.app/Contents/Developer | sort -V | tail -1)
             sudo xcode-select -s "$XCODE_PATH"
           fi
           xcodebuild -version
@@ -72,7 +79,7 @@ jobs:
           )
           echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
           echo "Using simulator $SIMULATOR_UDID"
-      - name: Test
+      - name: Build and run unit/UI tests
         run: |
           set -o pipefail
           xcodebuild \
@@ -81,4 +88,11 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             CODE_SIGNING_ALLOWED=NO \
             -skip-testing:MiraUITests/MiraScreenshotUITests \
-            test | xcbeautify
+            test | tee simulator-tests.log
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-test-log
+          path: simulator-tests.log
+          if-no-files-found: ignore

@@ -72,7 +72,7 @@ final class EventEntryAdvisoryTests: XCTestCase {
 
     func testAlternativeDateAvoidsBaseHoursAtSameClockTime() throws {
         let store = try makeStore()
-        let start = date(year: 2026, month: 9, day: 1, hour: 15) // Tuesday
+        let start = date(year: 2026, month: 9, day: 1, hour: 15)
         let proposed = event(title: "打ち合わせ", start: start, hours: 2)
 
         store.context.insert(BaseRuleEntity(weekday: 3, startMinute: 9 * 60, endMinute: 18 * 60))
@@ -94,7 +94,9 @@ final class EventEntryAdvisoryTests: XCTestCase {
             AdjustmentEntity.self,
             PendingInvitationEntity.self,
             LoadRuleEntity.self,
-            ImportantPersonEntity.self
+            ImportantPersonEntity.self,
+            ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
