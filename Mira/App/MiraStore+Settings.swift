@@ -88,9 +88,12 @@ extension MiraStore {
             pinnedContext = nil
             pendingInterpretation = nil
             pendingChangePreview = nil
+            pendingEventCreationPreview = nil
             activeDeclineDraft = nil
             activeConversationCaseID = nil
+            activeClarification = nil
             activeRebalanceProposal = nil
+            isRebalanceProposalPresented = false
             try DemoSeeder.seedBaseline(in: context, clock: DemoClock.standard)
             try refresh()
             toast = "最初の状態に戻したにゃ"
