@@ -18,10 +18,11 @@ extension MiraStore {
         let heldCandidates = adjustments
             .filter { $0.status == .draft || $0.status == .waiting }
             .flatMap(\.candidates)
+        let excludedID = excludingItemID ?? event.id
 
         return ConflictEngine(calendar: .mira).conflicts(
             candidate: candidate,
-            events: items.filter { $0.id != excludingItemID },
+            events: items.filter { $0.id != excludedID },
             otherCandidates: heldCandidates,
             baseRules: fetchBaseRules()
         )
