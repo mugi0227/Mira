@@ -1,5 +1,12 @@
 import SwiftUI
 
+private enum OnboardingMarginMode: String, CaseIterable, Identifiable {
+    case automatic
+    case manual
+
+    var id: String { rawValue }
+}
+
 struct OnboardingView: View {
     @Environment(MiraStore.self) private var store
     let palette: MiraThemePalette
@@ -14,6 +21,8 @@ struct OnboardingView: View {
         .personalProject: 2,
         .importantPeople: 2
     ]
+    @State private var marginMode: OnboardingMarginMode = .automatic
+    @State private var marginComfort: MarginComfortLevel = .standard
     @State private var freeEveningsPerWeek = 2
     @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
 
@@ -42,6 +51,14 @@ struct OnboardingView: View {
         }
         .foregroundStyle(palette.primaryText)
         .accessibilityElement(children: .contain)
+    }
+
+    private var recommendation: MarginRecommendation {
+        store.marginRecommendationEngine.recommend(
+            month: store.selectedMonth,
+            items: store.items,
+            comfort: marginComfort
+        )
     }
 
     private var progressHeader: some View {
@@ -119,28 +136,93 @@ struct OnboardingView: View {
     private var chooseAmounts: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MiraSpacing.lg) {
-                onboardingTitle("どのくらい確保する？", subtitle: "小さく切りすぎず、前後ののんびり時間も含めて守ります。")
+                onboardingTitle("余白の量、どうする？", subtitle: "考えるのが大変なら、今ある予定の負荷からMiraが決めます。")
 
-                ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
-                    HStack(spacing: MiraSpacing.md) {
-                        Image(systemName: kind.symbolName)
-                            .frame(width: 30)
-                            .foregroundStyle(palette.accent)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(kind.title).font(.headline)
-                            Text(kind == .rest ? "終日を大きく確保" : "前後の余裕を含む大きめ枠")
+                Picker("余白の決め方", selection: $marginMode) {
+                    Text("Miraにおまかせ").tag(OnboardingMarginMode.automatic)
+                    Text("自分で決める").tag(OnboardingMarginMode.manual)
+                }
+                .pickerStyle(.segmented)
+
+                if marginMode == .automatic {
+                    VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                        Text("余白の多さ")
+                            .font(.headline)
+                        ForEach(MarginComfortLevel.allCases) { level in
+                            Button {
+                                marginComfort = level
+                            } label: {
+                                HStack(spacing: MiraSpacing.sm) {
+                                    Image(systemName: marginComfort == level ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(marginComfort == level ? palette.accent : palette.secondaryText)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(level.title)
+                                            .font(.headline)
+                                        Text(level.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(palette.secondaryText)
+                                    }
+                                    Spacer()
+                                }
+                                .foregroundStyle(palette.primaryText)
+                                .miraCard(palette, padding: MiraSpacing.sm)
+                            }
+                            .buttonStyle(MiraPressStyle())
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                        HStack {
+                            Label("今月のおすすめ", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundStyle(palette.accent)
+                            Spacer()
+                            Text(marginComfort.title)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
+                            HStack {
+                                Image(systemName: kind.symbolName)
+                                    .foregroundStyle(palette.accent)
+                                    .frame(width: 24)
+                                Text(kind.title)
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("\(recommendation.targets[kind, default: targets[kind, default: 0]])回")
+                                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                            }
+                        }
+                        Divider().overlay(palette.primaryText.opacity(0.08))
+                        ForEach(recommendation.reasons, id: \.self) { reason in
+                            Text("・\(reason)")
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
-                        Spacer()
-                        Stepper("", value: binding(for: kind), in: 0...12)
-                            .labelsHidden()
-                        Text("\(targets[kind, default: 0])回")
-                            .font(.headline.monospacedDigit())
-                            .frame(width: 44, alignment: .trailing)
                     }
                     .miraCard(palette)
+                } else {
+                    ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
+                        HStack(spacing: MiraSpacing.md) {
+                            Image(systemName: kind.symbolName)
+                                .frame(width: 30)
+                                .foregroundStyle(palette.accent)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(kind.title).font(.headline)
+                                Text(kind == .rest ? "終日を大きく確保" : "前後の余裕を含む大きめ枠")
+                                    .font(.caption)
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                            Spacer()
+                            Stepper("", value: binding(for: kind), in: 0...12)
+                                .labelsHidden()
+                            Text("\(targets[kind, default: 0])回")
+                                .font(.headline.monospacedDigit())
+                                .frame(width: 44, alignment: .trailing)
+                        }
+                        .miraCard(palette)
+                    }
                 }
             }
             .padding(MiraSpacing.lg)
@@ -151,7 +233,7 @@ struct OnboardingView: View {
         VStack(spacing: MiraSpacing.xl) {
             Spacer()
             PixelCatView(mood: .sleeping, size: 112)
-            onboardingTitle("予定のない夜は、週に何日ほしい？", subtitle: "仕事だけの日は、予定のない夜として数えます。")
+            onboardingTitle("予定のない夜は、週に何日ほしい？", subtitle: marginMode == .automatic ? "Miraのおすすめを基準に、ここだけ好みを上書きできます。" : "仕事だけの日は、予定のない夜として数えます。")
                 .multilineTextAlignment(.center)
 
             HStack(spacing: MiraSpacing.sm) {
@@ -219,6 +301,14 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    HStack {
+                        Text("余白量")
+                        Spacer()
+                        Text(marginMode == .automatic ? "Miraにおまかせ・\(marginComfort.title)" : "自分で設定")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(palette.accent)
+                    }
+
                     ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
                         HStack {
                             Image(systemName: kind.symbolName)
@@ -226,7 +316,7 @@ struct OnboardingView: View {
                                 .accessibilityHidden(true)
                             Text(kind.title)
                             Spacer()
-                            Text("\(targets[kind, default: 0])回")
+                            Text("\(resolvedTarget(for: kind))回")
                                 .font(.subheadline.monospacedDigit().weight(.semibold))
                         }
                     }
@@ -270,9 +360,15 @@ struct OnboardingView: View {
                 isDisabled: step == 1 && selections.isEmpty
             ) {
                 if step == totalSteps - 1 {
+                    var submittedTargets = targets.filter { selections.contains($0.key) }
+                    if marginMode == .automatic {
+                        submittedTargets[.freeEvening] = targets[.freeEvening]
+                    }
                     store.finishOnboarding(
-                        targets: targets.filter { selections.contains($0.key) },
-                        baseRules: availabilityRules.compactMap(\.domainRule)
+                        targets: submittedTargets,
+                        baseRules: availabilityRules.compactMap(\.domainRule),
+                        marginComfort: marginComfort,
+                        useRecommendedTargets: marginMode == .automatic
                     )
                 } else {
                     step += 1
@@ -291,6 +387,12 @@ struct OnboardingView: View {
             return "月〜金 9:00–18:00"
         }
         return "\(enabled.count)曜日を設定"
+    }
+
+    private func resolvedTarget(for kind: MarginKind) -> Int {
+        guard marginMode == .automatic else { return targets[kind, default: 0] }
+        if kind == .freeEvening { return targets[kind, default: recommendation.targets[kind, default: 0]] }
+        return recommendation.targets[kind, default: targets[kind, default: 0]]
     }
 
     private func onboardingTitle(_ title: String, subtitle: String) -> some View {
