@@ -48,13 +48,14 @@ final class MiraStore {
     var toast: String?
 
     var activeSchedulingDraft: SchedulingDraft?
+    var activeSchedulingIntent: ConversationIntent = .findDates
     var pinnedContext: ContextSearchResult?
     var pendingInterpretation: ConversationInterpretation?
     var pendingChangePreview: ChangePreview?
+    var pendingEventCreationPreview: EventCreationPreview?
     var activeDeclineDraft: DeclineDraft?
     var activeConversationCaseID: UUID?
-    var clarificationQuestion: String?
-    var clarificationOptions: [String] = []
+    var activeClarification: ConversationClarification?
     var currentMarginRecommendation: MarginRecommendation?
     var activeRebalanceProposal: RebalanceProposal?
 
