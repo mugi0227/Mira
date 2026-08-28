@@ -13,7 +13,7 @@ extension MiraStore {
                 person: invitation.contactName,
                 dateRangeStart: first?.startDate,
                 dateRangeEnd: first?.endDate,
-                durationBucket: first?.durationBucket ?? first?.displayDuration,
+                durationBucket: first.map { $0.displayDuration },
                 allowedTimeBands: first.map { [$0.displayTimeBand] } ?? [],
                 candidates: invitation.candidates,
                 lastIntent: .declineInvitation
