@@ -5,6 +5,7 @@ struct HomeView: View {
     let palette: MiraThemePalette
 
     @State private var showAddSheet = false
+    @State private var showRebalanceSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
 
     var body: some View {
@@ -16,9 +17,16 @@ struct HomeView: View {
                 progressSummary
                     .padding(.horizontal, MiraSpacing.md)
 
+                MiraQuickInputBar(palette: palette)
+                    .padding(.horizontal, MiraSpacing.md)
+
                 if store.assistantEnabled {
                     AssistantCard(message: store.currentAssistantMessage, palette: palette) {
-                        store.autoPlaceMargins(for: store.selectedMonth)
+                        if store.activeRebalanceProposal != nil {
+                            showRebalanceSheet = true
+                        } else {
+                            store.autoPlaceMargins(for: store.selectedMonth)
+                        }
                     }
                     .padding(.horizontal, MiraSpacing.md)
                 }
@@ -47,13 +55,22 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddSheet = true
+                Menu {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Label("予定・余白を追加", systemImage: "plus")
+                    }
+                    Button {
+                        store.startManualScheduling()
+                    } label: {
+                        Label("日程を探す", systemImage: "calendar.badge.clock")
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("予定または余白を追加")
+                .accessibilityLabel("追加メニュー")
             }
         }
         .sheet(isPresented: $showAddSheet) {
@@ -61,6 +78,24 @@ struct HomeView: View {
         }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
+        }
+        .sheet(isPresented: schedulingModeBinding) {
+            SchedulingModeView(palette: palette)
+        }
+        .sheet(isPresented: clarificationBinding) {
+            ConversationClarificationSheet(palette: palette)
+        }
+        .sheet(isPresented: declineBinding) {
+            DeclineDraftSheet(palette: palette)
+        }
+        .sheet(isPresented: changePreviewBinding) {
+            ChangePreviewSheet(palette: palette)
+        }
+        .sheet(isPresented: eventCreationBinding) {
+            EventCreationPreviewSheet(palette: palette)
+        }
+        .sheet(isPresented: $showRebalanceSheet) {
+            RebalanceProposalSheet(palette: palette)
         }
     }
 
@@ -75,6 +110,8 @@ struct HomeView: View {
                 withAnimation(MiraMotion.standard) {
                     store.selectedMonth = store.selectedMonth.addingMonths(-1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+                    store.updateMarginRecommendation(for: store.selectedMonth)
+                    store.recalculateBalance(for: store.selectedMonth)
                 }
             } label: {
                 Image(systemName: "chevron.left")
@@ -98,6 +135,8 @@ struct HomeView: View {
                     store.selectedMonth = store.selectedMonth.addingMonths(1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.ensurePlan(for: store.selectedMonth)
+                    store.updateMarginRecommendation(for: store.selectedMonth)
+                    store.recalculateBalance(for: store.selectedMonth)
                 }
             } label: {
                 Image(systemName: "chevron.right")
@@ -186,6 +225,41 @@ struct HomeView: View {
         default: kind.title
         }
     }
+
+    private var schedulingModeBinding: Binding<Bool> {
+        Binding(
+            get: { store.activeSchedulingDraft != nil },
+            set: { if !$0 { store.activeSchedulingDraft = nil } }
+        )
+    }
+
+    private var clarificationBinding: Binding<Bool> {
+        Binding(
+            get: { store.activeClarification != nil },
+            set: { if !$0 { store.activeClarification = nil } }
+        )
+    }
+
+    private var declineBinding: Binding<Bool> {
+        Binding(
+            get: { store.activeDeclineDraft != nil },
+            set: { if !$0 { store.activeDeclineDraft = nil } }
+        )
+    }
+
+    private var changePreviewBinding: Binding<Bool> {
+        Binding(
+            get: { store.pendingChangePreview != nil },
+            set: { if !$0 { store.pendingChangePreview = nil } }
+        )
+    }
+
+    private var eventCreationBinding: Binding<Bool> {
+        Binding(
+            get: { store.pendingEventCreationPreview != nil },
+            set: { if !$0 { store.pendingEventCreationPreview = nil } }
+        )
+    }
 }
 
 private struct AssistantCard: View {
@@ -255,7 +329,7 @@ private struct AgendaRow: View {
                             .accessibilityLabel("大切な人との時間")
                     }
                 }
-                Text(timeText)
+                Text(item.timeDescription)
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
             }
@@ -271,13 +345,6 @@ private struct AgendaRow: View {
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
         if item.kind == .birthday { return "gift.fill" }
-        return "calendar"
-    }
-
-    private var timeText: String {
-        if item.isAllDay { return "終日" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "H:mm"
-        return "\(formatter.string(from: item.startDate))–\(formatter.string(from: item.endDate))"
+        return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }
 }
