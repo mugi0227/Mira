@@ -99,6 +99,7 @@ State is never communicated by color alone. Use label, symbol, border style, opa
 - cat does not replace system icons
 - cat text stays short
 - cat notification voice is independently configurable
+- Art direction, ginger-tabby emotion concepts, and the deferred Washi Cat skin are documented in [skin-art-directions.md](../skin-art-directions.md).
 
 ## Interaction rules
 
