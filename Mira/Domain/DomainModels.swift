@@ -222,6 +222,7 @@ enum CatMood: String, Codable {
     case happy
     case warning
     case celebrating
+    case inviting
 }
 
 // MARK: - Domain snapshots

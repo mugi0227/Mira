@@ -74,7 +74,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(spacing: MiraSpacing.lg) {
             Spacer()
-            PixelCatView(mood: .relaxed, size: 132)
+            PixelCatView(mood: .inviting, size: 132)
             VStack(spacing: MiraSpacing.sm) {
                 Text("空いている時間を埋める前に")
                     .font(.title3.weight(.semibold))
