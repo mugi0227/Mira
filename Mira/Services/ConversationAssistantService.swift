@@ -45,7 +45,7 @@ struct HybridConversationInterpreter: ConversationInterpreting {
         }
         #endif
 
-        var value = fallback.interpret(
+        var value = await fallback.interpret(
             text: text,
             now: now,
             pinnedContext: pinnedContext,
