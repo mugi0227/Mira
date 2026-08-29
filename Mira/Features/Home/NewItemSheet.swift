@@ -149,8 +149,10 @@ struct NewItemSheet: View {
             }
             .listRowBackground(palette.surface)
 
-            Section("Miraの秘書チェック") {
+            Section {
                 secretaryPreview
+            } header: {
+                Text("Miraの秘書チェック")
             } footer: {
                 Text("Miraは予定を一方的に禁止しません。影響と別候補を示したうえで、最後はあなたが決められます。")
             }
