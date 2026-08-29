@@ -24,6 +24,17 @@ extension MiraStore {
         try? context.save()
     }
 
+    func setMarginComfortLevel(_ level: MarginComfortLevel, applyRecommendation: Bool = true) {
+        marginComfortLevel = level
+        settingsEntity?.marginComfortRaw = level.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+        updateMarginRecommendation(for: selectedMonth)
+        if applyRecommendation {
+            applyCurrentMarginRecommendation()
+        }
+    }
+
     func addImportantPerson(name: String, monthlyTarget: Int?) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -64,11 +75,26 @@ extension MiraStore {
             try context.delete(model: PendingInvitationEntity.self)
             try context.delete(model: LoadRuleEntity.self)
             try context.delete(model: BaseRuleEntity.self)
+            try context.delete(model: ImportantPersonEntity.self)
+            try context.delete(model: ConversationCaseEntity.self)
+            try context.delete(model: RebalanceProposalEntity.self)
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+            settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             try context.save()
             onboardingCompleted = false
             theme = .pixelCat
+            marginComfortLevel = .standard
+            activeSchedulingDraft = nil
+            pinnedContext = nil
+            pendingInterpretation = nil
+            pendingChangePreview = nil
+            pendingEventCreationPreview = nil
+            activeDeclineDraft = nil
+            activeConversationCaseID = nil
+            activeClarification = nil
+            activeRebalanceProposal = nil
+            isRebalanceProposalPresented = false
             try DemoSeeder.seedBaseline(in: context, clock: DemoClock.standard)
             try refresh()
             toast = "最初の状態に戻したにゃ"

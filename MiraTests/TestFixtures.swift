@@ -10,6 +10,15 @@ enum TestFixtures {
         return base.setting(hour: hour, calendar: calendar)
     }
 
+    static func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 9) -> Date {
+        calendar.date(from: DateComponents(
+            year: year,
+            month: month,
+            day: day,
+            hour: hour
+        )) ?? .now
+    }
+
     static func event(
         title: String = "予定",
         day: Int,

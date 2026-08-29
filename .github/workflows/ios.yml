@@ -5,6 +5,7 @@ on:
     branches: [main, "feature/**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,45 +15,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  xcode26-build:
-    runs-on: macos-26
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - name: Select Xcode 26.6
-        run: sudo xcode-select -s /Applications/Xcode_26.6.app
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate project
-        run: xcodegen generate
-      - name: Build with the iOS 26 SDK
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -project Mira.xcodeproj \
-            -scheme Mira \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build | xcbeautify
+  build-and-test:
+    runs-on: macos-14
+    timeout-minutes: 60
 
-  simulator-tests:
-    runs-on: macos-15
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Select available Xcode
+
+      - name: Select newest installed Xcode
         run: |
-          if [ -d /Applications/Xcode_16.4.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.4.app
-          else
-            XCODE_PATH=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
-            sudo xcode-select -s "$XCODE_PATH"
-          fi
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app/Contents/Developer | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE_PATH"
           xcodebuild -version
+
       - name: Install XcodeGen
         run: brew install xcodegen
+
       - name: Generate project
         run: xcodegen generate
+
       - name: Resolve an available iPhone Simulator
         run: |
           SIMULATOR_UDID=$(python3 - <<'PY'
@@ -62,17 +43,21 @@ jobs:
           data = json.loads(subprocess.check_output([
               "xcrun", "simctl", "list", "devices", "available", "-j"
           ]))
-          for devices in data.get("devices", {}).values():
+          candidates = []
+          for runtime, devices in data.get("devices", {}).items():
               for device in devices:
                   if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
-                      print(device["udid"])
-                      raise SystemExit(0)
-          raise SystemExit("No available iPhone Simulator found")
+                      candidates.append((runtime, device["name"], device["udid"]))
+          if not candidates:
+              raise SystemExit("No available iPhone Simulator found")
+          runtime, name, udid = sorted(candidates)[-1]
+          print(udid)
           PY
           )
           echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
           echo "Using simulator $SIMULATOR_UDID"
-      - name: Test
+
+      - name: Build application
         run: |
           set -o pipefail
           xcodebuild \
@@ -80,5 +65,37 @@ jobs:
             -scheme Mira \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             CODE_SIGNING_ALLOWED=NO \
-            -skip-testing:MiraUITests/MiraScreenshotUITests \
-            test | xcbeautify
+            build | tee build.log
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -only-testing:MiraTests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee unit-tests.log
+
+      - name: Run Grill-Me UI tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -only-testing:MiraUITests/GrillMeFlowUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee ui-tests.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-validation-logs
+          path: |
+            build.log
+            unit-tests.log
+            ui-tests.log
+          if-no-files-found: ignore

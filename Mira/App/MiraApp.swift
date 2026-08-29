@@ -9,7 +9,10 @@ struct MiraApp: App {
     init() {
         let container = Self.makeModelContainer()
         modelContainer = container
-        _store = State(initialValue: MiraStore(container: container))
+        _store = State(initialValue: MiraStore(
+            container: container,
+            conversationInterpreter: ProductionConversationInterpreter()
+        ))
     }
 
     var body: some Scene {
@@ -29,7 +32,9 @@ struct MiraApp: App {
             AdjustmentEntity.self,
             PendingInvitationEntity.self,
             LoadRuleEntity.self,
-            ImportantPersonEntity.self
+            ImportantPersonEntity.self,
+            ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
         ])
         do {
             return try ModelContainer(

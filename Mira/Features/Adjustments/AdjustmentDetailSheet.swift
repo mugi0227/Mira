@@ -9,6 +9,7 @@ struct AdjustmentDetailSheet: View {
     let palette: MiraThemePalette
 
     @State private var showCancelConfirmation = false
+    @State private var showConversationHistory = false
     @State private var candidateToConfirm: CandidateSlotSnapshot?
 
     var body: some View {
@@ -18,6 +19,17 @@ struct AdjustmentDetailSheet: View {
                     statusHeader
                     candidateSection
                     sharingCard
+                    if session.conversationCaseID != nil {
+                        Button {
+                            showConversationHistory = true
+                        } label: {
+                            Label("この調整の会話を見る", systemImage: "bubble.left.and.bubble.right")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.accent)
+                    }
                     if session.status == .waiting {
                         cancelButton
                     }
@@ -46,7 +58,7 @@ struct AdjustmentDetailSheet: View {
                 Button("やめる", role: .cancel) { candidateToConfirm = nil }
             } message: {
                 if let candidateToConfirm {
-                    Text("\(candidateToConfirm.startDate.japaneseShortDate) \(candidateToConfirm.timeOfDay.title)を確定し、ほかの候補を解放します。")
+                    Text("\(candidateToConfirm.startDate.japaneseShortDate) \(candidateDescription(candidateToConfirm))を確定し、ほかの候補を解放します。")
                 }
             }
             .confirmationDialog("調整を取りやめますか？", isPresented: $showCancelConfirmation) {
@@ -57,6 +69,9 @@ struct AdjustmentDetailSheet: View {
                     }
                 }
                 Button("やめる", role: .cancel) {}
+            }
+            .sheet(isPresented: $showConversationHistory) {
+                ConversationHistorySheet(palette: palette, caseID: session.conversationCaseID)
             }
         }
         .tint(palette.accent)
@@ -104,7 +119,7 @@ struct AdjustmentDetailSheet: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(candidate.status == .confirmed ? palette.success.opacity(0.18) : palette.adjustment)
                                 .frame(width: 48, height: 48)
-                            Image(systemName: candidate.status == .confirmed ? "checkmark" : "calendar")
+                            Image(systemName: candidate.status == .confirmed ? "checkmark" : candidate.displayTimeBand.symbolName)
                                 .font(.headline)
                                 .foregroundStyle(candidate.status == .confirmed ? palette.success : palette.primaryText)
                         }
@@ -112,7 +127,7 @@ struct AdjustmentDetailSheet: View {
                             Text(candidate.startDate.japaneseDayTitle)
                                 .font(.headline)
                                 .foregroundStyle(palette.primaryText)
-                            Text(candidate.timeOfDay.title)
+                            Text(candidateDescription(candidate))
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
@@ -128,6 +143,12 @@ struct AdjustmentDetailSheet: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(candidate.status == .confirmed ? palette.success : palette.secondaryText)
                         }
+                    }
+
+                    if candidate.isRecommended == true {
+                        Label("Miraのおすすめ", systemImage: "sparkles")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.accent)
                     }
 
                     if !conflicts.isEmpty, candidate.status == .held {
@@ -187,10 +208,20 @@ struct AdjustmentDetailSheet: View {
     private var statusText: String {
         switch session.status {
         case .draft: "下書き"
-        case .waiting: "返事待ち・候補日を仮押さえ中"
+        case .waiting: "返事待ち・候補日をゆるく仮押さえ中"
         case .confirmed: "日程確定済み"
         case .cancelled: "キャンセル済み"
         }
+    }
+
+    private func candidateDescription(_ candidate: CandidateSlotSnapshot) -> String {
+        if candidate.exactTimeKnown == false {
+            return "\(candidate.displayTimeBand.title)・\(candidate.displayDuration.title)・時間未定"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "H:mm"
+        return "\(formatter.string(from: candidate.startDate))–\(formatter.string(from: candidate.endDate))"
     }
 
     private func candidateStatus(_ status: CandidateStatus) -> String {

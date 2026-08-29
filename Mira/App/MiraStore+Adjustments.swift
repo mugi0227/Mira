@@ -64,14 +64,36 @@ extension MiraStore {
         session.candidates = updated
         session.status = .confirmed
 
-        let prepared = await prepareEvent(
+        var prepared = await prepareEvent(
             title: session.title,
             startDate: candidate.startDate,
             endDate: candidate.endDate,
             isAllDay: candidate.timeOfDay == .allDay,
             isImportant: false
         )
-        context.insert(CalendarItemEntity(snapshot: prepared))
+        prepared.schedulingTimeBand = candidate.schedulingTimeBand ?? candidate.displayTimeBand
+        prepared.durationBucket = candidate.durationBucket ?? candidate.displayDuration
+        prepared.exactTimeKnown = candidate.exactTimeKnown ?? true
+        prepared.conversationCaseID = session.conversationCaseID
+        let impact = previewImpact(for: prepared)
+
+        commitAdvisedEvent(prepared, impact: impact, resolution: .exception)
+
+        if let caseEntity = conversationCase(id: session.conversationCaseID) {
+            caseEntity.kind = .confirmedEvent
+            caseEntity.status = .confirmed
+            var state = caseEntity.state
+            state.relatedItemID = prepared.id
+            state.relatedAdjustmentID = session.id
+            state.dateRangeStart = prepared.startDate
+            state.dateRangeEnd = prepared.endDate
+            state.durationBucket = prepared.durationBucket
+            state.allowedTimeBands = prepared.schedulingTimeBand.map { [$0] } ?? []
+            state.candidates = updated
+            caseEntity.state = state
+            caseEntity.appendTurn(role: .assistant, text: "この日で確定して、ほかの候補を解放したにゃ", at: now)
+        }
+
         try? context.save()
         try? refresh()
         await NotificationService.shared.cancelAdjustmentReminder(id: sessionID)
@@ -79,21 +101,33 @@ extension MiraStore {
     }
 
     func convertPendingToAdjustment(_ invitation: PendingInvitationEntity) {
-        createAdjustment(
+        let message = DemoSeeder.message(title: invitation.title, candidates: invitation.candidates)
+        let entity = AdjustmentEntity(
             title: invitation.title,
-            contact: invitation.contactName ?? "",
-            dates: invitation.candidates.map(\.startDate),
-            timeOfDay: invitation.candidates.first?.timeOfDay ?? .evening,
-            deadline: invitation.replyDeadline
+            contactName: invitation.contactName,
+            responseDeadline: invitation.replyDeadline,
+            candidates: invitation.candidates,
+            generatedMessage: message,
+            conversationCaseID: invitation.conversationCaseID
         )
+        context.insert(entity)
         invitation.status = .adjustment
+        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
+            caseEntity.kind = .adjustment
+            caseEntity.status = .waiting
+            var state = caseEntity.state
+            state.relatedAdjustmentID = entity.id
+            state.relatedInvitationID = invitation.id
+            state.candidates = invitation.candidates
+            caseEntity.state = state
+        }
         try? context.save()
         try? refresh()
     }
 
     func heldCandidates(excluding sessionID: UUID? = nil) -> [CandidateSlotSnapshot] {
         adjustments
-            .filter { $0.id != sessionID && $0.status == .waiting }
+            .filter { $0.id != sessionID && ($0.status == .draft || $0.status == .waiting) }
             .flatMap(\.candidates)
             .filter { $0.status == .held }
     }
@@ -109,35 +143,69 @@ extension MiraStore {
 
     func acceptPending(_ invitation: PendingInvitationEntity) async {
         guard let candidate = invitation.candidates.first else { return }
-        let event = await prepareEvent(
+        var event = await prepareEvent(
             title: invitation.title,
             startDate: candidate.startDate,
             endDate: candidate.endDate,
             isAllDay: candidate.timeOfDay == .allDay,
             isImportant: false
         )
+        event.schedulingTimeBand = candidate.schedulingTimeBand ?? candidate.displayTimeBand
+        event.durationBucket = candidate.durationBucket ?? candidate.displayDuration
+        event.exactTimeKnown = candidate.exactTimeKnown ?? true
+        event.conversationCaseID = invitation.conversationCaseID
         let impact = previewImpact(for: event)
-        commitEvent(event, impact: impact, resolution: .exception)
+        commitAdvisedEvent(event, impact: impact, resolution: .exception)
         invitation.status = .accepted
+        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
+            caseEntity.kind = .confirmedEvent
+            caseEntity.status = .confirmed
+            var state = caseEntity.state
+            state.relatedItemID = event.id
+            state.relatedInvitationID = invitation.id
+            state.dateRangeStart = event.startDate
+            state.dateRangeEnd = event.endDate
+            caseEntity.state = state
+        }
         try? context.save()
         try? refresh()
     }
 
     func markPending(_ invitation: PendingInvitationEntity, as status: InvitationStatus) {
         invitation.status = status
+        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
+            switch status {
+            case .accepted:
+                caseEntity.kind = .confirmedEvent
+                caseEntity.status = .confirmed
+            case .adjustment:
+                caseEntity.kind = .adjustment
+                caseEntity.status = .waiting
+            case .declined:
+                caseEntity.status = .completed
+            case .archived:
+                caseEntity.status = .archived
+            case .considering:
+                caseEntity.kind = .invitation
+                caseEntity.status = .active
+            }
+        }
         try? context.save()
         try? refresh()
     }
 
     func declinePending(_ invitation: PendingInvitationEntity) {
         markPending(invitation, as: .declined)
+        if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
+            caseEntity.appendTurn(role: .assistant, text: "今回は見送ることにしたにゃ", at: now)
+            try? context.save()
+            try? refresh()
+        }
         toast = "今回は見送ることにしたにゃ"
     }
 
     func archivePending(_ invitation: PendingInvitationEntity) {
-        invitation.status = .archived
-        try? context.save()
-        try? refresh()
+        markPending(invitation, as: .archived)
     }
 
     func cancelAdjustment(_ session: AdjustmentEntity) async {
@@ -146,6 +214,10 @@ extension MiraStore {
             var copy = candidate
             copy.status = .released
             return copy
+        }
+        if let caseEntity = conversationCase(id: session.conversationCaseID) {
+            caseEntity.status = .completed
+            caseEntity.appendTurn(role: .assistant, text: "候補日を解放したにゃ", at: now)
         }
         try? context.save()
         try? refresh()

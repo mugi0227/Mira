@@ -1,0 +1,194 @@
+import XCTest
+@testable import Mira
+
+final class ConversationalAssistantTests: XCTestCase {
+    private var calendar: Calendar { .mira }
+
+    func testPastedInvitationIsStructuredWithoutRequiringAgenticTools() async {
+        let now = makeDate(2026, 8, 29, 10)
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
+
+        let result = await interpreter.interpret(
+            text: "来週の金曜日か土曜日どっちか飲まん？",
+            now: now,
+            pinnedContext: nil,
+            searchCandidates: [],
+            recentTurns: []
+        )
+
+        XCTAssertEqual(result.intent, .checkInvitation)
+        XCTAssertEqual(result.durationBucket, .short)
+        XCTAssertEqual(result.timeBands, [.evening])
+        XCTAssertEqual(result.candidateDates.count, 2)
+        XCTAssertTrue(result.inferredFields.contains("duration"))
+        XCTAssertTrue(result.inferredFields.contains("timeBands"))
+        XCTAssertFalse(result.needsClarification)
+    }
+
+    func testAmbiguousActivityAsksOnlyForDuration() async {
+        let interpreter = RuleBasedConversationInterpreter(calendar: calendar)
+        let result = await interpreter.interpret(
+            text: "来月みんなで遊びたい",
+            now: makeDate(2026, 8, 29, 10),
+            pinnedContext: nil,
+            searchCandidates: [],
+            recentTurns: []
+        )
+
+        XCTAssertEqual(result.intent, .findDates)
+        XCTAssertTrue(result.needsClarification)
+        XCTAssertTrue(result.clarificationOptions.contains("半日"))
+    }
+
+    func testFollowUpRestoresCaseRangeAndExcludesNight() async {
+        let now = makeDate(2026, 8, 29, 10)
+        let caseID = UUID()
+        let context = ContextSearchResult(
+            id: caseID,
+            kind: .adjustment,
+            title: "友達と焼肉",
+            subtitle: "進行中",
+            startDate: makeDate(2026, 9, 1, 0),
+            endDate: makeDate(2026, 9, 30, 23),
+            relatedCaseID: caseID,
+            relatedItemID: nil,
+            relatedAdjustmentID: UUID(),
+            relatedInvitationID: nil,
+            score: 200,
+            isPast: false
+        )
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
+        let result = await interpreter.interpret(
+            text: "夜はなしで",
+            now: now,
+            pinnedContext: context,
+            searchCandidates: [context],
+            recentTurns: [ConversationTurnSnapshot(role: .user, text: "来月友達と焼肉行きたい")]
+        )
+
+        XCTAssertEqual(result.intent, .findDates)
+        XCTAssertEqual(result.title, "友達と焼肉")
+        XCTAssertEqual(result.durationBucket, .short)
+        XCTAssertFalse(result.timeBands.contains(.evening))
+        XCTAssertNotNil(result.dateRangeStart)
+        XCTAssertNotNil(result.dateRangeEnd)
+        XCTAssertFalse(result.needsClarification)
+    }
+
+    func testFollowUpCanExcludeSaturdayWithoutLosingTheOriginalRange() async {
+        let now = makeDate(2026, 8, 29, 10)
+        let caseID = UUID()
+        let context = ContextSearchResult(
+            id: caseID,
+            kind: .adjustment,
+            title: "友達と焼肉",
+            subtitle: "進行中",
+            startDate: makeDate(2026, 9, 1, 0),
+            endDate: makeDate(2026, 9, 30, 23),
+            relatedCaseID: caseID,
+            relatedItemID: nil,
+            relatedAdjustmentID: UUID(),
+            relatedInvitationID: nil,
+            score: 200,
+            isPast: false
+        )
+        let interpreter = ProductionConversationInterpreter(calendar: calendar)
+        let result = await interpreter.interpret(
+            text: "土曜は外して",
+            now: now,
+            pinnedContext: context,
+            searchCandidates: [context],
+            recentTurns: [ConversationTurnSnapshot(role: .user, text: "来月友達と焼肉行きたい")]
+        )
+
+        XCTAssertTrue(result.explicitConstraints.contains("土曜を除外"))
+        XCTAssertFalse(result.candidateDates.isEmpty)
+        XCTAssertTrue(result.candidateDates.allSatisfy {
+            calendar.component(.weekday, from: $0) != 7
+        })
+        XCTAssertFalse(result.needsClarification)
+    }
+
+    func testCaseSearchExcludesPastByDefaultAndIncludesItExplicitly() {
+        let now = makeDate(2026, 8, 29, 10)
+        let past = CalendarItemSnapshot(
+            id: UUID(),
+            title: "昔の焼肉会",
+            startDate: makeDate(2026, 5, 10, 19),
+            endDate: makeDate(2026, 5, 10, 21),
+            isAllDay: false,
+            kind: .confirmed,
+            marginKind: nil,
+            loadClass: .normal,
+            loadReason: "test",
+            bufferBeforeMinutes: 0,
+            bufferAfterMinutes: 0,
+            isImportantTime: false,
+            sourceID: nil
+        )
+        let future = CalendarItemSnapshot(
+            id: UUID(),
+            title: "友達と焼肉",
+            startDate: makeDate(2026, 9, 12, 19),
+            endDate: makeDate(2026, 9, 12, 21),
+            isAllDay: false,
+            kind: .confirmed,
+            marginKind: nil,
+            loadClass: .normal,
+            loadReason: "test",
+            bufferBeforeMinutes: 0,
+            bufferAfterMinutes: 0,
+            isImportantTime: false,
+            sourceID: nil
+        )
+        let engine = CaseSearchEngine(calendar: calendar)
+
+        let normal = engine.search(
+            query: "焼肉",
+            includePast: false,
+            now: now,
+            cases: [],
+            items: [past, future],
+            adjustments: [],
+            invitations: []
+        )
+        XCTAssertEqual(normal.map(\.title), ["友達と焼肉"])
+
+        let expanded = engine.search(
+            query: "焼肉",
+            includePast: true,
+            now: now,
+            cases: [],
+            items: [past, future],
+            adjustments: [],
+            invitations: []
+        )
+        XCTAssertEqual(Set(expanded.map(\.title)), Set(["昔の焼肉会", "友達と焼肉"]))
+    }
+
+    func testCoarseCandidateRoundTripPreservesTimeBandAndDuration() throws {
+        let slot = CandidateSlotSnapshot(
+            startDate: makeDate(2026, 9, 16, 19),
+            endDate: makeDate(2026, 9, 16, 21),
+            timeOfDay: .evening,
+            schedulingTimeBand: .evening,
+            durationBucket: .short,
+            exactTimeKnown: false,
+            isRecommended: true,
+            recommendationScore: 98.0
+        )
+
+        let data = try JSONEncoder().encode(slot)
+        let decoded = try JSONDecoder().decode(CandidateSlotSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded.schedulingTimeBand, .evening)
+        XCTAssertEqual(decoded.durationBucket, .short)
+        XCTAssertEqual(decoded.exactTimeKnown, false)
+        XCTAssertEqual(decoded.isRecommended, true)
+        XCTAssertEqual(decoded.recommendationScore, 98.0)
+    }
+
+    private func makeDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
+    }
+}

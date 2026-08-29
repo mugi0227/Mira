@@ -29,35 +29,63 @@ final class MiraScreenshotUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["ホーム"].waitForExistence(timeout: 8))
         settle(1.0)
         try capture("04-home-full-width-calendar")
+        try capture("05-home-universal-assistant")
+
+        try captureEventEntrySecretary(in: app)
+        try captureContextPicker(in: app)
+        try captureConversationalScheduling(in: app)
+        try captureDeclineGenerator(in: app)
+        try captureNaturalLanguageChangePreview(in: app)
+        try captureNaturalEventPreview(in: app)
 
         app.tabBars.buttons["調整"].tap()
         settle()
-        try capture("05-adjustments")
+        try capture("13-adjustments-soft-holds")
 
         app.tabBars.buttons["マイ余白"].tap()
         settle()
-        try capture("06-my-margins")
+        try capture("14-my-margins-automatic-plan")
+
+        let rebalanceButton = app.buttons["完成した組み直し案を見る"]
+        if rebalanceButton.waitForExistence(timeout: 2) {
+            rebalanceButton.tap()
+            XCTAssertTrue(app.navigationBars["余白の再設計"].waitForExistence(timeout: 4))
+            settle()
+            try capture("15-rebalance-complete-proposal")
+            app.navigationBars["余白の再設計"].buttons["閉じる"].tap()
+            settle()
+        }
 
         let baseHours = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "普段は予定を置かない時間")).firstMatch
         if baseHours.waitForExistence(timeout: 3) {
             baseHours.tap()
             XCTAssertTrue(app.navigationBars["基本時間"].waitForExistence(timeout: 4))
             settle()
-            try capture("07-base-hours-editor")
+            try capture("16-base-hours-editor")
             app.buttons["キャンセル"].tap()
             settle()
         }
 
         app.tabBars.buttons["設定"].tap()
         settle()
-        try capture("08-settings")
+        try capture("17-settings")
+
+        let marginAuto = app.staticTexts["余白のおまかせ"]
+        if marginAuto.waitForExistence(timeout: 3) {
+            marginAuto.tap()
+            XCTAssertTrue(app.navigationBars["余白のおまかせ"].waitForExistence(timeout: 4))
+            settle()
+            try capture("18-margin-comfort-settings")
+            app.navigationBars["余白のおまかせ"].buttons.firstMatch.tap()
+            settle()
+        }
 
         let skinText = app.staticTexts["スキン"]
         if skinText.waitForExistence(timeout: 3) {
             skinText.tap()
             XCTAssertTrue(app.navigationBars["スキン"].waitForExistence(timeout: 4))
             settle()
-            try capture("09-skin-picker")
+            try capture("19-skin-picker")
             app.navigationBars["スキン"].buttons.firstMatch.tap()
             settle()
         }
@@ -67,20 +95,138 @@ final class MiraScreenshotUITests: XCTestCase {
         importText.tap()
         XCTAssertTrue(app.navigationBars["カレンダーの引っ越し"].waitForExistence(timeout: 4))
         settle()
-        try capture("10-legacy-import-intro")
+        try capture("20-legacy-import-intro")
 
         let tryImport = app.buttons["移行を試す"]
         XCTAssertTrue(tryImport.waitForExistence(timeout: 3))
         tryImport.tap()
         settle()
-        try capture("11-legacy-import-source")
+        try capture("21-legacy-import-source")
 
         let analyze = app.buttons["サンプルPDFを読み取る"]
         XCTAssertTrue(analyze.waitForExistence(timeout: 3))
         analyze.tap()
         XCTAssertTrue(app.staticTexts["読み取った予定"].waitForExistence(timeout: 6))
         settle()
-        try capture("12-legacy-import-review")
+        try capture("22-legacy-import-review")
+    }
+
+    private func captureEventEntrySecretary(in app: XCUIApplication) throws {
+        let addMenu = app.buttons["追加メニュー"]
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 4))
+        addMenu.tap()
+
+        let addItem = app.buttons["予定・余白を追加"]
+        XCTAssertTrue(addItem.waitForExistence(timeout: 3))
+        addItem.tap()
+
+        XCTAssertTrue(app.navigationBars["予定を追加"].waitForExistence(timeout: 4))
+        let titleField = app.textFields["例：友達とご飯"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 4))
+        titleField.tap()
+        titleField.typeText("カフェに行く\n")
+        settle(0.5)
+
+        let secretaryHeader = app.staticTexts["Miraの秘書チェック"]
+        for _ in 0..<3 where !secretaryHeader.isHittable {
+            app.swipeUp()
+            settle(0.25)
+        }
+        XCTAssertTrue(secretaryHeader.waitForExistence(timeout: 4))
+        settle(0.8)
+        try capture("06-event-entry-secretary")
+
+        let addButton = app.navigationBars["予定を追加"].buttons["追加"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 3))
+        addButton.tap()
+
+        let override = app.buttons["このまま追加する"]
+        let finalOverride = app.buttons["今回は例外として追加"]
+        XCTAssertTrue(
+            override.waitForExistence(timeout: 8) || finalOverride.waitForExistence(timeout: 1),
+            "Explicit user override must remain available"
+        )
+        try capture("07-event-entry-explicit-override")
+
+        let back = app.buttons["いったん戻る"]
+        XCTAssertTrue(back.waitForExistence(timeout: 3))
+        back.tap()
+        app.navigationBars["予定を追加"].buttons["閉じる"].tap()
+        XCTAssertTrue(app.tabBars.buttons["ホーム"].waitForExistence(timeout: 4))
+        settle()
+    }
+
+    private func captureContextPicker(in app: XCUIApplication) throws {
+        let picker = app.buttons["contextPickerButton"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 4))
+        picker.tap()
+        XCTAssertTrue(app.navigationBars["この話について"].waitForExistence(timeout: 4))
+        settle()
+        try capture("08-context-picker-tabs")
+        app.navigationBars["この話について"].buttons["閉じる"].tap()
+        settle()
+    }
+
+    private func captureConversationalScheduling(in app: XCUIApplication) throws {
+        try sendToMira("来月友達と焼肉行きたい", in: app)
+        XCTAssertTrue(app.navigationBars["日程を探す"].waitForExistence(timeout: 12))
+        settle(1.0)
+        try capture("09-conversational-scheduling-recommendations")
+        XCTAssertTrue(app.staticTexts["Miraの案を添削するだけ"].exists)
+        app.navigationBars["日程を探す"].buttons["閉じる"].tap()
+        settle()
+    }
+
+    private func captureDeclineGenerator(in app: XCUIApplication) throws {
+        try sendToMira("この誘い断りたい", in: app)
+        XCTAssertTrue(app.staticTexts["嘘をつかずに、やわらかく断るにゃ"].waitForExistence(timeout: 12))
+        settle()
+        try capture("10-decline-message-gacha")
+        let close = app.navigationBars.buttons["閉じる"].firstMatch
+        XCTAssertTrue(close.exists)
+        close.tap()
+        settle()
+    }
+
+    private func captureNaturalLanguageChangePreview(in app: XCUIApplication) throws {
+        let picker = app.buttons["contextPickerButton"]
+        picker.tap()
+        XCTAssertTrue(app.navigationBars["この話について"].waitForExistence(timeout: 4))
+        let confirmed = app.segmentedControls.buttons["確定予定"]
+        XCTAssertTrue(confirmed.waitForExistence(timeout: 3))
+        confirmed.tap()
+        let target = app.staticTexts["会社の飲み会"]
+        XCTAssertTrue(target.waitForExistence(timeout: 4))
+        target.tap()
+        XCTAssertTrue(app.otherElements["pinnedContextChip"].waitForExistence(timeout: 4))
+
+        try sendToMira("19時からになった", in: app)
+        XCTAssertTrue(app.navigationBars["変更プレビュー"].waitForExistence(timeout: 12))
+        settle()
+        try capture("11-natural-language-change-preview")
+        app.navigationBars["変更プレビュー"].buttons["キャンセル"].tap()
+        settle()
+        let unpin = app.buttons["案件指定を外す"]
+        if unpin.exists { unpin.tap() }
+    }
+
+    private func captureNaturalEventPreview(in app: XCUIApplication) throws {
+        try sendToMira("10月15日19時にカフェを予定に追加", in: app)
+        XCTAssertTrue(app.navigationBars["予定の確認"].waitForExistence(timeout: 12))
+        settle()
+        try capture("12-natural-language-event-preview")
+        app.navigationBars["予定の確認"].buttons["キャンセル"].tap()
+        settle()
+    }
+
+    private func sendToMira(_ text: String, in app: XCUIApplication) throws {
+        let input = app.descendants(matching: .any)["miraQuickInput"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText(text)
+        let send = app.buttons["miraSendButton"]
+        XCTAssertTrue(send.waitForExistence(timeout: 3))
+        send.tap()
     }
 
     private func tapNext(in app: XCUIApplication) {

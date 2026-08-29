@@ -195,11 +195,27 @@ struct CalendarItemSnapshot: Identifiable, Hashable, Sendable {
     var bufferAfterMinutes: Int
     var isImportantTime: Bool
     var sourceID: UUID?
+    var schedulingTimeBand: SchedulingTimeBand? = nil
+    var durationBucket: DurationBucket? = nil
+    var exactTimeKnown: Bool = true
+    var conversationCaseID: UUID? = nil
 
     var occupiedInterval: DateInterval {
         let start = Calendar.mira.date(byAdding: .minute, value: -bufferBeforeMinutes, to: startDate) ?? startDate
         let end = Calendar.mira.date(byAdding: .minute, value: bufferAfterMinutes, to: endDate) ?? endDate
         return DateInterval(start: start, end: max(end, start))
+    }
+
+    var timeDescription: String {
+        if !exactTimeKnown, let schedulingTimeBand {
+            let duration = durationBucket.map { "・\($0.title)" } ?? ""
+            return "\(schedulingTimeBand.title)・時間未定\(duration)"
+        }
+        if isAllDay { return "終日" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "H:mm"
+        return "\(formatter.string(from: startDate))–\(formatter.string(from: endDate))"
     }
 }
 
@@ -221,6 +237,11 @@ struct CandidateSlotSnapshot: Identifiable, Codable, Hashable, Sendable {
     var timeOfDay: TimeOfDayKind
     var status: CandidateStatus
     var overlapOverrideApproved: Bool
+    var schedulingTimeBand: SchedulingTimeBand?
+    var durationBucket: DurationBucket?
+    var exactTimeKnown: Bool?
+    var isRecommended: Bool?
+    var recommendationScore: Double?
 
     init(
         id: UUID = UUID(),
@@ -228,7 +249,12 @@ struct CandidateSlotSnapshot: Identifiable, Codable, Hashable, Sendable {
         endDate: Date,
         timeOfDay: TimeOfDayKind,
         status: CandidateStatus = .held,
-        overlapOverrideApproved: Bool = false
+        overlapOverrideApproved: Bool = false,
+        schedulingTimeBand: SchedulingTimeBand? = nil,
+        durationBucket: DurationBucket? = nil,
+        exactTimeKnown: Bool? = true,
+        isRecommended: Bool? = false,
+        recommendationScore: Double? = nil
     ) {
         self.id = id
         self.startDate = startDate
@@ -236,9 +262,28 @@ struct CandidateSlotSnapshot: Identifiable, Codable, Hashable, Sendable {
         self.timeOfDay = timeOfDay
         self.status = status
         self.overlapOverrideApproved = overlapOverrideApproved
+        self.schedulingTimeBand = schedulingTimeBand
+        self.durationBucket = durationBucket
+        self.exactTimeKnown = exactTimeKnown
+        self.isRecommended = isRecommended
+        self.recommendationScore = recommendationScore
     }
 
     var interval: DateInterval { DateInterval(start: startDate, end: max(endDate, startDate)) }
+
+    var displayTimeBand: SchedulingTimeBand {
+        if let schedulingTimeBand { return schedulingTimeBand }
+        switch timeOfDay {
+        case .allDay: return .allDay
+        case .morning: return .morning
+        case .afternoon: return .midday
+        case .evening: return .evening
+        }
+    }
+
+    var displayDuration: DurationBucket {
+        durationBucket ?? (timeOfDay == .allDay ? .fullDay : .short)
+    }
 }
 
 struct LoadEvaluation: Hashable, Sendable {

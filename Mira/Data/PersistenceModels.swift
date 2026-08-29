@@ -10,6 +10,7 @@ final class AppSettingsEntity {
     var characterNotificationsEnabled: Bool
     var notificationsEnabled: Bool
     var demoModeEnabled: Bool
+    var marginComfortRaw: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -20,7 +21,8 @@ final class AppSettingsEntity {
         assistantEnabled: Bool = true,
         characterNotificationsEnabled: Bool = true,
         notificationsEnabled: Bool = false,
-        demoModeEnabled: Bool = true
+        demoModeEnabled: Bool = true,
+        marginComfortRaw: String = MarginComfortLevel.standard.rawValue
     ) {
         self.key = key
         self.onboardingCompleted = onboardingCompleted
@@ -29,6 +31,7 @@ final class AppSettingsEntity {
         self.characterNotificationsEnabled = characterNotificationsEnabled
         self.notificationsEnabled = notificationsEnabled
         self.demoModeEnabled = demoModeEnabled
+        self.marginComfortRaw = marginComfortRaw
         self.createdAt = .now
         self.updatedAt = .now
     }
@@ -49,6 +52,10 @@ final class CalendarItemEntity {
     var bufferAfterMinutes: Int
     var isImportantTime: Bool
     var sourceID: UUID?
+    var schedulingTimeBandRaw: String?
+    var durationBucketRaw: String?
+    var exactTimeKnown: Bool?
+    var conversationCaseID: UUID?
     var createdAt: Date
     var updatedAt: Date
 
@@ -66,6 +73,10 @@ final class CalendarItemEntity {
         bufferAfterMinutes = snapshot.bufferAfterMinutes
         isImportantTime = snapshot.isImportantTime
         sourceID = snapshot.sourceID
+        schedulingTimeBandRaw = snapshot.schedulingTimeBand?.rawValue
+        durationBucketRaw = snapshot.durationBucket?.rawValue
+        exactTimeKnown = snapshot.exactTimeKnown
+        conversationCaseID = snapshot.conversationCaseID
         createdAt = .now
         updatedAt = .now
     }
@@ -84,7 +95,11 @@ final class CalendarItemEntity {
             bufferBeforeMinutes: bufferBeforeMinutes,
             bufferAfterMinutes: bufferAfterMinutes,
             isImportantTime: isImportantTime,
-            sourceID: sourceID
+            sourceID: sourceID,
+            schedulingTimeBand: schedulingTimeBandRaw.flatMap(SchedulingTimeBand.init(rawValue:)),
+            durationBucket: durationBucketRaw.flatMap(DurationBucket.init(rawValue:)),
+            exactTimeKnown: exactTimeKnown ?? true,
+            conversationCaseID: conversationCaseID
         )
     }
 
@@ -101,6 +116,10 @@ final class CalendarItemEntity {
         bufferAfterMinutes = snapshot.bufferAfterMinutes
         isImportantTime = snapshot.isImportantTime
         sourceID = snapshot.sourceID
+        schedulingTimeBandRaw = snapshot.schedulingTimeBand?.rawValue
+        durationBucketRaw = snapshot.durationBucket?.rawValue
+        exactTimeKnown = snapshot.exactTimeKnown
+        conversationCaseID = snapshot.conversationCaseID
         updatedAt = .now
     }
 }
@@ -169,6 +188,7 @@ final class AdjustmentEntity {
     var statusRaw: String
     @Attribute(.externalStorage) var candidatesData: Data
     var generatedMessage: String
+    var conversationCaseID: UUID?
     var createdAt: Date
     var updatedAt: Date
 
@@ -179,7 +199,8 @@ final class AdjustmentEntity {
         responseDeadline: Date? = nil,
         status: AdjustmentStatus = .waiting,
         candidates: [CandidateSlotSnapshot],
-        generatedMessage: String
+        generatedMessage: String,
+        conversationCaseID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -188,6 +209,7 @@ final class AdjustmentEntity {
         self.statusRaw = status.rawValue
         self.candidatesData = (try? JSONEncoder().encode(candidates)) ?? Data()
         self.generatedMessage = generatedMessage
+        self.conversationCaseID = conversationCaseID
         self.createdAt = .now
         self.updatedAt = .now
     }
@@ -215,6 +237,7 @@ final class PendingInvitationEntity {
     var replyDeadline: Date?
     var statusRaw: String
     @Attribute(.externalStorage) var candidatesData: Data
+    var conversationCaseID: UUID?
     var createdAt: Date
     var updatedAt: Date
 
@@ -225,7 +248,8 @@ final class PendingInvitationEntity {
         memo: String? = nil,
         replyDeadline: Date? = nil,
         status: InvitationStatus = .considering,
-        candidates: [CandidateSlotSnapshot]
+        candidates: [CandidateSlotSnapshot],
+        conversationCaseID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -234,6 +258,7 @@ final class PendingInvitationEntity {
         self.replyDeadline = replyDeadline
         self.statusRaw = status.rawValue
         self.candidatesData = (try? JSONEncoder().encode(candidates)) ?? Data()
+        self.conversationCaseID = conversationCaseID
         self.createdAt = .now
         self.updatedAt = .now
     }
@@ -285,5 +310,104 @@ final class ImportantPersonEntity {
         self.monthlyTarget = monthlyTarget
         self.targetEnabled = targetEnabled
         self.isArchived = false
+    }
+}
+
+@Model
+final class ConversationCaseEntity {
+    @Attribute(.unique) var id: UUID
+    var title: String
+    var kindRaw: String
+    var statusRaw: String
+    @Attribute(.externalStorage) var stateData: Data
+    @Attribute(.externalStorage) var turnsData: Data
+    var lastActivityAt: Date
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        kind: ConversationCaseKind,
+        status: ConversationCaseStatus = .active,
+        state: ConversationCaseState = ConversationCaseState(),
+        turns: [ConversationTurnSnapshot] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.kindRaw = kind.rawValue
+        self.statusRaw = status.rawValue
+        self.stateData = (try? JSONEncoder().encode(state)) ?? Data()
+        self.turnsData = (try? JSONEncoder().encode(turns)) ?? Data()
+        self.lastActivityAt = .now
+        self.createdAt = .now
+        self.updatedAt = .now
+    }
+
+    var kind: ConversationCaseKind {
+        get { ConversationCaseKind(rawValue: kindRaw) ?? .draft }
+        set { kindRaw = newValue.rawValue }
+    }
+
+    var status: ConversationCaseStatus {
+        get { ConversationCaseStatus(rawValue: statusRaw) ?? .active }
+        set { statusRaw = newValue.rawValue }
+    }
+
+    var state: ConversationCaseState {
+        get { (try? JSONDecoder().decode(ConversationCaseState.self, from: stateData)) ?? ConversationCaseState() }
+        set {
+            stateData = (try? JSONEncoder().encode(newValue)) ?? Data()
+            updatedAt = .now
+            lastActivityAt = .now
+        }
+    }
+
+    var turns: [ConversationTurnSnapshot] {
+        get { (try? JSONDecoder().decode([ConversationTurnSnapshot].self, from: turnsData)) ?? [] }
+        set {
+            turnsData = (try? JSONEncoder().encode(newValue)) ?? Data()
+            updatedAt = .now
+            lastActivityAt = .now
+        }
+    }
+
+    func appendTurn(role: ConversationRole, text: String, at date: Date = .now) {
+        var value = turns
+        value.append(ConversationTurnSnapshot(role: role, text: text, createdAt: date))
+        turns = value
+    }
+}
+
+@Model
+final class RebalanceProposalEntity {
+    @Attribute(.unique) var id: UUID
+    var month: Date
+    @Attribute(.externalStorage) var proposalData: Data
+    var stateHash: String
+    var isDismissed: Bool
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(proposal: RebalanceProposal) {
+        id = proposal.id
+        month = proposal.month
+        proposalData = (try? JSONEncoder().encode(proposal)) ?? Data()
+        stateHash = proposal.stateHash
+        isDismissed = false
+        createdAt = proposal.createdAt
+        updatedAt = .now
+    }
+
+    var proposal: RebalanceProposal? {
+        get { try? JSONDecoder().decode(RebalanceProposal.self, from: proposalData) }
+        set {
+            if let newValue {
+                proposalData = (try? JSONEncoder().encode(newValue)) ?? Data()
+                month = newValue.month
+                stateHash = newValue.stateHash
+            }
+            updatedAt = .now
+        }
     }
 }

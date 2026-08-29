@@ -5,7 +5,7 @@ struct AdjustmentsView: View {
     let palette: MiraThemePalette
 
     @State private var segment: AdjustmentSegment = .adjustments
-    @State private var showCreate = false
+    @State private var showPendingCreate = false
     @State private var selectedAdjustment: AdjustmentEntity?
     @State private var selectedInvitation: PendingInvitationEntity?
 
@@ -23,6 +23,7 @@ struct AdjustmentsView: View {
             ScrollView {
                 LazyVStack(spacing: MiraSpacing.sm) {
                     if segment == .adjustments {
+                        manualSchedulingCard
                         adjustmentList
                     } else {
                         invitationList
@@ -37,19 +38,21 @@ struct AdjustmentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showCreate = true } label: {
+                Button {
+                    if segment == .adjustments {
+                        store.startManualScheduling()
+                    } else {
+                        showPendingCreate = true
+                    }
+                } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel(segment == .adjustments ? "日程調整を作成" : "検討中の誘いを追加")
+                .accessibilityLabel(segment == .adjustments ? "日程を探す" : "検討中の誘いを追加")
             }
         }
-        .sheet(isPresented: $showCreate) {
-            if segment == .adjustments {
-                NewAdjustmentSheet(palette: palette)
-            } else {
-                NewPendingInvitationSheet(palette: palette)
-            }
+        .sheet(isPresented: $showPendingCreate) {
+            NewPendingInvitationSheet(palette: palette)
         }
         .sheet(item: $selectedAdjustment) { session in
             AdjustmentDetailSheet(session: session, palette: palette)
@@ -57,6 +60,35 @@ struct AdjustmentsView: View {
         .sheet(item: $selectedInvitation) { invitation in
             PendingInvitationDetailSheet(invitation: invitation, palette: palette)
         }
+    }
+
+    private var manualSchedulingCard: some View {
+        Button {
+            store.startManualScheduling()
+        } label: {
+            HStack(spacing: MiraSpacing.sm) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(palette.accent)
+                    .frame(width: 48, height: 48)
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("新しい日程を探す")
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text("Miraが良い候補を先に選び、カレンダー上で追加・削除できます。")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(palette.secondaryText)
+            }
+            .miraCard(palette, padding: MiraSpacing.sm)
+        }
+        .buttonStyle(MiraPressStyle())
     }
 
     @ViewBuilder
@@ -70,7 +102,7 @@ struct AdjustmentsView: View {
                 palette: palette
             )
             .miraCard(palette)
-            .padding(.top, MiraSpacing.lg)
+            .padding(.top, MiraSpacing.sm)
         } else {
             ForEach(active, id: \.id) { session in
                 Button { selectedAdjustment = session } label: {
@@ -88,7 +120,7 @@ struct AdjustmentsView: View {
             EmptyStateView(
                 symbol: "tray",
                 title: "検討中の誘いはありません",
-                message: "その場で返事せず、一度ここへ置いて余白への影響を見られます。",
+                message: "LINEの文章をホームへ貼るか、＋から誘いを一度ここへ置けます。",
                 palette: palette
             )
             .miraCard(palette)
@@ -135,6 +167,10 @@ private struct AdjustmentRow: View {
                     .foregroundStyle(palette.secondaryText)
                 if let deadline = session.responseDeadline {
                     Label("返事期限 \(deadline.japaneseShortDate)", systemImage: "bell")
+                        .font(.caption2)
+                        .foregroundStyle(palette.warning)
+                } else if session.status == .waiting {
+                    Text("返事待ち・候補を仮押さえ中")
                         .font(.caption2)
                         .foregroundStyle(palette.warning)
                 }
