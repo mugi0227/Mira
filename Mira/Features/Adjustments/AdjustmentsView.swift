@@ -115,7 +115,7 @@ struct AdjustmentsView: View {
 
     @ViewBuilder
     private var invitationList: some View {
-        let active = store.pendingInvitations.filter { [.considering, .adjustment].contains($0.status) }
+        let active = store.pendingInvitations.filter { $0.status == .considering }
         if active.isEmpty {
             EmptyStateView(
                 symbol: "tray",

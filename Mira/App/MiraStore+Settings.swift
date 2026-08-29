@@ -35,6 +35,37 @@ extension MiraStore {
         }
     }
 
+    func setWeekStartDay(_ value: WeekStartDay) {
+        weekStartDay = value
+        settingsEntity?.weekStartRaw = value.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+    }
+
+    func setDeviceHolidaysEnabled(_ enabled: Bool) async {
+        if enabled {
+            guard await deviceHolidayService.requestAccessIfNeeded() else {
+                deviceHolidaysEnabled = false
+                settingsEntity?.deviceHolidaysEnabled = false
+                try? context.save()
+                toast = "iPhoneのカレンダーへのアクセスを許可すると祝日を表示できます"
+                return
+            }
+        }
+
+        deviceHolidaysEnabled = enabled
+        settingsEntity?.deviceHolidaysEnabled = enabled
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+        await refreshDeviceHolidays(for: selectedMonth)
+    }
+
+    func refreshDeviceHolidays(for month: Date) async {
+        deviceHolidays = deviceHolidaysEnabled
+            ? deviceHolidayService.holidays(around: month)
+            : []
+    }
+
     func addImportantPerson(name: String, monthlyTarget: Int?) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -81,10 +112,15 @@ extension MiraStore {
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
+            settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
+            settingsEntity?.deviceHolidaysEnabled = false
             try context.save()
             onboardingCompleted = false
             theme = .pixelCat
             marginComfortLevel = .standard
+            weekStartDay = .monday
+            deviceHolidaysEnabled = false
+            deviceHolidays = []
             activeSchedulingDraft = nil
             pinnedContext = nil
             pendingInterpretation = nil

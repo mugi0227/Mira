@@ -27,6 +27,27 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
+                Picker("週の始まり", selection: Binding(
+                    get: { store.weekStartDay },
+                    set: { store.setWeekStartDay($0) }
+                )) {
+                    ForEach(WeekStartDay.allCases) { value in
+                        Text(value.title).tag(value)
+                    }
+                }
+
+                Toggle("iPhoneの祝日を表示", systemImage: "flag.fill", isOn: Binding(
+                    get: { store.deviceHolidaysEnabled },
+                    set: { enabled in Task { await store.setDeviceHolidaysEnabled(enabled) } }
+                ))
+            } header: {
+                Text("カレンダー表示")
+            } footer: {
+                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。")
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
                 NavigationLink {
                     MarginComfortSettingsView(palette: palette)
                 } label: {

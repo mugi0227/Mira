@@ -22,8 +22,10 @@ struct OnboardingView: View {
     @State private var marginMode: OnboardingMarginMode = .automatic
     @State private var marginComfort: MarginComfortLevel = .standard
     @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
+    @State private var weekStartDay: WeekStartDay = .monday
+    @State private var useDeviceHolidays = true
 
-    private let totalSteps = 5
+    private let totalSteps = 6
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,7 +38,8 @@ struct OnboardingView: View {
                 chooseMargins.tag(1)
                 chooseAmounts.tag(2)
                 basicUnavailableTimes.tag(3)
-                ready.tag(4)
+                calendarPreferences.tag(4)
+                ready.tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(MiraMotion.standard, value: step)
@@ -304,6 +307,49 @@ struct OnboardingView: View {
         }
     }
 
+    private var calendarPreferences: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                onboardingTitle(
+                    "カレンダーの見え方は？",
+                    subtitle: "普段使っているカレンダーと同じ並びにしておくと、曜日を見間違えにくくなります。"
+                )
+
+                VStack(alignment: .leading, spacing: MiraSpacing.md) {
+                    Text("週の始まり")
+                        .font(.headline)
+                    Picker("週の始まり", selection: $weekStartDay) {
+                        ForEach(WeekStartDay.allCases) { value in
+                            Text(value.title).tag(value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Divider().overlay(palette.primaryText.opacity(0.08))
+
+                    Toggle(isOn: $useDeviceHolidays) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("iPhoneの祝日を表示")
+                                .font(.headline)
+                            Text("iPhoneで「日本の祝日」を購読している場合だけ表示します。")
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                    }
+                }
+                .miraCard(palette)
+
+                if useDeviceHolidays {
+                    Label("開始時にカレンダーの読み取り許可を確認します", systemImage: "hand.raised.fill")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .miraCard(palette, padding: MiraSpacing.sm)
+                }
+            }
+            .padding(MiraSpacing.lg)
+        }
+    }
+
     private var navigationButtons: some View {
         HStack(spacing: MiraSpacing.sm) {
             if step > 0 {
@@ -327,7 +373,9 @@ struct OnboardingView: View {
                         targets: submittedTargets,
                         baseRules: availabilityRules.compactMap(\.domainRule),
                         marginComfort: marginComfort,
-                        useRecommendedTargets: marginMode == .automatic
+                        useRecommendedTargets: marginMode == .automatic,
+                        weekStartDay: weekStartDay,
+                        useDeviceHolidays: useDeviceHolidays
                     )
                 } else {
                     step += 1

@@ -8,6 +8,7 @@ extension MiraStore {
             person: invitation.contactName,
             previous: nil,
             softer: false,
+            audience: .friend,
             generationIndex: 0
         )
         var value = draft

@@ -7,13 +7,17 @@ extension MiraStore {
         targets: [MarginKind: Int],
         baseRules: [BaseAvailabilityRule],
         marginComfort: MarginComfortLevel = .standard,
-        useRecommendedTargets: Bool = true
+        useRecommendedTargets: Bool = true,
+        weekStartDay: WeekStartDay = .monday,
+        useDeviceHolidays: Bool = false
     ) {
         do {
             onboardingCompleted = true
             marginComfortLevel = marginComfort
+            self.weekStartDay = weekStartDay
             settingsEntity?.onboardingCompleted = true
             settingsEntity?.marginComfortRaw = marginComfort.rawValue
+            settingsEntity?.weekStartRaw = weekStartDay.rawValue
             settingsEntity?.updatedAt = .now
 
             try replaceBaseRules(with: baseRules)
@@ -49,6 +53,9 @@ extension MiraStore {
             try refresh()
             currentMarginRecommendation = recommendation
             autoPlaceMargins(for: selectedMonth)
+            if useDeviceHolidays {
+                Task { await setDeviceHolidaysEnabled(true) }
+            }
         } catch {
             toast = "初期設定を保存できませんでした"
         }

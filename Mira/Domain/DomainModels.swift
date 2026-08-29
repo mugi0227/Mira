@@ -16,6 +16,34 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum WeekStartDay: String, Codable, CaseIterable, Identifiable {
+    case monday
+    case sunday
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .monday: "月曜始まり"
+        case .sunday: "日曜始まり"
+        }
+    }
+
+    var calendarFirstWeekday: Int {
+        switch self {
+        case .monday: 2
+        case .sunday: 1
+        }
+    }
+
+    var weekdaySymbols: [String] {
+        switch self {
+        case .monday: ["月", "火", "水", "木", "金", "土", "日"]
+        case .sunday: ["日", "月", "火", "水", "木", "金", "土"]
+        }
+    }
+}
+
 enum CalendarItemKind: String, Codable, CaseIterable {
     case confirmed
     case margin

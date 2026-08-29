@@ -84,6 +84,7 @@ extension MiraStore {
                 person: caseEntity.state.person,
                 previous: nil,
                 softer: false,
+                audience: .friend,
                 generationIndex: 0
             )
             var value = draft
@@ -154,13 +155,15 @@ extension MiraStore {
         }
     }
 
-    func generateNextDeclineDraft(softer: Bool = false) async {
+    func generateNextDeclineDraft(softer: Bool = false, audience: DeclineAudience? = nil) async {
         guard let current = activeDeclineDraft else { return }
+        let resolvedAudience = audience ?? current.audience
         let next = await declineGenerator.generate(
             title: current.title,
             person: current.person,
             previous: current.text,
             softer: softer,
+            audience: resolvedAudience,
             generationIndex: current.generationIndex + 1
         )
         var value = next
@@ -212,6 +215,64 @@ extension MiraStore {
         try? refresh()
         activeConversationCaseID = caseEntity.id
         startSchedulingDraft(from: interpretation, originalText: interpretation.title, caseEntity: caseEntity)
+    }
+
+    func startScheduling(for session: AdjustmentEntity) {
+        let start = Calendar.mira.startOfDay(for: now)
+        let end = start.addingDays(28)
+        let caseEntity: ConversationCaseEntity
+
+        if let existing = conversationCase(id: session.conversationCaseID) {
+            caseEntity = existing
+        } else {
+            let created = ConversationCaseEntity(
+                title: session.title,
+                kind: .adjustment,
+                status: .waiting,
+                state: ConversationCaseState(
+                    relatedAdjustmentID: session.id,
+                    person: session.contactName,
+                    dateRangeStart: start,
+                    dateRangeEnd: end,
+                    durationBucket: .short,
+                    allowedTimeBands: [.morning, .midday, .evening],
+                    lastIntent: .findDates
+                )
+            )
+            context.insert(created)
+            session.conversationCaseID = created.id
+            try? context.save()
+            try? refresh()
+            caseEntity = conversationCase(id: created.id) ?? created
+        }
+
+        var state = caseEntity.state
+        state.relatedAdjustmentID = session.id
+        caseEntity.state = state
+        activeConversationCaseID = caseEntity.id
+        activeSchedulingIntent = .findDates
+
+        let interpretation = ConversationInterpretation(
+            intent: .findDates,
+            title: session.title,
+            person: session.contactName,
+            candidateDates: [],
+            dateRangeStart: start,
+            dateRangeEnd: end,
+            durationBucket: .short,
+            timeBands: [.morning, .midday, .evening],
+            exactStartDate: nil,
+            exactEndDate: nil,
+            inferredFields: [],
+            explicitConstraints: [],
+            needsClarification: false,
+            clarificationQuestion: nil,
+            clarificationOptions: [],
+            matchedContextID: caseEntity.id,
+            confidence: 1,
+            source: "調整中から候補を追加"
+        )
+        startSchedulingDraft(from: interpretation, originalText: session.title, caseEntity: caseEntity)
     }
 
     func updateSchedulingDraft(
@@ -300,6 +361,23 @@ extension MiraStore {
                 state.allowedTimeBands = draft.timeBands
                 caseEntity.state = state
                 caseEntity.appendTurn(role: .assistant, text: "候補を整理したにゃ。参加するか、別の日を探すか決められるよ。", at: now)
+            }
+        } else if let adjustmentID = caseEntity?.state.relatedAdjustmentID,
+                  let existing = adjustments.first(where: { $0.id == adjustmentID }) {
+            existing.title = draft.title
+            existing.contactName = draft.person
+            existing.status = .waiting
+            existing.candidates = candidates
+            existing.generatedMessage = message
+            if let caseEntity {
+                caseEntity.kind = .adjustment
+                caseEntity.status = .waiting
+                var state = caseEntity.state
+                state.candidates = candidates
+                state.durationBucket = draft.durationBucket
+                state.allowedTimeBands = draft.timeBands
+                caseEntity.state = state
+                caseEntity.appendTurn(role: .assistant, text: "候補日を追加して仮押さえしたにゃ。", at: now)
             }
         } else {
             let entity = AdjustmentEntity(

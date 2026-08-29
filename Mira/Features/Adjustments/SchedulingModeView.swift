@@ -8,8 +8,11 @@ struct SchedulingModeView: View {
     @State private var pendingConflictCandidate: CandidateRecommendation?
     @State private var showDetailedTime = false
 
-    private let calendar = Calendar.mira
-    private let weekdaySymbols = ["月", "火", "水", "木", "金", "土", "日"]
+    private var calendar: Calendar {
+        var value = Calendar.mira
+        value.firstWeekday = store.weekStartDay.calendarFirstWeekday
+        return value
+    }
 
     var body: some View {
         NavigationStack {
@@ -64,6 +67,11 @@ struct SchedulingModeView: View {
             }
         }
         .tint(palette.accent)
+        .task(id: store.activeSchedulingDraft?.month) {
+            if let month = store.activeSchedulingDraft?.month {
+                await store.refreshDeviceHolidays(for: month)
+            }
+        }
     }
 
     private func conditionCard(_ draft: SchedulingDraft) -> some View {
@@ -255,10 +263,10 @@ struct SchedulingModeView: View {
     private func schedulingGrid(_ draft: SchedulingDraft) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
+                ForEach(Array(store.weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(index >= 5 ? palette.accent : palette.secondaryText)
+                        .foregroundStyle(weekdayColor(for: index))
                         .frame(maxWidth: .infinity, minHeight: 28)
                 }
             }
@@ -288,12 +296,34 @@ struct SchedulingModeView: View {
         let dayRecommendations = draft.recommendations.filter {
             calendar.isDate($0.day, inSameDayAs: date) && draft.timeBands.contains($0.timeBand)
         }
+        let dayItems = store.items.filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+        let holiday = store.deviceHolidays.first { calendar.isDate($0.date, inSameDayAs: date) }
 
         return VStack(spacing: 3) {
             Text("\(calendar.component(.day, from: date))")
                 .font(.caption.weight(isCurrentMonth ? .semibold : .regular))
                 .foregroundStyle(isCurrentMonth ? palette.primaryText : palette.secondaryText.opacity(0.45))
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 1) {
+                if let holiday {
+                    Text(holiday.title)
+                        .foregroundStyle(palette.critical)
+                }
+                ForEach(dayItems.prefix(2)) { item in
+                    Text(item.title)
+                        .foregroundStyle(palette.primaryText)
+                        .padding(.horizontal, 2)
+                        .background(palette.color(for: item).opacity(0.72), in: RoundedRectangle(cornerRadius: 2))
+                }
+                if dayItems.count > 2 {
+                    Text("ほか\(dayItems.count - 2)件")
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
+            .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 25, alignment: .topLeading)
 
             ForEach(draft.timeBands) { band in
                 if let candidate = dayRecommendations.first(where: { $0.timeBand == band }) {
@@ -306,7 +336,7 @@ struct SchedulingModeView: View {
         }
         .padding(.horizontal, 3)
         .padding(.top, 4)
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .top)
+        .frame(maxWidth: .infinity, minHeight: 120, alignment: .top)
         .opacity(isCurrentMonth ? 1 : 0.4)
         .overlay(alignment: .trailing) {
             Rectangle().fill(palette.primaryText.opacity(0.08)).frame(width: 0.5)
@@ -449,7 +479,7 @@ struct SchedulingModeView: View {
     private func calendarCells(for month: Date) -> [Date] {
         let first = MonthKey(date: month).firstDay
         let weekday = calendar.component(.weekday, from: first)
-        let leading = (weekday + 5) % 7
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
         let start = first.addingDays(-leading)
         return (0..<42).map { start.addingDays($0) }
     }
@@ -457,5 +487,14 @@ struct SchedulingModeView: View {
     private func candidateSort(_ lhs: CandidateRecommendation, _ rhs: CandidateRecommendation) -> Bool {
         if lhs.day != rhs.day { return lhs.day < rhs.day }
         return lhs.timeBand.rawValue < rhs.timeBand.rawValue
+    }
+
+    private func weekdayColor(for index: Int) -> Color {
+        let weekday = (calendar.firstWeekday - 1 + index) % 7 + 1
+        switch weekday {
+        case 1: palette.critical
+        case 7: palette.accent
+        default: palette.secondaryText
+        }
     }
 }

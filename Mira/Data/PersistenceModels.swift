@@ -11,6 +11,8 @@ final class AppSettingsEntity {
     var notificationsEnabled: Bool
     var demoModeEnabled: Bool
     var marginComfortRaw: String?
+    var weekStartRaw: String?
+    var deviceHolidaysEnabled: Bool?
     var createdAt: Date
     var updatedAt: Date
 
@@ -22,7 +24,9 @@ final class AppSettingsEntity {
         characterNotificationsEnabled: Bool = true,
         notificationsEnabled: Bool = false,
         demoModeEnabled: Bool = true,
-        marginComfortRaw: String = MarginComfortLevel.standard.rawValue
+        marginComfortRaw: String = MarginComfortLevel.standard.rawValue,
+        weekStartRaw: String? = WeekStartDay.monday.rawValue,
+        deviceHolidaysEnabled: Bool? = false
     ) {
         self.key = key
         self.onboardingCompleted = onboardingCompleted
@@ -32,6 +36,8 @@ final class AppSettingsEntity {
         self.notificationsEnabled = notificationsEnabled
         self.demoModeEnabled = demoModeEnabled
         self.marginComfortRaw = marginComfortRaw
+        self.weekStartRaw = weekStartRaw
+        self.deviceHolidaysEnabled = deviceHolidaysEnabled
         self.createdAt = .now
         self.updatedAt = .now
     }

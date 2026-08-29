@@ -24,6 +24,15 @@ struct DayTimelineView: View {
                 LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
                     dayHeader
 
+                    if let holiday {
+                        Label(holiday.title, systemImage: "flag.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.critical)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .padding(.horizontal, MiraSpacing.sm)
+                            .background(palette.critical.opacity(0.10), in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                    }
+
                     if !allDayItems.isEmpty {
                         allDaySection
                     }
@@ -70,6 +79,10 @@ struct DayTimelineView: View {
                 if $0.isAllDay != $1.isAllDay { return $0.isAllDay }
                 return $0.startDate < $1.startDate
             }
+    }
+
+    private var holiday: DeviceHolidaySnapshot? {
+        store.deviceHolidays.first { Calendar.mira.isDate($0.date, inSameDayAs: date) }
     }
 
     private var allDayItems: [CalendarItemSnapshot] {

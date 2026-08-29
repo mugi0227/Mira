@@ -417,7 +417,32 @@ struct DeclineDraft: Identifiable, Hashable, Sendable {
     var person: String?
     var text: String
     var tone: String
+    var audience: DeclineAudience
     var generationIndex: Int
+}
+
+enum DeclineAudience: String, Codable, CaseIterable, Identifiable, Sendable {
+    case friend
+    case coworker
+    case supervisor
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .friend: "友達"
+        case .coworker: "会社の人・同期"
+        case .supervisor: "上司"
+        }
+    }
+
+    var toneTitle: String {
+        switch self {
+        case .friend: "親しみのある言葉"
+        case .coworker: "丁寧すぎない敬語"
+        case .supervisor: "失礼のない敬語"
+        }
+    }
 }
 
 struct MarginRecommendation: Hashable, Sendable {

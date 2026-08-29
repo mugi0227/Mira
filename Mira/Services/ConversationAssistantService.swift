@@ -16,6 +16,7 @@ protocol DeclineDraftGenerating: Sendable {
         person: String?,
         previous: String?,
         softer: Bool,
+        audience: DeclineAudience,
         generationIndex: Int
     ) async -> DeclineDraft
 }
@@ -345,6 +346,7 @@ struct HybridDeclineDraftGenerator: DeclineDraftGenerating {
         person: String?,
         previous: String?,
         softer: Bool,
+        audience: DeclineAudience,
         generationIndex: Int
     ) async -> DeclineDraft {
         #if canImport(FoundationModels)
@@ -354,6 +356,7 @@ struct HybridDeclineDraftGenerator: DeclineDraftGenerating {
                 person: person,
                 previous: previous,
                 softer: softer,
+                audience: audience,
                 generationIndex: generationIndex
            ) {
             return value
@@ -364,26 +367,42 @@ struct HybridDeclineDraftGenerator: DeclineDraftGenerating {
             person: person,
             previous: previous,
             softer: softer,
+            audience: audience,
             generationIndex: generationIndex
         )
     }
 }
 
 struct TemplateDeclineDraftGenerator: DeclineDraftGenerating {
-    private let templates = [
-        "めっちゃ行きたいんだけど、最近ちょっと予定を詰めすぎてて今回は見送る！また誘って〜！",
-        "誘ってくれてありがとう！今回は少し余裕を残しておきたいからパスするね。また次ぜひ！",
-        "今回は見送る〜！また次あったら声かけてもらえたらうれしい！",
-        "その日は自分の時間を残しておくことにしたので、今回はごめん！また遊ぼう〜！"
-    ]
-
     func generate(
         title: String,
         person: String?,
         previous: String?,
         softer: Bool,
+        audience: DeclineAudience,
         generationIndex: Int
     ) async -> DeclineDraft {
+        let templates: [String]
+        switch audience {
+        case .friend:
+            templates = [
+                "誘ってくれてありがとう！今回はちょっと余裕を残しておきたいから見送るね。また誘って〜！",
+                "声かけてくれてうれしい！今回はパスするけど、また次ぜひ遊ぼう！",
+                "今回は行けなさそう、ごめん！また別の機会に声かけてもらえたらうれしい！"
+            ]
+        case .coworker:
+            templates = [
+                "お誘いありがとうございます！今回は予定を詰めすぎないよう見送らせてください。また次の機会にぜひお願いします。",
+                "声をかけていただいてありがとうございます。今回は参加を見送ります。またぜひ誘ってください！",
+                "お誘いうれしいです。今回は都合をつけず見送ることにしました。また次回よろしくお願いします。"
+            ]
+        case .supervisor:
+            templates = [
+                "お声がけいただき、ありがとうございます。大変恐縮ですが、今回は参加を見送らせてください。また機会がございましたら、よろしくお願いいたします。",
+                "お誘いいただきありがとうございます。申し訳ありませんが、今回は辞退させていただければと思います。今後ともよろしくお願いいたします。",
+                "お心遣いありがとうございます。今回は参加を控えさせていただきます。またの機会がございましたら、ぜひよろしくお願いいたします。"
+            ]
+        }
         let base = templates[abs(generationIndex) % templates.count]
         let text = softer ? "誘ってくれて本当にありがとう！" + base : base
         return DeclineDraft(
@@ -391,7 +410,8 @@ struct TemplateDeclineDraftGenerator: DeclineDraftGenerating {
             title: title,
             person: person,
             text: text,
-            tone: softer ? "やわらかめ" : "カジュアル",
+            tone: audience.toneTitle,
+            audience: audience,
             generationIndex: generationIndex
         )
     }
@@ -524,6 +544,7 @@ private actor FoundationModelDeclineGenerator {
         person: String?,
         previous: String?,
         softer: Bool,
+        audience: DeclineAudience,
         generationIndex: Int
     ) async -> DeclineDraft? {
         guard Self.isAvailable else { return nil }
@@ -538,6 +559,8 @@ private actor FoundationModelDeclineGenerator {
         Invitation: \(title)
         Person: \(person ?? "unspecified")
         Softer: \(softer)
+        Relationship: \(audience.title)
+        Required tone: \(audience.toneTitle)
         Variation number: \(generationIndex)
         Previous draft: \(previous ?? "none")
         """
@@ -549,6 +572,7 @@ private actor FoundationModelDeclineGenerator {
                 person: person,
                 text: response.content.text,
                 tone: response.content.tone,
+                audience: audience,
                 generationIndex: generationIndex
             )
         } catch {

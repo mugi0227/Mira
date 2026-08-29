@@ -40,6 +40,8 @@ struct HomeView: View {
                     ),
                     items: monthItems,
                     palette: palette,
+                    weekStartDay: store.weekStartDay,
+                    holidays: store.deviceHolidays,
                     referenceDate: store.now,
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                     onSelectDate: openDay,
@@ -85,6 +87,9 @@ struct HomeView: View {
         }
         .navigationDestination(item: $selectedDayDestination) { destination in
             DayTimelineView(date: destination.date, palette: palette)
+        }
+        .task(id: MonthKey(date: store.selectedMonth)) {
+            await store.refreshDeviceHolidays(for: store.selectedMonth)
         }
     }
 

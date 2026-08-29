@@ -71,7 +71,7 @@ struct SchedulerEngine: Sendable {
                     title: goal.kind.title,
                     startDate: best.0.start,
                     endDate: best.0.end,
-                    isAllDay: goal.kind == .rest,
+                    isAllDay: goal.kind == .rest && best.0.duration >= 10 * 60 * 60,
                     kind: .margin,
                     marginKind: goal.kind,
                     loadClass: .light,
@@ -137,11 +137,20 @@ struct SchedulerEngine: Sendable {
         baseRules: [BaseAvailabilityRule]
     ) -> [DateInterval] {
         guard let range = calendar.range(of: .day, in: .month, for: month.firstDay) else { return [] }
-        return range.compactMap { day -> DateInterval? in
-            guard let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) else { return nil }
-            let interval = interval(for: goal.kind, on: date, durationHours: goal.durationHours)
-            guard !isBlockedByBaseRule(interval, rules: baseRules) else { return nil }
-            return interval
+        return range.flatMap { day -> [DateInterval] in
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) else { return [] }
+            let preferred = interval(for: goal.kind, on: date, durationHours: goal.durationHours)
+            var intervals = isBlockedByBaseRule(preferred, rules: baseRules) ? [] : [preferred]
+
+            if goal.kind == .rest {
+                let eveningStart = date.setting(hour: 18, calendar: calendar)
+                let eveningEnd = calendar.date(byAdding: .hour, value: 4, to: eveningStart) ?? eveningStart
+                let evening = DateInterval(start: eveningStart, end: eveningEnd)
+                if !isBlockedByBaseRule(evening, rules: baseRules), !intervals.contains(evening) {
+                    intervals.append(evening)
+                }
+            }
+            return intervals
         }
     }
 
@@ -198,6 +207,7 @@ struct SchedulerEngine: Sendable {
         var value = 100.0
 
         if kind == .rest && isWeekend { value += 30 }
+        if kind == .rest && interval.duration < 8 * 60 * 60 { value -= 18 }
         if (kind == .reading || kind == .personalProject) && isWeekend { value += 16 }
         if (kind == .freeEvening || kind == .solo) && !isWeekend { value += 12 }
 

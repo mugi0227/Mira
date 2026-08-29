@@ -6,16 +6,16 @@ extension MiraStore {
     func createPendingInvitation(
         title: String,
         contact: String,
-        candidateDate: Date,
+        candidateDate: Date?,
         timeOfDay: TimeOfDayKind,
         deadline: Date?
     ) {
-        let slot = candidate(on: candidateDate, timeOfDay: timeOfDay)
+        let slots = candidateDate.map { [candidate(on: $0, timeOfDay: timeOfDay)] } ?? []
         context.insert(PendingInvitationEntity(
             title: title,
             contactName: contact.isEmpty ? nil : contact,
             replyDeadline: deadline,
-            candidates: [slot]
+            candidates: slots
         ))
         try? context.save()
         try? refresh()
@@ -101,7 +101,9 @@ extension MiraStore {
     }
 
     func convertPendingToAdjustment(_ invitation: PendingInvitationEntity) {
-        let message = DemoSeeder.message(title: invitation.title, candidates: invitation.candidates)
+        let message = invitation.candidates.isEmpty
+            ? "候補日はこれから探します。"
+            : DemoSeeder.message(title: invitation.title, candidates: invitation.candidates)
         let entity = AdjustmentEntity(
             title: invitation.title,
             contactName: invitation.contactName,
@@ -123,6 +125,7 @@ extension MiraStore {
         }
         try? context.save()
         try? refresh()
+        toast = "検討中から調整中へ移したにゃ"
     }
 
     func heldCandidates(excluding sessionID: UUID? = nil) -> [CandidateSlotSnapshot] {

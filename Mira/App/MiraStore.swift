@@ -23,6 +23,7 @@ final class MiraStore {
     let schedulingRecommendationEngine = SchedulingRecommendationEngine()
     let marginRecommendationEngine = MarginRecommendationEngine()
     let rebalanceEngine = RebalanceEngine()
+    let deviceHolidayService = DeviceHolidayService()
 
     private(set) var isReady = false
     private(set) var items: [CalendarItemSnapshot] = []
@@ -32,6 +33,7 @@ final class MiraStore {
     private(set) var importantPeople: [ImportantPersonEntity] = []
     private(set) var conversationCases: [ConversationCaseEntity] = []
     private(set) var rebalanceProposalEntities: [RebalanceProposalEntity] = []
+    private(set) var deviceHolidays: [DeviceHolidaySnapshot] = []
     private(set) var aiStatus = "確認中"
     var isInterpretingConversation = false
 
@@ -44,6 +46,8 @@ final class MiraStore {
     var notificationsEnabled = false
     var demoModeEnabled = true
     var marginComfortLevel: MarginComfortLevel = .standard
+    var weekStartDay: WeekStartDay = .monday
+    var deviceHolidaysEnabled = false
     var presentedAddSheet = false
     var toast: String?
 
@@ -135,6 +139,9 @@ final class MiraStore {
             try DemoSeeder.seedBaseline(in: context, clock: clock)
             try normalizeLegacyMarginKinds()
             try refresh()
+            if deviceHolidaysEnabled {
+                await refreshDeviceHolidays(for: selectedMonth)
+            }
             aiStatus = await classifier.availabilityDescription
             updateMarginRecommendation(for: selectedMonth)
             recalculateBalance(for: selectedMonth)
@@ -215,6 +222,8 @@ final class MiraStore {
         settingsEntity?.onboardingCompleted = false
         settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
+        settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
+        settingsEntity?.deviceHolidaysEnabled = false
         settingsEntity?.updatedAt = .now
         try context.save()
     }

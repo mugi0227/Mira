@@ -105,14 +105,21 @@ struct PendingInvitationDetailSheet: View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
             Label("候補日時", systemImage: "calendar")
                 .font(.headline)
-            ForEach(invitation.candidates) { candidate in
-                HStack {
-                    Text(candidate.startDate.japaneseDayTitle)
-                    Spacer()
-                    Text(candidateDescription(candidate))
-                        .foregroundStyle(palette.secondaryText)
+            if invitation.candidates.isEmpty {
+                Text("まだ候補日はありません。日程を調整する段階へ移してから探せます。")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(invitation.candidates) { candidate in
+                    HStack {
+                        Text(candidate.startDate.japaneseDayTitle)
+                        Spacer()
+                        Text(candidateDescription(candidate))
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .font(.subheadline)
                 }
-                .font(.subheadline)
             }
             if let deadline = invitation.replyDeadline {
                 Divider()
@@ -127,7 +134,13 @@ struct PendingInvitationDetailSheet: View {
 
     @ViewBuilder
     private var impactCard: some View {
-        if isAnalyzing {
+        if invitation.candidates.isEmpty {
+            Label("候補日を決める前の検討メモです", systemImage: "tray.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(palette.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .miraCard(palette)
+        } else if isAnalyzing {
             HStack(spacing: MiraSpacing.sm) {
                 ProgressView()
                 Text("この予定を入れたときの生活への影響を確認中…")

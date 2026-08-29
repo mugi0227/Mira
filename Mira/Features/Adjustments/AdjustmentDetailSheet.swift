@@ -111,6 +111,24 @@ struct AdjustmentDetailSheet: View {
                 .font(.title3.bold())
                 .foregroundStyle(palette.primaryText)
 
+            if session.candidates.isEmpty {
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    Text("候補日はまだありません")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                    Button {
+                        store.startScheduling(for: session)
+                        dismiss()
+                    } label: {
+                        Label("候補日を探す", systemImage: "calendar.badge.plus")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                }
+                .miraCard(palette, padding: MiraSpacing.sm)
+            }
+
             ForEach(session.candidates) { candidate in
                 let conflicts = store.conflictMessages(for: candidate, excluding: session.id)
                 VStack(alignment: .leading, spacing: 8) {
@@ -165,33 +183,39 @@ struct AdjustmentDetailSheet: View {
     }
 
     private var sharingCard: some View {
-        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-            Label("送る文章", systemImage: "message")
-                .font(.headline)
-                .foregroundStyle(palette.primaryText)
-            Text(session.generatedMessage)
-                .font(.subheadline)
-                .foregroundStyle(palette.secondaryText)
-                .textSelection(.enabled)
-            HStack(spacing: MiraSpacing.sm) {
-                Button {
-                    UIPasteboard.general.string = session.generatedMessage
-                    store.toast = "文章をコピーしたにゃ"
-                } label: {
-                    Label("コピー", systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
+        Group {
+            if session.candidates.isEmpty {
+                EmptyView()
+            } else {
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    Label("送る文章", systemImage: "message")
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text(session.generatedMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                        .textSelection(.enabled)
+                    HStack(spacing: MiraSpacing.sm) {
+                        Button {
+                            UIPasteboard.general.string = session.generatedMessage
+                            store.toast = "文章をコピーしたにゃ"
+                        } label: {
+                            Label("コピー", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
 
-                ShareLink(item: session.generatedMessage) {
-                    Label("共有", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        ShareLink(item: session.generatedMessage) {
+                            Label("共有", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .tint(palette.accent)
                 }
-                .buttonStyle(.borderedProminent)
+                .miraCard(palette)
             }
-            .tint(palette.accent)
         }
-        .miraCard(palette)
     }
 
     private var cancelButton: some View {

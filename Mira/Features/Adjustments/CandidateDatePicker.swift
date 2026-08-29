@@ -11,9 +11,13 @@ struct CandidateDatePicker: View {
 
     @State private var pendingOverrideDate: Date?
     @State private var overrideMessage = ""
+    @State private var inspectedDate: Date?
 
-    private let calendar = Calendar.mira
-    private let weekdaySymbols = ["月", "火", "水", "木", "金", "土", "日"]
+    private var calendar: Calendar {
+        var value = Calendar.mira
+        value.firstWeekday = store.weekStartDay.calendarFirstWeekday
+        return value
+    }
 
     var body: some View {
         VStack(spacing: MiraSpacing.md) {
@@ -48,7 +52,7 @@ struct CandidateDatePicker: View {
             .pickerStyle(.segmented)
 
             LazyVGrid(columns: columns, spacing: 5) {
-                ForEach(weekdaySymbols, id: \.self) { symbol in
+                ForEach(store.weekStartDay.weekdaySymbols, id: \.self) { symbol in
                     Text(symbol)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(palette.secondaryText)
@@ -61,6 +65,10 @@ struct CandidateDatePicker: View {
                         Color.clear.frame(height: 44)
                     }
                 }
+            }
+
+            if let inspectedDate {
+                dayScheduleSummary(inspectedDate)
             }
 
             if !selectedDates.isEmpty {
@@ -110,7 +118,7 @@ struct CandidateDatePicker: View {
     private var cells: [Date?] {
         let first = MonthKey(date: month).firstDay
         let weekday = calendar.component(.weekday, from: first)
-        let leading = (weekday + 5) % 7
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
         guard let range = calendar.range(of: .day, in: .month, for: first) else { return [] }
         var result = Array<Date?>(repeating: nil, count: leading)
         result.append(contentsOf: range.compactMap { day in
@@ -134,6 +142,7 @@ struct CandidateDatePicker: View {
         let strongConflict = hasConfirmedConflict || hasBaseRuleConflict
 
         Button {
+            inspectedDate = normalized
             if selected {
                 selectedDates.remove(normalized)
             } else if needsReview {
@@ -185,6 +194,36 @@ struct CandidateDatePicker: View {
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel(accessibilityLabel(date: date, selected: selected, conflicts: conflicts))
         .accessibilityValue(needsReview ? "要確認・選択可能" : "選択可能")
+    }
+
+    private func dayScheduleSummary(_ date: Date) -> some View {
+        let dayItems = store.items.filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+        return VStack(alignment: .leading, spacing: 5) {
+            Text("\(date.japaneseShortDate) の予定")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.secondaryText)
+            if dayItems.isEmpty {
+                Text("予定なし")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+            } else {
+                ForEach(dayItems) { item in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(palette.color(for: item))
+                            .frame(width: 7, height: 7)
+                        Text(item.title)
+                        Spacer()
+                        Text(item.timeDescription)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(MiraSpacing.sm)
+        .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.small))
     }
 
     private func makeCandidate(on date: Date) -> CandidateSlotSnapshot {

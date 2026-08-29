@@ -53,4 +53,30 @@ final class SchedulerEngineTests: XCTestCase {
         )
         XCTAssertEqual(proposal.unmetGoals[.rest], 4)
     }
+
+    func testRestFallsBackToWeekdayEveningWhenWeekendsAreBusy() {
+        let engine = SchedulerEngine(calendar: .mira)
+        let calendar = Calendar.mira
+        let weekendEvents = (1...30).compactMap { day -> CalendarItemSnapshot? in
+            let date = TestFixtures.date(day: day, hour: 0)
+            let weekday = calendar.component(.weekday, from: date)
+            guard weekday == 1 || weekday == 7 else { return nil }
+            return TestFixtures.event(title: "週末の予定", day: day, hour: 0, duration: 24, load: .heavy)
+        }
+        let baseRules = (2...6).map {
+            BaseAvailabilityRule(weekday: $0, startMinute: 9 * 60, endMinute: 18 * 60)
+        }
+
+        let proposal = engine.propose(
+            month: TestFixtures.september,
+            goals: [TestFixtures.goal(.rest, count: 2)],
+            events: weekendEvents,
+            existingMargins: [],
+            baseRules: baseRules
+        )
+
+        XCTAssertEqual(proposal.slots.count, 2)
+        XCTAssertTrue(proposal.slots.allSatisfy { !$0.isAllDay })
+        XCTAssertTrue(proposal.slots.allSatisfy { calendar.component(.hour, from: $0.startDate) == 18 })
+    }
 }

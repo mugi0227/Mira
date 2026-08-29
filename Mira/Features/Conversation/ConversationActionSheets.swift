@@ -64,6 +64,22 @@ struct DeclineDraftSheet: View {
                         }
                     }
 
+                    HStack {
+                        Label("相手との関係", systemImage: "person.2.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.primaryText)
+                        Spacer()
+                        Picker("相手との関係", selection: audienceBinding) {
+                            ForEach(DeclineAudience.allCases) { audience in
+                                Text(audience.title).tag(audience)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    .padding(.horizontal, MiraSpacing.sm)
+                    .frame(minHeight: 48)
+                    .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+
                     TextEditor(text: draftTextBinding)
                         .font(.body)
                         .scrollContentBackground(.hidden)
@@ -76,24 +92,13 @@ struct DeclineDraftSheet: View {
                         }
                         .accessibilityIdentifier("declineDraftEditor")
 
-                    HStack(spacing: MiraSpacing.sm) {
-                        Button {
-                            Task { await store.generateNextDeclineDraft() }
-                        } label: {
-                            Label("もう一個", systemImage: "dice.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 48)
-                                .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
-                        }
-
-                        Button {
-                            Task { await store.generateNextDeclineDraft(softer: true) }
-                        } label: {
-                            Label("もっと柔らかく", systemImage: "heart.text.square")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 48)
-                                .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
-                        }
+                    Button {
+                        Task { await store.generateNextDeclineDraft() }
+                    } label: {
+                        Label("同じ相手向けに別案を作る", systemImage: "dice.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
                     }
                     .foregroundStyle(palette.accent)
 
@@ -127,6 +132,16 @@ struct DeclineDraftSheet: View {
                 guard var draft = store.activeDeclineDraft else { return }
                 draft.text = newValue
                 store.activeDeclineDraft = draft
+            }
+        )
+    }
+
+    private var audienceBinding: Binding<DeclineAudience> {
+        Binding(
+            get: { store.activeDeclineDraft?.audience ?? .friend },
+            set: { audience in
+                guard store.activeDeclineDraft?.audience != audience else { return }
+                Task { await store.generateNextDeclineDraft(audience: audience) }
             }
         )
     }
