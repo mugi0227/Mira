@@ -6,6 +6,8 @@ struct HomeView: View {
 
     @State private var showAddSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
+    @State private var selectedDayDestination: DayTimelineDestination?
+    @FocusState private var isQuickInputFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -16,7 +18,7 @@ struct HomeView: View {
                 progressSummary
                     .padding(.horizontal, MiraSpacing.md)
 
-                MiraQuickInputBar(palette: palette)
+                MiraQuickInputBar(palette: palette, isFocused: $isQuickInputFocused)
                     .padding(.horizontal, MiraSpacing.md)
 
                 if store.assistantEnabled {
@@ -40,15 +42,18 @@ struct HomeView: View {
                     palette: palette,
                     referenceDate: store.now,
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
+                    onSelectDate: openDay,
                     onSelectItem: { selectedItem = $0 }
                 )
-
-                selectedDaySection
-                    .padding(.horizontal, MiraSpacing.md)
             }
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isQuickInputFocused = false
+            }
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(palette.background)
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
@@ -77,6 +82,9 @@ struct HomeView: View {
         }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
+        }
+        .navigationDestination(item: $selectedDayDestination) { destination in
+            DayTimelineView(date: destination.date, palette: palette)
         }
     }
 
@@ -130,7 +138,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var progressSummary: some View {
-        let visibleGoals = store.currentMonthGoals.filter { [.rest, .freeEvening, .importantPeople].contains($0.kind) }
+        let visibleGoals = store.currentMonthGoals.filter { [.rest, .reading, .importantPeople].contains($0.kind) }
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MiraSpacing.xs) {
                 ForEach(visibleGoals) { goal in
@@ -198,10 +206,22 @@ struct HomeView: View {
         }
     }
 
+    private func openDay(_ date: Date) {
+        isQuickInputFocused = false
+        store.selectedDate = date
+        if !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
+            store.selectedMonth = MonthKey(date: date).firstDay
+            store.ensurePlan(for: date)
+            store.updateMarginRecommendation(for: date)
+            store.recalculateBalance(for: date)
+        }
+        selectedDayDestination = DayTimelineDestination(date: date)
+    }
+
     private func shortTitle(_ kind: MarginKind) -> String {
         switch kind {
         case .rest: "休息"
-        case .freeEvening: "自由な夜"
+        case .reading: "読書・映像"
         case .importantPeople: "大切な時間"
         default: kind.title
         }

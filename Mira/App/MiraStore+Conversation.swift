@@ -75,7 +75,7 @@ extension MiraStore {
             if interpretation.needsClarification || interpretation.durationBucket == nil || interpretation.timeBands.isEmpty {
                 presentClarification(for: interpretation, originalText: text, caseEntity: caseEntity)
             } else {
-                startSchedulingDraft(from: interpretation, caseEntity: caseEntity)
+                startSchedulingDraft(from: interpretation, originalText: text, caseEntity: caseEntity)
             }
 
         case .declineInvitation:
@@ -121,7 +121,7 @@ extension MiraStore {
                 caseEntity.appendTurn(role: .assistant, text: "追加する予定を確認してにゃ", at: now)
                 try? context.save()
             } else if interpretation.durationBucket != nil, !interpretation.timeBands.isEmpty {
-                startSchedulingDraft(from: interpretation, caseEntity: caseEntity)
+                startSchedulingDraft(from: interpretation, originalText: text, caseEntity: caseEntity)
             } else {
                 presentClarification(for: interpretation, originalText: text, caseEntity: caseEntity)
             }
@@ -211,7 +211,7 @@ extension MiraStore {
         try? context.save()
         try? refresh()
         activeConversationCaseID = caseEntity.id
-        startSchedulingDraft(from: interpretation, caseEntity: caseEntity)
+        startSchedulingDraft(from: interpretation, originalText: interpretation.title, caseEntity: caseEntity)
     }
 
     func updateSchedulingDraft(
@@ -496,6 +496,7 @@ extension MiraStore {
 
     private func startSchedulingDraft(
         from interpretation: ConversationInterpretation,
+        originalText: String,
         caseEntity: ConversationCaseEntity
     ) {
         guard let duration = interpretation.durationBucket else { return }
@@ -513,9 +514,14 @@ extension MiraStore {
             return
         }
 
-        let defaultRange = RuleBasedConversationInterpreter().defaultSearchRange(text: interpretation.title, now: now)
-        let start = interpretation.dateRangeStart ?? interpretation.candidateDates.min() ?? defaultRange.start
-        let end = interpretation.dateRangeEnd ?? interpretation.candidateDates.max() ?? defaultRange.end
+        let defaultRange = RuleBasedConversationInterpreter().defaultSearchRange(text: originalText, now: now)
+        let shouldUseFullPeriod = shouldExpandSchedulingPeriod(for: originalText)
+        let start = shouldUseFullPeriod
+            ? defaultRange.start
+            : interpretation.dateRangeStart ?? interpretation.candidateDates.min() ?? defaultRange.start
+        let end = shouldUseFullPeriod
+            ? defaultRange.end
+            : interpretation.dateRangeEnd ?? interpretation.candidateDates.max() ?? defaultRange.end
         var draft = SchedulingDraft(
             conversationCaseID: caseEntity.id,
             title: caseEntity.title,
@@ -530,9 +536,14 @@ extension MiraStore {
         draft = recommendations(for: draft, preserveManualSelection: false)
 
         if !interpretation.candidateDates.isEmpty {
-            let allowedDays = Set(interpretation.candidateDates.map { Calendar.mira.startOfDay(for: $0) })
-            draft.recommendations = draft.recommendations.filter { allowedDays.contains(Calendar.mira.startOfDay(for: $0.day)) }
-            let recommended = draft.recommendations.sorted { $0.score > $1.score }.prefix(min(5, max(1, draft.recommendations.count)))
+            let preferredDays = Set(interpretation.candidateDates.map { Calendar.mira.startOfDay(for: $0) })
+            let preferred = draft.recommendations
+                .filter { preferredDays.contains(Calendar.mira.startOfDay(for: $0.day)) }
+                .sorted { $0.score > $1.score }
+            let source = preferred.isEmpty
+                ? draft.recommendations.sorted { $0.score > $1.score }
+                : preferred
+            let recommended = source.prefix(min(5, max(1, source.count)))
             let recommendedIDs = Set(recommended.map(\.id))
             draft.recommendations = draft.recommendations.map { candidate in
                 var copy = candidate
@@ -557,6 +568,20 @@ extension MiraStore {
         caseEntity.appendTurn(role: .assistant, text: "良さそうな候補を先に選んだにゃ。違うところだけ直してね。", at: now)
         try? context.save()
         try? refresh()
+    }
+
+    /// Broad requests such as "来週どこかで" describe a search period, not a
+    /// whitelist. Model-suggested dates inside that period remain highlighted,
+    /// while every day stays available for the user to choose.
+    private func shouldExpandSchedulingPeriod(for text: String) -> Bool {
+        let broadTokens = ["どこか", "いつか", "今週", "来週", "再来週", "今月", "来月"]
+        guard broadTokens.contains(where: text.contains) else { return false }
+
+        let relativeSpecificDates = ["今日", "明日", "明後日"]
+        guard !relativeSpecificDates.contains(where: text.contains) else { return false }
+
+        let explicitDayPattern = #"(?:月|火|水|木|金|土|日)(?:曜|曜日)|\d{1,2}\s*(?:月|/|\.|-)\s*\d{1,2}"#
+        return text.range(of: explicitDayPattern, options: .regularExpression) == nil
     }
 
     private func recommendations(

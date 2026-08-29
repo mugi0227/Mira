@@ -281,7 +281,7 @@ struct NewItemSheet: View {
         Group {
             Section("守りたい時間") {
                 Picker("種類", selection: $marginKind) {
-                    ForEach(MarginKind.allCases.filter { $0 != .importantPeople }) { kind in
+                    ForEach(MarginKind.userSelectableCases.filter { $0 != .importantPeople }) { kind in
                         Label(kind.title, systemImage: kind.symbolName).tag(kind)
                     }
                 }

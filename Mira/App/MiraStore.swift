@@ -133,6 +133,7 @@ final class MiraStore {
             selectedMonth = clock.now
             selectedDate = clock.now
             try DemoSeeder.seedBaseline(in: context, clock: clock)
+            try normalizeLegacyMarginKinds()
             try refresh()
             aiStatus = await classifier.availabilityDescription
             updateMarginRecommendation(for: selectedMonth)
@@ -154,6 +155,51 @@ final class MiraStore {
         conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
         rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
+    }
+
+    /// Collapses the two historical aliases into the single rest category.
+    /// Existing rest goals win, so old overlapping targets are not added
+    /// together and do not unexpectedly fill the calendar.
+    private func normalizeLegacyMarginKinds() throws {
+        let itemEntities = try context.fetch(FetchDescriptor<CalendarItemEntity>())
+        for item in itemEntities {
+            guard let kind = item.marginKindRaw.flatMap(MarginKind.init(rawValue:)),
+                  kind.isLegacyRestAlias else { continue }
+            item.marginKindRaw = MarginKind.rest.rawValue
+            item.title = MarginKind.rest.title
+            item.updatedAt = .now
+        }
+
+        let goalEntities = try context.fetch(FetchDescriptor<MarginGoalEntity>())
+        let affected = goalEntities.filter {
+            guard let kind = MarginKind(rawValue: $0.kindRaw) else { return false }
+            return kind == .rest || kind.isLegacyRestAlias
+        }
+        let grouped = Dictionary(grouping: affected) {
+            MonthKey(year: $0.year, month: $0.month)
+        }
+
+        for goalsInMonth in grouped.values {
+            let legacy = goalsInMonth.filter {
+                MarginKind(rawValue: $0.kindRaw)?.isLegacyRestAlias == true
+            }
+            guard !legacy.isEmpty else { continue }
+
+            if let restGoal = goalsInMonth.first(where: { $0.kindRaw == MarginKind.rest.rawValue }) {
+                restGoal.durationHours = MarginKind.rest.defaultDurationHours
+                restGoal.priority = MarginKind.rest.defaultPriority
+                legacy.forEach { context.delete($0) }
+            } else if let keeper = legacy.max(by: { $0.targetCount < $1.targetCount }) {
+                keeper.kindRaw = MarginKind.rest.rawValue
+                keeper.durationHours = MarginKind.rest.defaultDurationHours
+                keeper.priority = MarginKind.rest.defaultPriority
+                legacy.filter { $0.id != keeper.id }.forEach { context.delete($0) }
+            }
+        }
+
+        if context.hasChanges {
+            try context.save()
+        }
     }
 
     private func resetPersistentTestState() throws {

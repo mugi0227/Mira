@@ -135,7 +135,7 @@ struct MarginsView: View {
                     .foregroundStyle(palette.accent)
             }
 
-            Text("決まっている予定の負荷から、必要な休息・予定のない夜・一人時間を自動計算します。")
+            Text("決まっている予定の負荷から、必要な休息や自分のための時間を自動計算します。")
                 .font(.subheadline)
                 .foregroundStyle(palette.secondaryText)
 
@@ -157,8 +157,8 @@ struct MarginsView: View {
             if let recommendation = store.currentMarginRecommendation {
                 HStack(spacing: MiraSpacing.md) {
                     recommendationMetric(.rest, recommendation: recommendation)
-                    recommendationMetric(.freeEvening, recommendation: recommendation)
-                    recommendationMetric(.solo, recommendation: recommendation)
+                    recommendationMetric(.reading, recommendation: recommendation)
+                    recommendationMetric(.personalProject, recommendation: recommendation)
                 }
                 ForEach(recommendation.reasons.prefix(2), id: \.self) { reason in
                     Text("・\(reason)")

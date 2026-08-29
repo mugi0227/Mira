@@ -33,12 +33,29 @@ enum MarginKind: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// `freeEvening` and `solo` remain decodable so existing installs can be
+    /// migrated without losing saved goals or margin items.
+    var canonicalKind: MarginKind {
+        switch self {
+        case .freeEvening, .solo: .rest
+        default: self
+        }
+    }
+
+    var isLegacyRestAlias: Bool {
+        self == .freeEvening || self == .solo
+    }
+
+    static var userSelectableCases: [MarginKind] {
+        allCases.filter { !$0.isLegacyRestAlias }
+    }
+
     var title: String {
         switch self {
         case .rest: "何もしない・休息"
-        case .freeEvening: "予定のない夜"
+        case .freeEvening: "何もしない・休息"
         case .reading: "読書・映像"
-        case .solo: "一人の時間"
+        case .solo: "何もしない・休息"
         case .personalProject: "やりたいこと"
         case .importantPeople: "大切な人との時間"
         case .custom: "自分の余白"
@@ -48,9 +65,9 @@ enum MarginKind: String, Codable, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .rest: "moon.zzz.fill"
-        case .freeEvening: "sparkles"
+        case .freeEvening: "moon.zzz.fill"
         case .reading: "books.vertical.fill"
-        case .solo: "person.fill"
+        case .solo: "moon.zzz.fill"
         case .personalProject: "wand.and.stars"
         case .importantPeople: "heart.fill"
         case .custom: "leaf.fill"
@@ -60,9 +77,9 @@ enum MarginKind: String, Codable, CaseIterable, Identifiable {
     var defaultDurationHours: Int {
         switch self {
         case .rest: 12
-        case .freeEvening: 6
+        case .freeEvening: 12
         case .reading: 5
-        case .solo: 6
+        case .solo: 12
         case .personalProject: 5
         case .importantPeople: 5
         case .custom: 4
@@ -72,8 +89,8 @@ enum MarginKind: String, Codable, CaseIterable, Identifiable {
     var defaultPriority: Int {
         switch self {
         case .rest: 100
-        case .freeEvening: 90
-        case .solo: 80
+        case .freeEvening: 100
+        case .solo: 100
         case .reading: 65
         case .personalProject: 60
         case .importantPeople: 55

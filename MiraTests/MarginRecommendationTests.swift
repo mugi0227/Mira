@@ -17,10 +17,8 @@ final class MarginRecommendationLoadTests: XCTestCase {
             heavyRecommendation.targets[.rest, default: 0],
             quietRecommendation.targets[.rest, default: 0]
         )
-        XCTAssertGreaterThanOrEqual(
-            heavyRecommendation.targets[.freeEvening, default: 0],
-            quietRecommendation.targets[.freeEvening, default: 0]
-        )
+        XCTAssertNil(heavyRecommendation.targets[.freeEvening])
+        XCTAssertNil(heavyRecommendation.targets[.solo])
     }
 
     func testComfortLevelsAreMonotonic() {
@@ -32,10 +30,17 @@ final class MarginRecommendationLoadTests: XCTestCase {
         let standard = engine.recommend(month: month, items: items, comfort: .standard)
         let high = engine.recommend(month: month, items: items, comfort: .high)
 
-        for kind in [MarginKind.rest, .freeEvening, .reading, .solo] {
+        for kind in [MarginKind.rest, .reading, .personalProject] {
             XCTAssertLessThanOrEqual(low.targets[kind, default: 0], standard.targets[kind, default: 0])
             XCTAssertLessThanOrEqual(standard.targets[kind, default: 0], high.targets[kind, default: 0])
         }
+    }
+
+    func testLegacyRestAliasesCanonicalizeWithoutRemainingSelectable() {
+        XCTAssertEqual(MarginKind.freeEvening.canonicalKind, .rest)
+        XCTAssertEqual(MarginKind.solo.canonicalKind, .rest)
+        XCTAssertFalse(MarginKind.userSelectableCases.contains(.freeEvening))
+        XCTAssertFalse(MarginKind.userSelectableCases.contains(.solo))
     }
 
     private func event(day: Int, load: LoadClass) -> CalendarItemSnapshot {

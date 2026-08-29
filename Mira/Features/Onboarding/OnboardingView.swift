@@ -12,21 +12,18 @@ struct OnboardingView: View {
     let palette: MiraThemePalette
 
     @State private var step = 0
-    @State private var selections: Set<MarginKind> = [.rest, .freeEvening, .reading, .solo, .importantPeople]
+    @State private var selections: Set<MarginKind> = [.rest, .reading, .importantPeople]
     @State private var targets: [MarginKind: Int] = [
         .rest: 4,
-        .freeEvening: 8,
         .reading: 2,
-        .solo: 2,
         .personalProject: 2,
         .importantPeople: 2
     ]
     @State private var marginMode: OnboardingMarginMode = .automatic
     @State private var marginComfort: MarginComfortLevel = .standard
-    @State private var freeEveningsPerWeek = 2
     @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
 
-    private let totalSteps = 6
+    private let totalSteps = 5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,9 +35,8 @@ struct OnboardingView: View {
                 welcome.tag(0)
                 chooseMargins.tag(1)
                 chooseAmounts.tag(2)
-                freeEvenings.tag(3)
-                basicUnavailableTimes.tag(4)
-                ready.tag(5)
+                basicUnavailableTimes.tag(3)
+                ready.tag(4)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(MiraMotion.standard, value: step)
@@ -99,7 +95,7 @@ struct OnboardingView: View {
                 onboardingTitle("今月、どんな時間がほしい？", subtitle: "いくつでも選べます。あとから変更できます。")
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: MiraSpacing.sm) {
-                    ForEach([MarginKind.rest, .reading, .solo, .personalProject, .importantPeople, .freeEvening]) { kind in
+                    ForEach([MarginKind.rest, .reading, .personalProject, .importantPeople]) { kind in
                         Button {
                             if selections.contains(kind) { selections.remove(kind) } else { selections.insert(kind) }
                         } label: {
@@ -229,40 +225,6 @@ struct OnboardingView: View {
         }
     }
 
-    private var freeEvenings: some View {
-        VStack(spacing: MiraSpacing.xl) {
-            Spacer()
-            PixelCatView(mood: .sleeping, size: 112)
-            onboardingTitle("予定のない夜は、週に何日ほしい？", subtitle: marginMode == .automatic ? "Miraのおすすめを基準に、ここだけ好みを上書きできます。" : "仕事だけの日は、予定のない夜として数えます。")
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: MiraSpacing.sm) {
-                ForEach(0...3, id: \.self) { count in
-                    Button {
-                        freeEveningsPerWeek = count
-                        targets[.freeEvening] = count * 4
-                        if count > 0 { selections.insert(.freeEvening) }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(count == 3 ? "3+" : "\(count)")
-                                .font(.title2.bold().monospacedDigit())
-                            Text("日")
-                                .font(.caption)
-                        }
-                        .frame(width: 68, height: 72)
-                        .foregroundStyle(freeEveningsPerWeek == count ? .white : palette.primaryText)
-                        .background(freeEveningsPerWeek == count ? palette.accent : palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-                    }
-                    .buttonStyle(MiraPressStyle())
-                    .accessibilityLabel("週に\(count)日")
-                }
-            }
-            Spacer()
-        }
-        .padding(MiraSpacing.lg)
-    }
-
     private var basicUnavailableTimes: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MiraSpacing.lg) {
@@ -360,10 +322,7 @@ struct OnboardingView: View {
                 isDisabled: step == 1 && selections.isEmpty
             ) {
                 if step == totalSteps - 1 {
-                    var submittedTargets = targets.filter { selections.contains($0.key) }
-                    if marginMode == .automatic {
-                        submittedTargets[.freeEvening] = targets[.freeEvening]
-                    }
+                    let submittedTargets = targets.filter { selections.contains($0.key) }
                     store.finishOnboarding(
                         targets: submittedTargets,
                         baseRules: availabilityRules.compactMap(\.domainRule),
@@ -391,7 +350,6 @@ struct OnboardingView: View {
 
     private func resolvedTarget(for kind: MarginKind) -> Int {
         guard marginMode == .automatic else { return targets[kind, default: 0] }
-        if kind == .freeEvening { return targets[kind, default: recommendation.targets[kind, default: 0]] }
         return recommendation.targets[kind, default: targets[kind, default: 0]]
     }
 

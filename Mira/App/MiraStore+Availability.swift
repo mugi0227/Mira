@@ -23,15 +23,16 @@ extension MiraStore {
                 items: items,
                 comfort: marginComfort
             )
-            let selectedKinds = Set(targets.keys)
+            let canonicalTargets = Dictionary(
+                targets.map { ($0.key.canonicalKind, $0.value) },
+                uniquingKeysWith: { current, _ in current }
+            )
+            let selectedKinds = Set(canonicalTargets.keys)
             var resolvedTargets: [MarginKind: Int]
             if useRecommendedTargets {
                 resolvedTargets = recommendation.targets.filter { selectedKinds.contains($0.key) }
-                if let explicitFreeEvenings = targets[.freeEvening], selectedKinds.contains(.freeEvening) {
-                    resolvedTargets[.freeEvening] = explicitFreeEvenings
-                }
             } else {
-                resolvedTargets = targets
+                resolvedTargets = canonicalTargets
             }
 
             for offset in 0...2 {

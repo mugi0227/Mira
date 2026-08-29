@@ -3,11 +3,11 @@ import SwiftUI
 struct MiraQuickInputBar: View {
     @Environment(MiraStore.self) private var store
     let palette: MiraThemePalette
+    var isFocused: FocusState<Bool>.Binding
 
     @State private var text = ""
     @State private var showContextPicker = false
     @State private var showConversationHistory = false
-    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
@@ -35,6 +35,7 @@ struct MiraQuickInputBar: View {
 
             HStack(spacing: MiraSpacing.xs) {
                 Button {
+                    isFocused.wrappedValue = false
                     showContextPicker = true
                 } label: {
                     Image(systemName: "scope")
@@ -49,7 +50,7 @@ struct MiraQuickInputBar: View {
                 TextField("Miraに雑に投げる…", text: $text, axis: .vertical)
                     .lineLimit(1...4)
                     .textInputAutocapitalization(.never)
-                    .focused($isFocused)
+                    .focused(isFocused)
                     .submitLabel(.send)
                     .onSubmit(send)
                     .padding(.horizontal, 12)
@@ -95,6 +96,14 @@ struct MiraQuickInputBar: View {
         .padding(MiraSpacing.sm)
         .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous))
         .shadow(color: palette.shadow, radius: 12, y: 5)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完了") {
+                    isFocused.wrappedValue = false
+                }
+            }
+        }
         .sheet(isPresented: $showContextPicker) {
             ContextPickerSheet(palette: palette)
         }
@@ -111,7 +120,7 @@ struct MiraQuickInputBar: View {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return }
         text = ""
-        isFocused = false
+        isFocused.wrappedValue = false
         Task { await store.handleConversationInput(value) }
     }
 }

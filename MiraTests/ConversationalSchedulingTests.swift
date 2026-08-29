@@ -143,6 +143,33 @@ final class ConversationalSchedulingTests: XCTestCase {
         XCTAssertEqual(recommendations[0].timeBand, .midday)
     }
 
+    func testEveryDayInSearchRangeRemainsSelectableIncludingBusyDays() {
+        let firstDay = TestFixtures.date(day: 7, hour: 0)
+        let lastDay = TestFixtures.date(day: 13, hour: 23)
+        let busy = TestFixtures.event(
+            title: "先約",
+            day: 9,
+            hour: 19,
+            duration: 2,
+            load: .heavy
+        )
+        let recommendations = SchedulingRecommendationEngine().recommendations(
+            title: "飲み会",
+            dateRange: DateInterval(start: firstDay, end: lastDay),
+            duration: .short,
+            timeBands: [.evening],
+            items: [busy],
+            heldCandidates: [],
+            baseRules: []
+        )
+
+        XCTAssertEqual(recommendations.count, 7)
+        XCTAssertEqual(Set(recommendations.map { Calendar.mira.startOfDay(for: $0.day) }).count, 7)
+        XCTAssertFalse(recommendations.first {
+            Calendar.mira.isDate($0.day, inSameDayAs: busy.startDate)
+        }?.conflicts.isEmpty ?? true)
+    }
+
     func testCoarseCandidateRoundTripsThroughCodable() throws {
         let slot = CandidateSlotSnapshot(
             startDate: TestFixtures.date(day: 16, hour: 19),
@@ -177,6 +204,7 @@ final class MarginRecommendationTests: XCTestCase {
 
         XCTAssertLessThanOrEqual(low.targets[.rest, default: 0], standard.targets[.rest, default: 0])
         XCTAssertLessThanOrEqual(standard.targets[.rest, default: 0], high.targets[.rest, default: 0])
-        XCTAssertLessThanOrEqual(low.targets[.freeEvening, default: 0], high.targets[.freeEvening, default: 0])
+        XCTAssertNil(standard.targets[.freeEvening])
+        XCTAssertNil(standard.targets[.solo])
     }
 }

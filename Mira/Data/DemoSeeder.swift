@@ -85,9 +85,7 @@ enum DemoSeeder {
 
         let defaults = targets.isEmpty ? [
             MarginKind.rest: 4,
-            .freeEvening: 8,
             .reading: 2,
-            .solo: 2,
             .personalProject: 2,
             .importantPeople: 2
         ] : targets

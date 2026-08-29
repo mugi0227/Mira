@@ -27,20 +27,12 @@ struct MarginRecommendationEngine: Sendable {
             2,
             8
         )
-        let standardFreeEvenings = clamp(
-            6 + heavyCount / 2 + max(0, consecutiveBusy - 2),
-            4,
-            12
-        )
         let standardReading = clamp(2 + (busyWeekendCount >= 3 ? 1 : 0), 1, 4)
-        let standardSolo = clamp(2 + (heavyCount >= 5 ? 1 : 0), 1, 5)
         let standardProject = clamp(events.count <= 10 ? 2 : 1, 1, 3)
 
         let base: [MarginKind: Int] = [
             .rest: standardRest,
-            .freeEvening: standardFreeEvenings,
             .reading: standardReading,
-            .solo: standardSolo,
             .personalProject: standardProject,
             .importantPeople: 2
         ]

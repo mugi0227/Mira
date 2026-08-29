@@ -9,9 +9,14 @@ extension MiraStore {
             settingsEntity?.onboardingCompleted = true
             settingsEntity?.updatedAt = .now
 
+            let canonicalTargets = Dictionary(
+                targets.map { ($0.key.canonicalKind, $0.value) },
+                uniquingKeysWith: { current, _ in current }
+            )
+
             for offset in 0...2 {
                 let month = selectedMonth.addingMonths(offset)
-                try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: targets, calendar: .mira)
+                try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: canonicalTargets, calendar: .mira)
             }
             try context.save()
             try refresh()
@@ -157,8 +162,9 @@ extension MiraStore {
     }
 
     func addMargin(kind: MarginKind, on date: Date) {
+        let kind = kind.canonicalKind
         let duration = kind.defaultDurationHours
-        let startHour = kind == .rest ? 9 : (kind == .freeEvening || kind == .solo ? 18 : 13)
+        let startHour = kind == .rest ? 9 : 13
         let start = date.setting(hour: startHour)
         let end = Calendar.mira.date(byAdding: .hour, value: duration, to: start) ?? start
         let snapshot = CalendarItemSnapshot(

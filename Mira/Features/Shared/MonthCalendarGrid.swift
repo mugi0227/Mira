@@ -8,6 +8,7 @@ struct MonthCalendarGrid: View {
     var referenceDate: Date = .now
     var allowsDragging = true
     var onMoveItem: ((UUID, Date) -> Void)?
+    var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
 
     private let calendar = Calendar.mira
@@ -136,7 +137,10 @@ struct MonthCalendarGrid: View {
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture { selectedDate = date }
+        .onTapGesture {
+            selectedDate = date
+            onSelectDate?(date)
+        }
         .overlay(alignment: .trailing) {
             if column < 6 { gridLine.frame(width: 0.5) }
         }
@@ -151,7 +155,10 @@ struct MonthCalendarGrid: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: "日付を選択") { selectedDate = date }
+        .accessibilityAction(named: "日付を開く") {
+            selectedDate = date
+            onSelectDate?(date)
+        }
     }
 
     private func dateForeground(

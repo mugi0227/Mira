@@ -66,7 +66,7 @@ final class CalendarItemEntity {
         endDate = snapshot.endDate
         isAllDay = snapshot.isAllDay
         kindRaw = snapshot.kind.rawValue
-        marginKindRaw = snapshot.marginKind?.rawValue
+        marginKindRaw = snapshot.marginKind?.canonicalKind.rawValue
         loadRaw = snapshot.loadClass.rawValue
         loadReason = snapshot.loadReason
         bufferBeforeMinutes = snapshot.bufferBeforeMinutes
@@ -89,7 +89,7 @@ final class CalendarItemEntity {
             endDate: endDate,
             isAllDay: isAllDay,
             kind: CalendarItemKind(rawValue: kindRaw) ?? .confirmed,
-            marginKind: marginKindRaw.flatMap(MarginKind.init(rawValue:)),
+            marginKind: marginKindRaw.flatMap(MarginKind.init(rawValue:))?.canonicalKind,
             loadClass: LoadClass(rawValue: loadRaw) ?? .normal,
             loadReason: loadReason,
             bufferBeforeMinutes: bufferBeforeMinutes,
@@ -109,7 +109,7 @@ final class CalendarItemEntity {
         endDate = snapshot.endDate
         isAllDay = snapshot.isAllDay
         kindRaw = snapshot.kind.rawValue
-        marginKindRaw = snapshot.marginKind?.rawValue
+        marginKindRaw = snapshot.marginKind?.canonicalKind.rawValue
         loadRaw = snapshot.loadClass.rawValue
         loadReason = snapshot.loadReason
         bufferBeforeMinutes = snapshot.bufferBeforeMinutes
@@ -139,7 +139,7 @@ final class MarginGoalEntity {
         id = snapshot.id
         year = snapshot.year
         month = snapshot.month
-        kindRaw = snapshot.kind.rawValue
+        kindRaw = snapshot.kind.canonicalKind.rawValue
         targetCount = snapshot.targetCount
         durationHours = snapshot.durationHours
         priority = snapshot.priority
@@ -151,7 +151,7 @@ final class MarginGoalEntity {
             id: id,
             year: year,
             month: month,
-            kind: MarginKind(rawValue: kindRaw) ?? .custom,
+            kind: (MarginKind(rawValue: kindRaw) ?? .custom).canonicalKind,
             targetCount: targetCount,
             durationHours: durationHours,
             priority: priority,
