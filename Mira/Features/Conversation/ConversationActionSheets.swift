@@ -139,39 +139,43 @@ struct ChangePreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            if let preview = store.pendingChangePreview {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: MiraSpacing.lg) {
-                        HStack(spacing: MiraSpacing.md) {
-                            PixelCatView(mood: preview.conflicts.isEmpty ? .thinking : .warning, size: 76)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("変更内容を確認してにゃ")
-                                    .font(.title3.bold())
-                                Text("保存するまで実データは変わりません")
-                                    .font(.caption)
-                                    .foregroundStyle(palette.secondaryText)
+            Group {
+                if let preview = store.pendingChangePreview {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                            HStack(spacing: MiraSpacing.md) {
+                                PixelCatView(mood: preview.conflicts.isEmpty ? .thinking : .warning, size: 76)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("変更内容を確認してにゃ")
+                                        .font(.title3.bold())
+                                    Text("保存するまで実データは変わりません")
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: MiraSpacing.md) {
+                                changeRow(label: "変更前", item: preview.before, emphasized: false)
+                                Image(systemName: "arrow.down")
+                                    .foregroundStyle(palette.accent)
+                                    .frame(maxWidth: .infinity)
+                                changeRow(label: "変更後", item: preview.after, emphasized: true)
+                            }
+                            .miraCard(palette)
+
+                            impactCard(conflicts: preview.conflicts, impact: preview.impact)
+
+                            PrimaryButton(title: "変更を保存", symbol: "checkmark", palette: palette) {
+                                store.applyChangePreview()
+                                dismiss()
                             }
                         }
-
-                        VStack(alignment: .leading, spacing: MiraSpacing.md) {
-                            changeRow(label: "変更前", item: preview.before, emphasized: false)
-                            Image(systemName: "arrow.down")
-                                .foregroundStyle(palette.accent)
-                                .frame(maxWidth: .infinity)
-                            changeRow(label: "変更後", item: preview.after, emphasized: true)
-                        }
-                        .miraCard(palette)
-
-                        impactCard(conflicts: preview.conflicts, impact: preview.impact)
-
-                        PrimaryButton(title: "変更を保存", symbol: "checkmark", palette: palette) {
-                            store.applyChangePreview()
-                            dismiss()
-                        }
+                        .padding(MiraSpacing.lg)
                     }
-                    .padding(MiraSpacing.lg)
+                    .background(palette.background)
+                } else {
+                    ContentUnavailableView("変更案がありません", systemImage: "calendar.badge.exclamationmark")
                 }
-                .background(palette.background)
             }
             .navigationTitle("変更プレビュー")
             .navigationBarTitleDisplayMode(.inline)
@@ -214,10 +218,12 @@ struct ChangePreviewSheet: View {
                     .font(.headline)
                     .foregroundStyle(palette.warning)
                 ForEach(conflicts, id: \.self) { conflict in
-                    Text("・\(conflict)").font(.subheadline)
+                    Text("・\(conflict)")
+                        .font(.subheadline)
                 }
                 if !impact.overlappingMargins.isEmpty {
-                    Text("・\(impact.message)").font(.subheadline)
+                    Text("・\(impact.message)")
+                        .font(.subheadline)
                 }
             }
             .foregroundStyle(palette.primaryText)
@@ -233,89 +239,91 @@ struct EventCreationPreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            if let preview = store.pendingEventCreationPreview {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: MiraSpacing.lg) {
-                        HStack(spacing: MiraSpacing.md) {
-                            PixelCatView(mood: mood(for: preview), size: 78)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(headline(for: preview))
-                                    .font(.title3.bold())
-                                Text("決めるのはあなた。影響と別案を先に見るにゃ。")
+            Group {
+                if let preview = store.pendingEventCreationPreview {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                            HStack(spacing: MiraSpacing.md) {
+                                PixelCatView(mood: mood(for: preview), size: 78)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(headline(for: preview))
+                                        .font(.title3.bold())
+                                    Text("決めるのはあなた。影響と別案を先に見るにゃ。")
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(preview.event.title)
+                                    .font(.headline)
+                                Text("\(preview.event.startDate.japaneseShortDate)  \(preview.event.timeDescription)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(palette.secondaryText)
+                                Text("負荷：\(preview.event.loadClass.title) — \(preview.event.loadReason)")
                                     .font(.caption)
                                     .foregroundStyle(palette.secondaryText)
                             }
-                        }
+                            .miraCard(palette)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(preview.event.title).font(.headline)
-                            Text("\(preview.event.startDate.japaneseShortDate)  \(preview.event.timeDescription)")
+                            if !preview.conflicts.isEmpty || !preview.impact.overlappingMargins.isEmpty {
+                                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                                    Text("気になる点")
+                                        .font(.headline)
+                                        .foregroundStyle(palette.warning)
+                                    ForEach(preview.conflicts, id: \.self) { conflict in
+                                        Text("・\(conflict)")
+                                    }
+                                    if !preview.impact.overlappingMargins.isEmpty {
+                                        Text("・\(preview.impact.message)")
+                                    }
+                                    ForEach(sortedDeficitKinds(preview), id: \.self) { kind in
+                                        Text("・\(kind.title) が目標より\(preview.impact.projectedGoalDeficits[kind, default: 0])枠不足")
+                                    }
+                                }
                                 .font(.subheadline)
-                                .foregroundStyle(palette.secondaryText)
-                            Text("負荷：\(preview.event.loadClass.title) — \(preview.event.loadReason)")
-                                .font(.caption)
-                                .foregroundStyle(palette.secondaryText)
-                        }
-                        .miraCard(palette)
-
-                        if !preview.conflicts.isEmpty || !preview.impact.overlappingMargins.isEmpty {
-                            VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-                                Text("気になる点")
-                                    .font(.headline)
-                                    .foregroundStyle(palette.warning)
-                                ForEach(preview.conflicts, id: \.self) { conflict in
-                                    Text("・\(conflict)")
-                                }
-                                if !preview.impact.overlappingMargins.isEmpty {
-                                    Text("・\(preview.impact.message)")
-                                }
-                                ForEach(
-                                    preview.impact.projectedGoalDeficits.sorted(by: { $0.key.rawValue < $1.key.rawValue }),
-                                    id: \.key
-                                ) { entry in
-                                    Text("・\(entry.key.title) が目標より\(entry.value)枠不足")
-                                }
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(palette.primaryText)
-                            .miraCard(palette)
-                        } else {
-                            Label("この予定を入れても余白は守れそう", systemImage: "checkmark.circle.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(palette.success)
+                                .foregroundStyle(palette.primaryText)
                                 .miraCard(palette)
-                        }
+                            } else {
+                                Label("この予定を入れても余白は守れそう", systemImage: "checkmark.circle.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(palette.success)
+                                    .miraCard(palette)
+                            }
 
-                        if !preview.impact.relocationCandidates.isEmpty {
-                            VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-                                Text("余白を移すなら")
-                                    .font(.headline)
-                                ForEach(preview.impact.relocationCandidates.prefix(3), id: \.self) { date in
-                                    Label(date.japaneseShortDate, systemImage: "arrow.right.circle")
-                                        .font(.subheadline)
+                            if !preview.impact.relocationCandidates.isEmpty {
+                                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                                    Text("余白を移すなら")
+                                        .font(.headline)
+                                    ForEach(preview.impact.relocationCandidates.prefix(3), id: \.self) { date in
+                                        Label(date.japaneseShortDate, systemImage: "arrow.right.circle")
+                                            .font(.subheadline)
+                                    }
+                                }
+                                .foregroundStyle(palette.primaryText)
+                                .miraCard(palette)
+
+                                PrimaryButton(title: "余白を移して追加", symbol: "arrow.left.arrow.right", palette: palette) {
+                                    store.applyEventCreationPreview(resolution: .relocate)
+                                    dismiss()
                                 }
                             }
-                            .foregroundStyle(palette.primaryText)
-                            .miraCard(palette)
 
-                            PrimaryButton(title: "余白を移して追加", symbol: "arrow.left.arrow.right", palette: palette) {
-                                store.applyEventCreationPreview(resolution: .relocate)
+                            PrimaryButton(
+                                title: preview.conflicts.isEmpty && preview.impact.overlappingMargins.isEmpty ? "予定を追加" : "このまま追加する",
+                                symbol: "calendar.badge.plus",
+                                palette: palette
+                            ) {
+                                store.applyEventCreationPreview(resolution: .exception)
                                 dismiss()
                             }
                         }
-
-                        PrimaryButton(
-                            title: preview.conflicts.isEmpty && preview.impact.overlappingMargins.isEmpty ? "予定を追加" : "このまま追加する",
-                            symbol: "calendar.badge.plus",
-                            palette: palette
-                        ) {
-                            store.applyEventCreationPreview(resolution: .exception)
-                            dismiss()
-                        }
+                        .padding(MiraSpacing.lg)
                     }
-                    .padding(MiraSpacing.lg)
+                    .background(palette.background)
+                } else {
+                    ContentUnavailableView("追加案がありません", systemImage: "calendar.badge.exclamationmark")
                 }
-                .background(palette.background)
             }
             .navigationTitle("予定の確認")
             .navigationBarTitleDisplayMode(.inline)
@@ -340,6 +348,10 @@ struct EventCreationPreviewSheet: View {
             ? "入れても大丈夫そうだにゃ"
             : "この時間、ちょっと気になるにゃ"
     }
+
+    private func sortedDeficitKinds(_ preview: EventCreationPreview) -> [MarginKind] {
+        preview.impact.projectedGoalDeficits.keys.sorted { $0.rawValue < $1.rawValue }
+    }
 }
 
 struct RebalanceProposalSheet: View {
@@ -349,61 +361,66 @@ struct RebalanceProposalSheet: View {
 
     var body: some View {
         NavigationStack {
-            if let proposal = store.activeRebalanceProposal {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: MiraSpacing.lg) {
-                        HStack(spacing: MiraSpacing.md) {
-                            PixelCatView(mood: .thinking, size: 84)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("完成案を持ってきたにゃ")
-                                    .font(.title3.bold())
-                                Text(proposal.summary)
-                                    .font(.subheadline)
-                                    .foregroundStyle(palette.secondaryText)
-                            }
-                        }
-
-                        ForEach(proposal.moves) { move in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(move.title).font(.headline)
-                                if isExistingMargin(move) {
-                                    HStack {
-                                        Text(move.from.japaneseShortDate)
-                                            .strikethrough()
-                                        Image(systemName: "arrow.right")
-                                            .foregroundStyle(palette.accent)
-                                        Text(move.to.japaneseShortDate)
-                                            .fontWeight(.semibold)
-                                    }
-                                    .font(.subheadline)
-                                } else {
-                                    Label("\(move.to.japaneseShortDate) に新しく追加", systemImage: "plus.circle.fill")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(palette.accent)
+            Group {
+                if let proposal = store.activeRebalanceProposal {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                            HStack(spacing: MiraSpacing.md) {
+                                PixelCatView(mood: .thinking, size: 84)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("完成案を持ってきたにゃ")
+                                        .font(.title3.bold())
+                                    Text(proposal.summary)
+                                        .font(.subheadline)
+                                        .foregroundStyle(palette.secondaryText)
                                 }
-                                Text(move.benefit)
-                                    .font(.caption)
-                                    .foregroundStyle(palette.secondaryText)
                             }
-                            .miraCard(palette)
-                        }
 
-                        PrimaryButton(title: "この案を適用", symbol: "sparkles", palette: palette) {
-                            store.applyRebalanceProposal(proposal)
-                            dismiss()
-                        }
+                            ForEach(proposal.moves) { move in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(move.title)
+                                        .font(.headline)
+                                    if isExistingMargin(move) {
+                                        HStack {
+                                            Text(move.from.japaneseShortDate)
+                                                .strikethrough()
+                                            Image(systemName: "arrow.right")
+                                                .foregroundStyle(palette.accent)
+                                            Text(move.to.japaneseShortDate)
+                                                .fontWeight(.semibold)
+                                        }
+                                        .font(.subheadline)
+                                    } else {
+                                        Label("\(move.to.japaneseShortDate) に新しく追加", systemImage: "plus.circle.fill")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(palette.accent)
+                                    }
+                                    Text(move.benefit)
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                .miraCard(palette)
+                            }
 
-                        Button("今回は見送る") {
-                            store.dismissRebalanceProposal(proposal)
-                            dismiss()
+                            PrimaryButton(title: "この案を適用", symbol: "sparkles", palette: palette) {
+                                store.applyRebalanceProposal(proposal)
+                                dismiss()
+                            }
+
+                            Button("今回は見送る") {
+                                store.dismissRebalanceProposal(proposal)
+                                dismiss()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(palette.secondaryText)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(MiraSpacing.lg)
                     }
-                    .padding(MiraSpacing.lg)
+                    .background(palette.background)
+                } else {
+                    ContentUnavailableView("再設計案はありません", systemImage: "leaf")
                 }
-                .background(palette.background)
             }
             .navigationTitle("余白の再設計")
             .navigationBarTitleDisplayMode(.inline)
