@@ -164,6 +164,10 @@ final class MiraStore {
         activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
     }
 
+    func replaceDeviceHolidays(with holidays: [DeviceHolidaySnapshot]) {
+        deviceHolidays = holidays
+    }
+
     /// Collapses the two historical aliases into the single rest category.
     /// Existing rest goals win, so old overlapping targets are not added
     /// together and do not unexpectedly fill the calendar.

@@ -61,9 +61,9 @@ extension MiraStore {
     }
 
     func refreshDeviceHolidays(for month: Date) async {
-        deviceHolidays = deviceHolidaysEnabled
+        replaceDeviceHolidays(with: deviceHolidaysEnabled
             ? deviceHolidayService.holidays(around: month)
-            : []
+            : [])
     }
 
     func addImportantPerson(name: String, monthlyTarget: Int?) {
@@ -120,7 +120,7 @@ extension MiraStore {
             marginComfortLevel = .standard
             weekStartDay = .monday
             deviceHolidaysEnabled = false
-            deviceHolidays = []
+            replaceDeviceHolidays(with: [])
             activeSchedulingDraft = nil
             pinnedContext = nil
             pendingInterpretation = nil

@@ -74,9 +74,9 @@ struct MonthCalendarGrid: View {
     private func weekdayColor(for index: Int) -> Color {
         let weekday = (calendar.firstWeekday - 1 + index) % 7 + 1
         switch weekday {
-        case 7: palette.accent
-        case 1: palette.critical.opacity(0.86)
-        default: palette.secondaryText
+        case 7: return palette.accent
+        case 1: return palette.critical.opacity(0.86)
+        default: return palette.secondaryText
         }
     }
 
