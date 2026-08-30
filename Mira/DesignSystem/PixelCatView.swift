@@ -6,19 +6,27 @@ struct PixelCatView: View {
     var size: CGFloat = 72
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var floating = false
 
     var body: some View {
-        artwork
+        floatingArtwork
             .frame(width: size, height: size)
-            .offset(y: reduceMotion ? 0 : (floating ? -2 : 2))
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 1.8).repeatForever(autoreverses: true),
-                value: floating
-            )
-            .onAppear { floating = true }
+            .clipped()
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var floatingArtwork: some View {
+        if reduceMotion {
+            artwork
+        } else {
+            artwork
+                .phaseAnimator([false, true]) { content, floating in
+                    content.offset(y: floating ? -2 : 2)
+                } animation: { _ in
+                    .easeInOut(duration: 1.8)
+                }
+        }
     }
 
     @ViewBuilder
