@@ -492,9 +492,9 @@ struct SchedulingModeView: View {
     private func weekdayColor(for index: Int) -> Color {
         let weekday = (calendar.firstWeekday - 1 + index) % 7 + 1
         switch weekday {
-        case 1: palette.critical
-        case 7: palette.accent
-        default: palette.secondaryText
+        case 1: return palette.critical
+        case 7: return palette.accent
+        default: return palette.secondaryText
         }
     }
 }
