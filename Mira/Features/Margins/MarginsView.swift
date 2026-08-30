@@ -7,12 +7,14 @@ struct MarginsView: View {
     @State private var selectedGoal: MarginGoalSnapshot?
     @State private var showAddMargin = false
     @State private var showBaseRulesEditor = false
+    @State private var showRebalanceSheet = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: MiraSpacing.lg) {
                 monthPicker
                 overviewCard
+                automaticPlanCard
                 goalsSection
                 baseRulesCard
                 futureMonthCard
@@ -44,13 +46,19 @@ struct MarginsView: View {
         .sheet(isPresented: $showBaseRulesEditor) {
             BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
         }
+        .sheet(isPresented: $showRebalanceSheet) {
+            RebalanceProposalSheet(palette: palette)
+        }
+        .onAppear {
+            store.updateMarginRecommendation(for: store.selectedMonth)
+            store.recalculateBalance(for: store.selectedMonth)
+        }
     }
 
     private var monthPicker: some View {
         HStack {
             Button {
-                store.selectedMonth = store.selectedMonth.addingMonths(-1)
-                store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+                changeMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 44)
@@ -69,8 +77,7 @@ struct MarginsView: View {
             Spacer()
 
             Button {
-                store.selectedMonth = store.selectedMonth.addingMonths(1)
-                store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+                changeMonth(by: 1)
                 store.ensurePlan(for: store.selectedMonth)
             } label: {
                 Image(systemName: "chevron.right")
@@ -100,8 +107,12 @@ struct MarginsView: View {
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("おすすめ配置を更新") {
-                    store.autoPlaceMargins(for: store.selectedMonth)
+                Button(store.activeRebalanceProposal == nil ? "おすすめ配置を更新" : "完成した組み直し案を見る") {
+                    if store.activeRebalanceProposal != nil {
+                        showRebalanceSheet = true
+                    } else {
+                        store.autoPlaceMargins(for: store.selectedMonth)
+                    }
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(palette.accent)
@@ -110,6 +121,77 @@ struct MarginsView: View {
             Spacer(minLength: 0)
         }
         .miraCard(palette)
+    }
+
+    private var automaticPlanCard: some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+            HStack {
+                Label("Miraにおまかせ", systemImage: "sparkles.rectangle.stack.fill")
+                    .font(.headline)
+                    .foregroundStyle(palette.primaryText)
+                Spacer()
+                Text(store.marginComfortLevel.title)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(palette.accent)
+            }
+
+            Text("決まっている予定の負荷から、必要な休息や自分のための時間を自動計算します。")
+                .font(.subheadline)
+                .foregroundStyle(palette.secondaryText)
+
+            HStack(spacing: 7) {
+                ForEach(MarginComfortLevel.allCases) { level in
+                    Button {
+                        store.setMarginComfortLevel(level, applyRecommendation: false)
+                    } label: {
+                        Text(level.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(store.marginComfortLevel == level ? .white : palette.primaryText)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(store.marginComfortLevel == level ? palette.accent : palette.elevatedSurface, in: Capsule())
+                    }
+                    .buttonStyle(MiraPressStyle())
+                }
+            }
+
+            if let recommendation = store.currentMarginRecommendation {
+                HStack(spacing: MiraSpacing.md) {
+                    recommendationMetric(.rest, recommendation: recommendation)
+                    recommendationMetric(.reading, recommendation: recommendation)
+                    recommendationMetric(.personalProject, recommendation: recommendation)
+                }
+                ForEach(recommendation.reasons.prefix(2), id: \.self) { reason in
+                    Text("・\(reason)")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
+
+            Button {
+                store.applyCurrentMarginRecommendation()
+            } label: {
+                Label("このおすすめで目標を更新", systemImage: "checkmark")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+            }
+            .foregroundStyle(palette.accent)
+            .buttonStyle(MiraPressStyle())
+        }
+        .miraCard(palette)
+    }
+
+    private func recommendationMetric(_ kind: MarginKind, recommendation: MarginRecommendation) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: kind.symbolName)
+                .foregroundStyle(palette.accent)
+            Text("\(recommendation.targets[kind, default: 0])")
+                .font(.headline.monospacedDigit())
+            Text(shortTitle(kind))
+                .font(.caption2)
+                .foregroundStyle(palette.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var goalsSection: some View {
@@ -190,6 +272,8 @@ struct MarginsView: View {
                         store.selectedMonth = month
                         store.selectedDate = MonthKey(date: month).firstDay
                         store.ensurePlan(for: month)
+                        store.updateMarginRecommendation(for: month)
+                        store.recalculateBalance(for: month)
                     }
                     .buttonStyle(.bordered)
                     .tint(palette.accent)
@@ -221,6 +305,22 @@ struct MarginsView: View {
         }
         let remaining = max(0, sorted.count - details.count)
         return details.joined(separator: "・") + (remaining > 0 ? "・ほか\(remaining)日" : "")
+    }
+
+    private func changeMonth(by offset: Int) {
+        store.selectedMonth = store.selectedMonth.addingMonths(offset)
+        store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+        store.updateMarginRecommendation(for: store.selectedMonth)
+        store.recalculateBalance(for: store.selectedMonth)
+    }
+
+    private func shortTitle(_ kind: MarginKind) -> String {
+        switch kind {
+        case .rest: "休息"
+        case .freeEvening: "自由な夜"
+        case .solo: "一人時間"
+        default: kind.title
+        }
     }
 
     private func weekdayTitle(_ weekday: Int) -> String {

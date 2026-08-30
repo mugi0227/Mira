@@ -6,6 +6,8 @@ struct HomeView: View {
 
     @State private var showAddSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
+    @State private var selectedDayDestination: DayTimelineDestination?
+    @FocusState private var isQuickInputFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -16,9 +18,16 @@ struct HomeView: View {
                 progressSummary
                     .padding(.horizontal, MiraSpacing.md)
 
+                MiraQuickInputBar(palette: palette, isFocused: $isQuickInputFocused)
+                    .padding(.horizontal, MiraSpacing.md)
+
                 if store.assistantEnabled {
                     AssistantCard(message: store.currentAssistantMessage, palette: palette) {
-                        store.autoPlaceMargins(for: store.selectedMonth)
+                        if store.activeRebalanceProposal != nil {
+                            store.isRebalanceProposalPresented = true
+                        } else {
+                            store.autoPlaceMargins(for: store.selectedMonth)
+                        }
                     }
                     .padding(.horizontal, MiraSpacing.md)
                 }
@@ -31,29 +40,43 @@ struct HomeView: View {
                     ),
                     items: monthItems,
                     palette: palette,
+                    weekStartDay: store.weekStartDay,
+                    holidays: store.deviceHolidays,
                     referenceDate: store.now,
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
+                    onSelectDate: openDay,
                     onSelectItem: { selectedItem = $0 }
                 )
-
-                selectedDaySection
-                    .padding(.horizontal, MiraSpacing.md)
             }
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isQuickInputFocused = false
+            }
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(palette.background)
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddSheet = true
+                Menu {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Label("予定・余白を追加", systemImage: "plus")
+                    }
+                    Button {
+                        store.startManualScheduling()
+                    } label: {
+                        Label("日程を探す", systemImage: "calendar.badge.clock")
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("予定または余白を追加")
+                .accessibilityLabel("追加メニュー")
             }
         }
         .sheet(isPresented: $showAddSheet) {
@@ -61,6 +84,12 @@ struct HomeView: View {
         }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
+        }
+        .navigationDestination(item: $selectedDayDestination) { destination in
+            DayTimelineView(date: destination.date, palette: palette)
+        }
+        .task(id: MonthKey(date: store.selectedMonth)) {
+            await store.refreshDeviceHolidays(for: store.selectedMonth)
         }
     }
 
@@ -75,6 +104,8 @@ struct HomeView: View {
                 withAnimation(MiraMotion.standard) {
                     store.selectedMonth = store.selectedMonth.addingMonths(-1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+                    store.updateMarginRecommendation(for: store.selectedMonth)
+                    store.recalculateBalance(for: store.selectedMonth)
                 }
             } label: {
                 Image(systemName: "chevron.left")
@@ -98,6 +129,8 @@ struct HomeView: View {
                     store.selectedMonth = store.selectedMonth.addingMonths(1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.ensurePlan(for: store.selectedMonth)
+                    store.updateMarginRecommendation(for: store.selectedMonth)
+                    store.recalculateBalance(for: store.selectedMonth)
                 }
             } label: {
                 Image(systemName: "chevron.right")
@@ -110,7 +143,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var progressSummary: some View {
-        let visibleGoals = store.currentMonthGoals.filter { [.rest, .freeEvening, .importantPeople].contains($0.kind) }
+        let visibleGoals = store.currentMonthGoals.filter { [.rest, .reading, .importantPeople].contains($0.kind) }
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MiraSpacing.xs) {
                 ForEach(visibleGoals) { goal in
@@ -168,8 +201,8 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let items = store.selectedDayItems.filter { $0.kind != .birthday }
-        guard let maxLoad = items.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
+        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
         case .normal: return "ほどよい予定量"
@@ -178,10 +211,22 @@ struct HomeView: View {
         }
     }
 
+    private func openDay(_ date: Date) {
+        isQuickInputFocused = false
+        store.selectedDate = date
+        if !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
+            store.selectedMonth = MonthKey(date: date).firstDay
+            store.ensurePlan(for: date)
+            store.updateMarginRecommendation(for: date)
+            store.recalculateBalance(for: date)
+        }
+        selectedDayDestination = DayTimelineDestination(date: date)
+    }
+
     private func shortTitle(_ kind: MarginKind) -> String {
         switch kind {
         case .rest: "休息"
-        case .freeEvening: "自由な夜"
+        case .reading: "読書・映像"
         case .importantPeople: "大切な時間"
         default: kind.title
         }
@@ -255,7 +300,7 @@ private struct AgendaRow: View {
                             .accessibilityLabel("大切な人との時間")
                     }
                 }
-                Text(timeText)
+                Text(item.timeDescription)
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
             }
@@ -271,13 +316,6 @@ private struct AgendaRow: View {
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
         if item.kind == .birthday { return "gift.fill" }
-        return "calendar"
-    }
-
-    private var timeText: String {
-        if item.isAllDay { return "終日" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "H:mm"
-        return "\(formatter.string(from: item.startDate))–\(formatter.string(from: item.endDate))"
+        return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }
 }

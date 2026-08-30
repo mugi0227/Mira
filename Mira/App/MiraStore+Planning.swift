@@ -9,9 +9,14 @@ extension MiraStore {
             settingsEntity?.onboardingCompleted = true
             settingsEntity?.updatedAt = .now
 
+            let canonicalTargets = Dictionary(
+                targets.map { ($0.key.canonicalKind, $0.value) },
+                uniquingKeysWith: { current, _ in current }
+            )
+
             for offset in 0...2 {
                 let month = selectedMonth.addingMonths(offset)
-                try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: targets, calendar: .mira)
+                try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: canonicalTargets, calendar: .mira)
             }
             try context.save()
             try refresh()
@@ -58,6 +63,8 @@ extension MiraStore {
             proposal.slots.forEach { context.insert(CalendarItemEntity(snapshot: $0)) }
             try context.save()
             try refresh()
+            updateMarginRecommendation(for: month)
+            recalculateBalance(for: month)
             toast = proposal.unmetGoals.isEmpty
                 ? "余白をいい感じに置いたにゃ"
                 : "置けなかった余白もあるので、あとで見直してにゃ"
@@ -112,19 +119,21 @@ extension MiraStore {
         if let first {
             candidates = scheduler.relocationCandidates(
                 for: first,
-                month: selectedMonth,
-                events: items.filter { $0.kind != .margin } + [event],
+                month: event.startDate,
+                events: items.filter { $0.kind != .margin && $0.id != event.id } + [event],
                 otherMargins: otherMargins,
                 baseRules: fetchBaseRules()
             )
         } else {
             candidates = []
         }
+        let key = MonthKey(date: event.startDate)
+        let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
         return protectionEngine.analyze(
             proposedEvent: event,
-            month: selectedMonth,
-            items: items,
-            goals: currentMonthGoals,
+            month: event.startDate,
+            items: items.filter { $0.id != event.id },
+            goals: monthGoals,
             relocationCandidates: candidates
         )
     }
@@ -144,6 +153,8 @@ extension MiraStore {
             context.insert(CalendarItemEntity(snapshot: event))
             try context.save()
             try refresh()
+            updateMarginRecommendation(for: event.startDate)
+            recalculateBalance(for: event.startDate)
             toast = "予定を追加したにゃ"
         } catch {
             toast = "予定を保存できませんでした"
@@ -151,8 +162,9 @@ extension MiraStore {
     }
 
     func addMargin(kind: MarginKind, on date: Date) {
+        let kind = kind.canonicalKind
         let duration = kind.defaultDurationHours
-        let startHour = kind == .rest ? 9 : (kind == .freeEvening || kind == .solo ? 18 : 13)
+        let startHour = kind == .rest ? 9 : 13
         let start = date.setting(hour: startHour)
         let end = Calendar.mira.date(byAdding: .hour, value: duration, to: start) ?? start
         let snapshot = CalendarItemSnapshot(
@@ -173,11 +185,13 @@ extension MiraStore {
         context.insert(CalendarItemEntity(snapshot: snapshot))
         try? context.save()
         try? refresh()
+        recalculateBalance(for: date)
     }
 
     func moveItem(id: UUID, to date: Date) {
         do {
             guard let entity = try entity(id: id) else { return }
+            let oldDate = entity.startDate
             let duration = entity.endDate.timeIntervalSince(entity.startDate)
             let oldComponents = Calendar.mira.dateComponents([.hour, .minute], from: entity.startDate)
             let newStart = date.setting(hour: oldComponents.hour ?? 9, minute: oldComponents.minute ?? 0)
@@ -186,6 +200,12 @@ extension MiraStore {
             entity.updatedAt = .now
             try context.save()
             try refresh()
+            updateMarginRecommendation(for: oldDate)
+            updateMarginRecommendation(for: newStart)
+            recalculateBalance(for: oldDate)
+            if !Calendar.mira.isDate(oldDate, equalTo: newStart, toGranularity: .month) {
+                recalculateBalance(for: newStart)
+            }
             toast = "移動したにゃ"
         } catch {
             toast = "移動できませんでした"
@@ -195,9 +215,12 @@ extension MiraStore {
     func deleteItem(id: UUID) {
         do {
             if let entity = try entity(id: id) {
+                let affectedDate = entity.startDate
                 context.delete(entity)
                 try context.save()
                 try refresh()
+                updateMarginRecommendation(for: affectedDate)
+                recalculateBalance(for: affectedDate)
             }
         } catch {
             toast = "削除できませんでした"
@@ -207,6 +230,7 @@ extension MiraStore {
     func correctLoad(itemID: UUID, to load: LoadClass, rememberKeyword: Bool) {
         do {
             guard let entity = try entity(id: itemID) else { return }
+            let affectedDate = entity.startDate
             entity.loadRaw = load.rawValue
             entity.loadReason = "あなたが明示的に変更した負荷"
             if rememberKeyword {
@@ -214,6 +238,8 @@ extension MiraStore {
             }
             try context.save()
             try refresh()
+            updateMarginRecommendation(for: affectedDate)
+            recalculateBalance(for: affectedDate)
             toast = rememberKeyword ? "似た予定にも覚えておくにゃ" : "この予定だけ直したにゃ"
         } catch {
             toast = "負荷を変更できませんでした"
@@ -249,6 +275,7 @@ extension MiraStore {
                 entity.isEnabled = target > 0
                 try context.save()
                 try refresh()
+                recalculateBalance(for: MonthKey(year: goal.year, month: goal.month).firstDay)
             }
         } catch {
             toast = "目標を変更できませんでした"

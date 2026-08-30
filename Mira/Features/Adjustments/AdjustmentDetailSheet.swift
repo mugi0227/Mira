@@ -9,6 +9,7 @@ struct AdjustmentDetailSheet: View {
     let palette: MiraThemePalette
 
     @State private var showCancelConfirmation = false
+    @State private var showConversationHistory = false
     @State private var candidateToConfirm: CandidateSlotSnapshot?
 
     var body: some View {
@@ -18,6 +19,17 @@ struct AdjustmentDetailSheet: View {
                     statusHeader
                     candidateSection
                     sharingCard
+                    if session.conversationCaseID != nil {
+                        Button {
+                            showConversationHistory = true
+                        } label: {
+                            Label("この調整の会話を見る", systemImage: "bubble.left.and.bubble.right")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.accent)
+                    }
                     if session.status == .waiting {
                         cancelButton
                     }
@@ -46,7 +58,7 @@ struct AdjustmentDetailSheet: View {
                 Button("やめる", role: .cancel) { candidateToConfirm = nil }
             } message: {
                 if let candidateToConfirm {
-                    Text("\(candidateToConfirm.startDate.japaneseShortDate) \(candidateToConfirm.timeOfDay.title)を確定し、ほかの候補を解放します。")
+                    Text("\(candidateToConfirm.startDate.japaneseShortDate) \(candidateDescription(candidateToConfirm))を確定し、ほかの候補を解放します。")
                 }
             }
             .confirmationDialog("調整を取りやめますか？", isPresented: $showCancelConfirmation) {
@@ -57,6 +69,9 @@ struct AdjustmentDetailSheet: View {
                     }
                 }
                 Button("やめる", role: .cancel) {}
+            }
+            .sheet(isPresented: $showConversationHistory) {
+                ConversationHistorySheet(palette: palette, caseID: session.conversationCaseID)
             }
         }
         .tint(palette.accent)
@@ -96,6 +111,24 @@ struct AdjustmentDetailSheet: View {
                 .font(.title3.bold())
                 .foregroundStyle(palette.primaryText)
 
+            if session.candidates.isEmpty {
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    Text("候補日はまだありません")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                    Button {
+                        store.startScheduling(for: session)
+                        dismiss()
+                    } label: {
+                        Label("候補日を探す", systemImage: "calendar.badge.plus")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                }
+                .miraCard(palette, padding: MiraSpacing.sm)
+            }
+
             ForEach(session.candidates) { candidate in
                 let conflicts = store.conflictMessages(for: candidate, excluding: session.id)
                 VStack(alignment: .leading, spacing: 8) {
@@ -104,7 +137,7 @@ struct AdjustmentDetailSheet: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(candidate.status == .confirmed ? palette.success.opacity(0.18) : palette.adjustment)
                                 .frame(width: 48, height: 48)
-                            Image(systemName: candidate.status == .confirmed ? "checkmark" : "calendar")
+                            Image(systemName: candidate.status == .confirmed ? "checkmark" : candidate.displayTimeBand.symbolName)
                                 .font(.headline)
                                 .foregroundStyle(candidate.status == .confirmed ? palette.success : palette.primaryText)
                         }
@@ -112,7 +145,7 @@ struct AdjustmentDetailSheet: View {
                             Text(candidate.startDate.japaneseDayTitle)
                                 .font(.headline)
                                 .foregroundStyle(palette.primaryText)
-                            Text(candidate.timeOfDay.title)
+                            Text(candidateDescription(candidate))
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
@@ -130,6 +163,12 @@ struct AdjustmentDetailSheet: View {
                         }
                     }
 
+                    if candidate.isRecommended == true {
+                        Label("Miraのおすすめ", systemImage: "sparkles")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.accent)
+                    }
+
                     if !conflicts.isEmpty, candidate.status == .held {
                         ForEach(conflicts, id: \.self) { conflict in
                             Label(conflict, systemImage: conflict.contains("余白") ? "leaf.fill" : "exclamationmark.triangle.fill")
@@ -144,33 +183,39 @@ struct AdjustmentDetailSheet: View {
     }
 
     private var sharingCard: some View {
-        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-            Label("送る文章", systemImage: "message")
-                .font(.headline)
-                .foregroundStyle(palette.primaryText)
-            Text(session.generatedMessage)
-                .font(.subheadline)
-                .foregroundStyle(palette.secondaryText)
-                .textSelection(.enabled)
-            HStack(spacing: MiraSpacing.sm) {
-                Button {
-                    UIPasteboard.general.string = session.generatedMessage
-                    store.toast = "文章をコピーしたにゃ"
-                } label: {
-                    Label("コピー", systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
+        Group {
+            if session.candidates.isEmpty {
+                EmptyView()
+            } else {
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    Label("送る文章", systemImage: "message")
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text(session.generatedMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
+                        .textSelection(.enabled)
+                    HStack(spacing: MiraSpacing.sm) {
+                        Button {
+                            UIPasteboard.general.string = session.generatedMessage
+                            store.toast = "文章をコピーしたにゃ"
+                        } label: {
+                            Label("コピー", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
 
-                ShareLink(item: session.generatedMessage) {
-                    Label("共有", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        ShareLink(item: session.generatedMessage) {
+                            Label("共有", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .tint(palette.accent)
                 }
-                .buttonStyle(.borderedProminent)
+                .miraCard(palette)
             }
-            .tint(palette.accent)
         }
-        .miraCard(palette)
     }
 
     private var cancelButton: some View {
@@ -187,10 +232,20 @@ struct AdjustmentDetailSheet: View {
     private var statusText: String {
         switch session.status {
         case .draft: "下書き"
-        case .waiting: "返事待ち・候補日を仮押さえ中"
+        case .waiting: "返事待ち・候補日をゆるく仮押さえ中"
         case .confirmed: "日程確定済み"
         case .cancelled: "キャンセル済み"
         }
+    }
+
+    private func candidateDescription(_ candidate: CandidateSlotSnapshot) -> String {
+        if candidate.exactTimeKnown == false {
+            return "\(candidate.displayTimeBand.title)・\(candidate.displayDuration.title)・時間未定"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "H:mm"
+        return "\(formatter.string(from: candidate.startDate))–\(formatter.string(from: candidate.endDate))"
     }
 
     private func candidateStatus(_ status: CandidateStatus) -> String {

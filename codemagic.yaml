@@ -1,0 +1,105 @@
+workflows:
+  mira-ios-validation:
+    name: Mira iOS Build + Tests + Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: 26.5
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen
+
+      - name: Generate Xcode project
+        script: |
+          xcodegen generate
+
+      - name: Resolve available iPhone Simulator
+        script: |
+          SIMULATOR_UDID=$(python3 - <<'PY'
+          import json
+          import subprocess
+
+          data = json.loads(subprocess.check_output([
+              "xcrun", "simctl", "list", "devices", "available", "-j"
+          ]))
+          for runtime, devices in data.get("devices", {}).items():
+              if "iOS" not in runtime:
+                  continue
+              for device in devices:
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          raise SystemExit("No available iPhone Simulator found")
+          PY
+          )
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$CM_ENV"
+          echo "Using simulator $SIMULATOR_UDID"
+
+      - name: Build for Simulator
+        script: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee mira-build.log | xcbeautify
+
+      - name: Run all unit tests
+        script: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MiraTests \
+            test | tee mira-unit-tests.log | xcbeautify
+
+      - name: Run Grill-Me UI tests
+        script: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MiraUITests/GrillMeFlowUITests \
+            test | tee mira-ui-tests.log | xcbeautify
+
+      - name: Build unsigned device app
+        script: |
+          set -o pipefail
+          xcodebuild \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee mira-device-build.log | xcbeautify
+
+      - name: Package unsigned IPA
+        script: |
+          set -e
+          APP_PATH=$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*Debug-iphoneos/Mira.app' -print -quit)
+          test -n "$APP_PATH"
+          rm -rf "$CM_BUILD_DIR/build/unsigned"
+          mkdir -p "$CM_BUILD_DIR/build/unsigned/Payload"
+          cp -R "$APP_PATH" "$CM_BUILD_DIR/build/unsigned/Payload/Mira.app"
+          cd "$CM_BUILD_DIR/build/unsigned"
+          zip -qry "$CM_BUILD_DIR/build/Mira-unsigned.ipa" Payload
+          echo "Unsigned IPA: $CM_BUILD_DIR/build/Mira-unsigned.ipa"
+
+    artifacts:
+      - build/Mira-unsigned.ipa
+      - mira-build.log
+      - mira-unit-tests.log
+      - mira-ui-tests.log
+      - mira-device-build.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult

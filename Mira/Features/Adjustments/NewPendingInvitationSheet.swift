@@ -7,6 +7,7 @@ struct NewPendingInvitationSheet: View {
 
     @State private var title = ""
     @State private var contact = ""
+    @State private var hasCandidate = false
     @State private var date = DemoClock.standard.now.addingDays(7)
     @State private var timeOfDay: TimeOfDayKind = .evening
     @State private var hasDeadline = true
@@ -22,11 +23,18 @@ struct NewPendingInvitationSheet: View {
                 .listRowBackground(palette.surface)
 
                 Section("候補") {
-                    DatePicker("候補日", selection: $date, displayedComponents: .date)
-                    Picker("時間帯", selection: $timeOfDay) {
-                        ForEach(TimeOfDayKind.allCases) { Text($0.title).tag($0) }
+                    Toggle("候補日が決まっている", isOn: $hasCandidate)
+                    if hasCandidate {
+                        DatePicker("候補日", selection: $date, displayedComponents: .date)
+                        Picker("時間帯", selection: $timeOfDay) {
+                            ForEach(TimeOfDayKind.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                    } else {
+                        Text("日付なしのまま検討中に置けます。あとで調整中へ移して候補を探せます。")
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
                     }
-                    .pickerStyle(.segmented)
                 }
                 .listRowBackground(palette.surface)
 
@@ -51,7 +59,7 @@ struct NewPendingInvitationSheet: View {
                         store.createPendingInvitation(
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                             contact: contact,
-                            candidateDate: date,
+                            candidateDate: hasCandidate ? date : nil,
                             timeOfDay: timeOfDay,
                             deadline: hasDeadline ? deadline : nil
                         )

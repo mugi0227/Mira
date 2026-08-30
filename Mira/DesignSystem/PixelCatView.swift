@@ -1,13 +1,47 @@
 import SwiftUI
+import UIKit
 
 struct PixelCatView: View {
     let mood: CatMood
     var size: CGFloat = 72
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var floating = false
 
     var body: some View {
+        floatingArtwork
+            .frame(width: size, height: size)
+            .clipped()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var floatingArtwork: some View {
+        if reduceMotion {
+            artwork
+        } else {
+            artwork
+                .phaseAnimator([false, true]) { content, floating in
+                    content.offset(y: floating ? -2 : 2)
+                } animation: { _ in
+                    .easeInOut(duration: 1.8)
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var artwork: some View {
+        if let image = UIImage(named: mood.assetName) {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.none)
+                .scaledToFit()
+        } else {
+            fallbackArtwork
+        }
+    }
+
+    private var fallbackArtwork: some View {
         Canvas { context, canvasSize in
             let pattern = Self.pattern(for: mood)
             let gridSize = CGFloat(pattern.count)
@@ -38,12 +72,6 @@ struct PixelCatView: View {
                 }
             }
         }
-        .frame(width: size, height: size)
-        .offset(y: reduceMotion ? 0 : (floating ? -2 : 2))
-        .animation(reduceMotion ? nil : .easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: floating)
-        .onAppear { floating = true }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: String {
@@ -54,6 +82,7 @@ struct PixelCatView: View {
         case .happy, .celebrating: "喜んでいる猫"
         case .thinking: "考えている猫"
         case .idle: "座っている猫"
+        case .inviting: "こちらへ招いている猫"
         }
     }
 
@@ -61,80 +90,47 @@ struct PixelCatView: View {
         switch mood {
         case .sleeping, .relaxed:
             return [
-                "................",
-                "................",
-                "....##....##....",
-                "...#ff####ff#...",
-                "..#ffffffffff#..",
-                ".#ffffeffeffff#.",
-                ".#ffffffffffp#.",
-                "..#ffffffffff#..",
-                "...##ffffff##...",
-                ".....######.....",
-                "...##########...",
-                "..#ffffffffff#..",
-                "..############..",
-                "....zz......zz..",
-                "...zz........zz.",
-                "................"
+                "................", "................", "....##....##....", "...#ff####ff#...",
+                "..#ffffffffff#..", ".#ffffeffeffff#.", ".#ffffffffffp#.", "..#ffffffffff#..",
+                "...##ffffff##...", ".....######.....", "...##########...", "..#ffffffffff#..",
+                "..############..", "....zz......zz..", "...zz........zz.", "................"
             ]
         case .tired, .warning:
             return [
-                "................",
-                "....##....##....",
-                "...#ff####ff#...",
-                "..#ffffffffff#..",
-                ".#ffff#ffff#fff#.",
-                ".#ffffeffeffff#.",
-                ".#fffff##fffff#.",
-                "..#ffffffffff#..",
-                "...##ffffff##...",
-                ".....######.....",
-                "....########....",
-                "...#ffffffff#...",
-                "...##########...",
-                "....##....##....",
-                "...##......##...",
-                "................"
+                "................", "....##....##....", "...#ff####ff#...", "..#ffffffffff#..",
+                ".#ffff#ffff#fff#.", ".#ffffeffeffff#.", ".#fffff##fffff#.", "..#ffffffffff#..",
+                "...##ffffff##...", ".....######.....", "....########....", "...#ffffffff#...",
+                "...##########...", "....##....##....", "...##......##...", "................"
             ]
         case .happy, .celebrating:
             return [
-                "................",
-                "....##....##....",
-                "...#ff####ff#...",
-                "..#ffffffffff#..",
-                ".#ffffepppeffff#.",
-                ".#fffff##fffff#.",
-                ".#ffff####ffff#.",
-                "..#ffffffffff#..",
-                "...##ffffff##...",
-                ".....######.....",
-                "...##########...",
-                "..#ffffffffff#..",
-                "..############..",
-                "....##....##....",
-                "...##......##...",
-                "................"
+                "................", "....##....##....", "...#ff####ff#...", "..#ffffffffff#..",
+                ".#ffffepppeffff#.", ".#fffff##fffff#.", ".#ffff####ffff#.", "..#ffffffffff#..",
+                "...##ffffff##...", ".....######.....", "...##########...", "..#ffffffffff#..",
+                "..############..", "....##....##....", "...##......##...", "................"
             ]
-        case .thinking, .idle:
+        case .thinking, .idle, .inviting:
             return [
-                "................",
-                "....##....##....",
-                "...#ff####ff#...",
-                "..#ffffffffff#..",
-                ".#ffffeffeffff#.",
-                ".#ffffffpfffff#.",
-                ".#fffff##fffff#.",
-                "..#ffffffffff#..",
-                "...##ffffff##...",
-                ".....######.....",
-                "...##########...",
-                "..#ffffffffff#..",
-                "..############..",
-                "....##....##....",
-                "...##......##...",
-                "................"
+                "................", "....##....##....", "...#ff####ff#...", "..#ffffffffff#..",
+                ".#ffffeffeffff#.", ".#ffffffpfffff#.", ".#fffff##fffff#.", "..#ffffffffff#..",
+                "...##ffffff##...", ".....######.....", "...##########...", "..#ffffffffff#..",
+                "..############..", "....##....##....", "...##......##...", "................"
             ]
+        }
+    }
+}
+
+extension CatMood {
+    var assetName: String {
+        switch self {
+        case .idle: "PixelCatIdle"
+        case .relaxed: "PixelCatRelaxed"
+        case .sleeping: "PixelCatSleeping"
+        case .thinking: "PixelCatThinking"
+        case .tired, .warning: "PixelCatWorried"
+        case .happy: "PixelCatHappy"
+        case .celebrating: "PixelCatCelebrating"
+        case .inviting: "PixelCatInviting"
         }
     }
 }

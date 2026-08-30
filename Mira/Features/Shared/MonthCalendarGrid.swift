@@ -5,25 +5,31 @@ struct MonthCalendarGrid: View {
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    var weekStartDay: WeekStartDay = .monday
+    var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
     var onMoveItem: ((UUID, Date) -> Void)?
+    var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
 
-    private let calendar = Calendar.mira
-    private let weekdaySymbols = ["月", "火", "水", "木", "金", "土", "日"]
+    private var calendar: Calendar {
+        var value = Calendar.mira
+        value.firstWeekday = weekStartDay.calendarFirstWeekday
+        return value
+    }
     private let cellHeight: CGFloat = 86
 
     var body: some View {
         VStack(spacing: 0) {
             LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
+                ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(weekdayColor(for: index))
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
-                            if index < weekdaySymbols.count - 1 {
+                            if index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
                             }
                         }
@@ -54,7 +60,7 @@ struct MonthCalendarGrid: View {
     private var cells: [Date] {
         let first = MonthKey(date: month, calendar: calendar).firstDay
         let weekday = calendar.component(.weekday, from: first)
-        let leading = (weekday + 5) % 7
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -leading, to: first) ?? first
         return (0..<42).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: gridStart)
@@ -66,10 +72,11 @@ struct MonthCalendarGrid: View {
     }
 
     private func weekdayColor(for index: Int) -> Color {
-        switch index {
-        case 5: palette.accent
-        case 6: palette.critical.opacity(0.86)
-        default: palette.secondaryText
+        let weekday = (calendar.firstWeekday - 1 + index) % 7 + 1
+        switch weekday {
+        case 7: return palette.accent
+        case 1: return palette.critical.opacity(0.86)
+        default: return palette.secondaryText
         }
     }
 
@@ -85,6 +92,8 @@ struct MonthCalendarGrid: View {
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
+        let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
+        let visibleItemLimit = holiday == nil ? 3 : 2
 
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -105,7 +114,8 @@ struct MonthCalendarGrid: View {
                         .foregroundStyle(dateForeground(
                             isSelected: isSelected,
                             isInDisplayedMonth: isInDisplayedMonth,
-                            column: column
+                            date: date,
+                            isHoliday: holiday != nil
                         ))
                 }
                 .frame(height: 28)
@@ -113,14 +123,32 @@ struct MonthCalendarGrid: View {
             }
 
             VStack(spacing: 2) {
-                ForEach(dayItems.prefix(3)) { item in
-                    CalendarEventStrip(item: item, palette: palette)
-                        .onTapGesture { onSelectItem?(item) }
-                        .draggable(allowsDragging ? item.id.uuidString : "")
+                if let holiday {
+                    Text(holiday.title)
+                        .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.critical)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 2)
                 }
 
-                if dayItems.count > 3 {
-                    Text("ほか \(dayItems.count - 3)件")
+                ForEach(dayItems.prefix(visibleItemLimit)) { item in
+                    HStack(spacing: 0) {
+                        CalendarEventStrip(item: item, palette: palette)
+                        .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+                        .onTapGesture { onSelectItem?(item) }
+                        .draggable(allowsDragging ? item.id.uuidString : "")
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(item.title)、\(item.timeDescription)")
+                        .accessibilityHint("予定の詳細を開く")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { onSelectItem?(item) }
+                        Spacer(minLength: 0)
+                    }
+                }
+
+                if dayItems.count > visibleItemLimit {
+                    Text("ほか \(dayItems.count - visibleItemLimit)件")
                         .font(.system(size: 8, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -136,7 +164,10 @@ struct MonthCalendarGrid: View {
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture { selectedDate = date }
+        .onTapGesture {
+            selectedDate = date
+            onSelectDate?(date)
+        }
         .overlay(alignment: .trailing) {
             if column < 6 { gridLine.frame(width: 0.5) }
         }
@@ -148,21 +179,27 @@ struct MonthCalendarGrid: View {
             onMoveItem?(id, date)
             return true
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: "日付を選択") { selectedDate = date }
+        .accessibilityAction(named: "日付を開く") {
+            selectedDate = date
+            onSelectDate?(date)
+        }
     }
 
     private func dateForeground(
         isSelected: Bool,
         isInDisplayedMonth: Bool,
-        column: Int
+        date: Date,
+        isHoliday: Bool
     ) -> Color {
         if isSelected { return .white }
         if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
-        if column == 5 { return palette.accent }
-        if column == 6 { return palette.critical.opacity(0.88) }
+        if isHoliday { return palette.critical.opacity(0.88) }
+        let weekday = calendar.component(.weekday, from: date)
+        if weekday == 7 { return palette.accent }
+        if weekday == 1 { return palette.critical.opacity(0.88) }
         return palette.primaryText
     }
 
@@ -194,7 +231,7 @@ private struct CalendarEventStrip: View {
         }
         .foregroundStyle(palette.primaryText)
         .padding(.horizontal, 3)
-        .frame(maxWidth: .infinity, minHeight: 15, alignment: .leading)
+        .frame(minHeight: 15, alignment: .leading)
         .background(palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96))
         .overlay {
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
@@ -204,7 +241,6 @@ private struct CalendarEventStrip: View {
                 )
         }
         .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
-        .accessibilityHidden(true)
     }
 
     private var symbol: String? {

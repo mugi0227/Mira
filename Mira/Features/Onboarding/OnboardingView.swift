@@ -1,21 +1,29 @@
 import SwiftUI
 
+private enum OnboardingMarginMode: String, CaseIterable, Identifiable {
+    case automatic
+    case manual
+
+    var id: String { rawValue }
+}
+
 struct OnboardingView: View {
     @Environment(MiraStore.self) private var store
     let palette: MiraThemePalette
 
     @State private var step = 0
-    @State private var selections: Set<MarginKind> = [.rest, .freeEvening, .reading, .solo, .importantPeople]
+    @State private var selections: Set<MarginKind> = [.rest, .reading, .importantPeople]
     @State private var targets: [MarginKind: Int] = [
         .rest: 4,
-        .freeEvening: 8,
         .reading: 2,
-        .solo: 2,
         .personalProject: 2,
         .importantPeople: 2
     ]
-    @State private var freeEveningsPerWeek = 2
+    @State private var marginMode: OnboardingMarginMode = .automatic
+    @State private var marginComfort: MarginComfortLevel = .standard
     @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
+    @State private var weekStartDay: WeekStartDay = .monday
+    @State private var useDeviceHolidays = true
 
     private let totalSteps = 6
 
@@ -29,8 +37,8 @@ struct OnboardingView: View {
                 welcome.tag(0)
                 chooseMargins.tag(1)
                 chooseAmounts.tag(2)
-                freeEvenings.tag(3)
-                basicUnavailableTimes.tag(4)
+                basicUnavailableTimes.tag(3)
+                calendarPreferences.tag(4)
                 ready.tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -42,6 +50,14 @@ struct OnboardingView: View {
         }
         .foregroundStyle(palette.primaryText)
         .accessibilityElement(children: .contain)
+    }
+
+    private var recommendation: MarginRecommendation {
+        store.marginRecommendationEngine.recommend(
+            month: store.selectedMonth,
+            items: store.items,
+            comfort: marginComfort
+        )
     }
 
     private var progressHeader: some View {
@@ -58,7 +74,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(spacing: MiraSpacing.lg) {
             Spacer()
-            PixelCatView(mood: .relaxed, size: 132)
+            PixelCatView(mood: .inviting, size: 132)
             VStack(spacing: MiraSpacing.sm) {
                 Text("空いている時間を埋める前に")
                     .font(.title3.weight(.semibold))
@@ -82,7 +98,7 @@ struct OnboardingView: View {
                 onboardingTitle("今月、どんな時間がほしい？", subtitle: "いくつでも選べます。あとから変更できます。")
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: MiraSpacing.sm) {
-                    ForEach([MarginKind.rest, .reading, .solo, .personalProject, .importantPeople, .freeEvening]) { kind in
+                    ForEach([MarginKind.rest, .reading, .personalProject, .importantPeople]) { kind in
                         Button {
                             if selections.contains(kind) { selections.remove(kind) } else { selections.insert(kind) }
                         } label: {
@@ -119,66 +135,97 @@ struct OnboardingView: View {
     private var chooseAmounts: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MiraSpacing.lg) {
-                onboardingTitle("どのくらい確保する？", subtitle: "小さく切りすぎず、前後ののんびり時間も含めて守ります。")
+                onboardingTitle("余白の量、どうする？", subtitle: "考えるのが大変なら、今ある予定の負荷からMiraが決めます。")
 
-                ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
-                    HStack(spacing: MiraSpacing.md) {
-                        Image(systemName: kind.symbolName)
-                            .frame(width: 30)
-                            .foregroundStyle(palette.accent)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(kind.title).font(.headline)
-                            Text(kind == .rest ? "終日を大きく確保" : "前後の余裕を含む大きめ枠")
+                Picker("余白の決め方", selection: $marginMode) {
+                    Text("Miraにおまかせ").tag(OnboardingMarginMode.automatic)
+                    Text("自分で決める").tag(OnboardingMarginMode.manual)
+                }
+                .pickerStyle(.segmented)
+
+                if marginMode == .automatic {
+                    VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                        Text("余白の多さ")
+                            .font(.headline)
+                        ForEach(MarginComfortLevel.allCases) { level in
+                            Button {
+                                marginComfort = level
+                            } label: {
+                                HStack(spacing: MiraSpacing.sm) {
+                                    Image(systemName: marginComfort == level ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(marginComfort == level ? palette.accent : palette.secondaryText)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(level.title)
+                                            .font(.headline)
+                                        Text(level.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(palette.secondaryText)
+                                    }
+                                    Spacer()
+                                }
+                                .foregroundStyle(palette.primaryText)
+                                .miraCard(palette, padding: MiraSpacing.sm)
+                            }
+                            .buttonStyle(MiraPressStyle())
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                        HStack {
+                            Label("今月のおすすめ", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundStyle(palette.accent)
+                            Spacer()
+                            Text(marginComfort.title)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
+                            HStack {
+                                Image(systemName: kind.symbolName)
+                                    .foregroundStyle(palette.accent)
+                                    .frame(width: 24)
+                                Text(kind.title)
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("\(recommendation.targets[kind, default: targets[kind, default: 0]])回")
+                                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                            }
+                        }
+                        Divider().overlay(palette.primaryText.opacity(0.08))
+                        ForEach(recommendation.reasons, id: \.self) { reason in
+                            Text("・\(reason)")
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
-                        Spacer()
-                        Stepper("", value: binding(for: kind), in: 0...12)
-                            .labelsHidden()
-                        Text("\(targets[kind, default: 0])回")
-                            .font(.headline.monospacedDigit())
-                            .frame(width: 44, alignment: .trailing)
                     }
                     .miraCard(palette)
+                } else {
+                    ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
+                        HStack(spacing: MiraSpacing.md) {
+                            Image(systemName: kind.symbolName)
+                                .frame(width: 30)
+                                .foregroundStyle(palette.accent)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(kind.title).font(.headline)
+                                Text(kind == .rest ? "終日を大きく確保" : "前後の余裕を含む大きめ枠")
+                                    .font(.caption)
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                            Spacer()
+                            Stepper("", value: binding(for: kind), in: 0...12)
+                                .labelsHidden()
+                            Text("\(targets[kind, default: 0])回")
+                                .font(.headline.monospacedDigit())
+                                .frame(width: 44, alignment: .trailing)
+                        }
+                        .miraCard(palette)
+                    }
                 }
             }
             .padding(MiraSpacing.lg)
         }
-    }
-
-    private var freeEvenings: some View {
-        VStack(spacing: MiraSpacing.xl) {
-            Spacer()
-            PixelCatView(mood: .sleeping, size: 112)
-            onboardingTitle("予定のない夜は、週に何日ほしい？", subtitle: "仕事だけの日は、予定のない夜として数えます。")
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: MiraSpacing.sm) {
-                ForEach(0...3, id: \.self) { count in
-                    Button {
-                        freeEveningsPerWeek = count
-                        targets[.freeEvening] = count * 4
-                        if count > 0 { selections.insert(.freeEvening) }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(count == 3 ? "3+" : "\(count)")
-                                .font(.title2.bold().monospacedDigit())
-                            Text("日")
-                                .font(.caption)
-                        }
-                        .frame(width: 68, height: 72)
-                        .foregroundStyle(freeEveningsPerWeek == count ? .white : palette.primaryText)
-                        .background(freeEveningsPerWeek == count ? palette.accent : palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-                    }
-                    .buttonStyle(MiraPressStyle())
-                    .accessibilityLabel("週に\(count)日")
-                }
-            }
-            Spacer()
-        }
-        .padding(MiraSpacing.lg)
     }
 
     private var basicUnavailableTimes: some View {
@@ -219,6 +266,14 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    HStack {
+                        Text("余白量")
+                        Spacer()
+                        Text(marginMode == .automatic ? "Miraにおまかせ・\(marginComfort.title)" : "自分で設定")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(palette.accent)
+                    }
+
                     ForEach(selections.sorted(by: { $0.defaultPriority > $1.defaultPriority })) { kind in
                         HStack {
                             Image(systemName: kind.symbolName)
@@ -226,7 +281,7 @@ struct OnboardingView: View {
                                 .accessibilityHidden(true)
                             Text(kind.title)
                             Spacer()
-                            Text("\(targets[kind, default: 0])回")
+                            Text("\(resolvedTarget(for: kind))回")
                                 .font(.subheadline.monospacedDigit().weight(.semibold))
                         }
                     }
@@ -252,6 +307,49 @@ struct OnboardingView: View {
         }
     }
 
+    private var calendarPreferences: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                onboardingTitle(
+                    "カレンダーの見え方は？",
+                    subtitle: "普段使っているカレンダーと同じ並びにしておくと、曜日を見間違えにくくなります。"
+                )
+
+                VStack(alignment: .leading, spacing: MiraSpacing.md) {
+                    Text("週の始まり")
+                        .font(.headline)
+                    Picker("週の始まり", selection: $weekStartDay) {
+                        ForEach(WeekStartDay.allCases) { value in
+                            Text(value.title).tag(value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Divider().overlay(palette.primaryText.opacity(0.08))
+
+                    Toggle(isOn: $useDeviceHolidays) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("iPhoneの祝日を表示")
+                                .font(.headline)
+                            Text("iPhoneで「日本の祝日」を購読している場合だけ表示します。")
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                    }
+                }
+                .miraCard(palette)
+
+                if useDeviceHolidays {
+                    Label("開始時にカレンダーの読み取り許可を確認します", systemImage: "hand.raised.fill")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .miraCard(palette, padding: MiraSpacing.sm)
+                }
+            }
+            .padding(MiraSpacing.lg)
+        }
+    }
+
     private var navigationButtons: some View {
         HStack(spacing: MiraSpacing.sm) {
             if step > 0 {
@@ -270,9 +368,14 @@ struct OnboardingView: View {
                 isDisabled: step == 1 && selections.isEmpty
             ) {
                 if step == totalSteps - 1 {
+                    let submittedTargets = targets.filter { selections.contains($0.key) }
                     store.finishOnboarding(
-                        targets: targets.filter { selections.contains($0.key) },
-                        baseRules: availabilityRules.compactMap(\.domainRule)
+                        targets: submittedTargets,
+                        baseRules: availabilityRules.compactMap(\.domainRule),
+                        marginComfort: marginComfort,
+                        useRecommendedTargets: marginMode == .automatic,
+                        weekStartDay: weekStartDay,
+                        useDeviceHolidays: useDeviceHolidays
                     )
                 } else {
                     step += 1
@@ -291,6 +394,11 @@ struct OnboardingView: View {
             return "月〜金 9:00–18:00"
         }
         return "\(enabled.count)曜日を設定"
+    }
+
+    private func resolvedTarget(for kind: MarginKind) -> Int {
+        guard marginMode == .automatic else { return targets[kind, default: 0] }
+        return recommendation.targets[kind, default: targets[kind, default: 0]]
     }
 
     private func onboardingTitle(_ title: String, subtitle: String) -> some View {

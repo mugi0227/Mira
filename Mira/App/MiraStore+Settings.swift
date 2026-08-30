@@ -24,6 +24,48 @@ extension MiraStore {
         try? context.save()
     }
 
+    func setMarginComfortLevel(_ level: MarginComfortLevel, applyRecommendation: Bool = true) {
+        marginComfortLevel = level
+        settingsEntity?.marginComfortRaw = level.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+        updateMarginRecommendation(for: selectedMonth)
+        if applyRecommendation {
+            applyCurrentMarginRecommendation()
+        }
+    }
+
+    func setWeekStartDay(_ value: WeekStartDay) {
+        weekStartDay = value
+        settingsEntity?.weekStartRaw = value.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+    }
+
+    func setDeviceHolidaysEnabled(_ enabled: Bool) async {
+        if enabled {
+            guard await deviceHolidayService.requestAccessIfNeeded() else {
+                deviceHolidaysEnabled = false
+                settingsEntity?.deviceHolidaysEnabled = false
+                try? context.save()
+                toast = "iPhoneのカレンダーへのアクセスを許可すると祝日を表示できます"
+                return
+            }
+        }
+
+        deviceHolidaysEnabled = enabled
+        settingsEntity?.deviceHolidaysEnabled = enabled
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+        await refreshDeviceHolidays(for: selectedMonth)
+    }
+
+    func refreshDeviceHolidays(for month: Date) async {
+        replaceDeviceHolidays(with: deviceHolidaysEnabled
+            ? deviceHolidayService.holidays(around: month)
+            : [])
+    }
+
     func addImportantPerson(name: String, monthlyTarget: Int?) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -64,11 +106,31 @@ extension MiraStore {
             try context.delete(model: PendingInvitationEntity.self)
             try context.delete(model: LoadRuleEntity.self)
             try context.delete(model: BaseRuleEntity.self)
+            try context.delete(model: ImportantPersonEntity.self)
+            try context.delete(model: ConversationCaseEntity.self)
+            try context.delete(model: RebalanceProposalEntity.self)
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+            settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
+            settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
+            settingsEntity?.deviceHolidaysEnabled = false
             try context.save()
             onboardingCompleted = false
             theme = .pixelCat
+            marginComfortLevel = .standard
+            weekStartDay = .monday
+            deviceHolidaysEnabled = false
+            replaceDeviceHolidays(with: [])
+            activeSchedulingDraft = nil
+            pinnedContext = nil
+            pendingInterpretation = nil
+            pendingChangePreview = nil
+            pendingEventCreationPreview = nil
+            activeDeclineDraft = nil
+            activeConversationCaseID = nil
+            activeClarification = nil
+            activeRebalanceProposal = nil
+            isRebalanceProposalPresented = false
             try DemoSeeder.seedBaseline(in: context, clock: DemoClock.standard)
             try refresh()
             toast = "最初の状態に戻したにゃ"

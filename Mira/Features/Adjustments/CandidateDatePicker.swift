@@ -11,9 +11,13 @@ struct CandidateDatePicker: View {
 
     @State private var pendingOverrideDate: Date?
     @State private var overrideMessage = ""
+    @State private var inspectedDate: Date?
 
-    private let calendar = Calendar.mira
-    private let weekdaySymbols = ["月", "火", "水", "木", "金", "土", "日"]
+    private var calendar: Calendar {
+        var value = Calendar.mira
+        value.firstWeekday = store.weekStartDay.calendarFirstWeekday
+        return value
+    }
 
     var body: some View {
         VStack(spacing: MiraSpacing.md) {
@@ -48,7 +52,7 @@ struct CandidateDatePicker: View {
             .pickerStyle(.segmented)
 
             LazyVGrid(columns: columns, spacing: 5) {
-                ForEach(weekdaySymbols, id: \.self) { symbol in
+                ForEach(store.weekStartDay.weekdaySymbols, id: \.self) { symbol in
                     Text(symbol)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(palette.secondaryText)
@@ -61,6 +65,10 @@ struct CandidateDatePicker: View {
                         Color.clear.frame(height: 44)
                     }
                 }
+            }
+
+            if let inspectedDate {
+                dayScheduleSummary(inspectedDate)
             }
 
             if !selectedDates.isEmpty {
@@ -87,19 +95,19 @@ struct CandidateDatePicker: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .confirmationDialog("この日を候補に追加しますか？", isPresented: Binding(
+        .confirmationDialog("この日、ちょっと気になるにゃ", isPresented: Binding(
             get: { pendingOverrideDate != nil },
             set: { if !$0 { pendingOverrideDate = nil } }
         ), titleVisibility: .visible) {
-            Button("重複を承知して追加") {
+            Button("それでも候補に追加") {
                 if let pendingOverrideDate {
                     selectedDates.insert(pendingOverrideDate)
                 }
                 pendingOverrideDate = nil
             }
-            Button("やめる", role: .cancel) { pendingOverrideDate = nil }
+            Button("別の日を選ぶ", role: .cancel) { pendingOverrideDate = nil }
         } message: {
-            Text(overrideMessage)
+            Text(overrideMessage + "\n候補から外すことをおすすめするけど、最終的には選べるにゃ。")
         }
     }
 
@@ -110,7 +118,7 @@ struct CandidateDatePicker: View {
     private var cells: [Date?] {
         let first = MonthKey(date: month).firstDay
         let weekday = calendar.component(.weekday, from: first)
-        let leading = (weekday + 5) % 7
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
         guard let range = calendar.range(of: .day, in: .month, for: first) else { return [] }
         var result = Array<Date?>(repeating: nil, count: leading)
         result.append(contentsOf: range.compactMap { day in
@@ -130,16 +138,14 @@ struct CandidateDatePicker: View {
         let hasAdjustmentConflict = conflicts.contains("別の日程調整でも候補になっています")
         let hasMarginConflict = conflicts.contains("守っている余白と重なっています")
         let hasBaseRuleConflict = conflicts.contains("基本的に予定を入れない時間と重なっています")
-        let isUnavailable = hasConfirmedConflict || hasBaseRuleConflict
+        let needsReview = !conflicts.isEmpty
+        let strongConflict = hasConfirmedConflict || hasBaseRuleConflict
 
         Button {
+            inspectedDate = normalized
             if selected {
                 selectedDates.remove(normalized)
-            } else if hasConfirmedConflict {
-                store.toast = "確定予定があるので候補にはできないにゃ"
-            } else if hasBaseRuleConflict {
-                store.toast = "基本的に予定を入れない時間と重なるにゃ"
-            } else if hasAdjustmentConflict {
+            } else if needsReview {
                 pendingOverrideDate = normalized
                 overrideMessage = conflicts.joined(separator: "。") + "。"
             } else {
@@ -155,6 +161,9 @@ struct CandidateDatePicker: View {
                             .font(.system(size: 5.5, weight: .bold))
                             .foregroundStyle(palette.secondaryText)
                     }
+                    if hasConfirmedConflict {
+                        Circle().fill(palette.critical).frame(width: 4, height: 4)
+                    }
                     if hasAdjustmentConflict {
                         Circle().fill(palette.warning).frame(width: 4, height: 4)
                     }
@@ -164,19 +173,57 @@ struct CandidateDatePicker: View {
                 }
                 .frame(height: 6)
             }
-            .foregroundStyle(selected ? Color.white : (isUnavailable ? palette.secondaryText.opacity(0.42) : palette.primaryText))
+            .foregroundStyle(selected ? Color.white : palette.primaryText)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .background(selected ? palette.accent : palette.surface, in: RoundedRectangle(cornerRadius: 10))
+            .background(
+                selected
+                    ? palette.accent
+                    : (strongConflict ? palette.critical.opacity(0.06) : palette.surface),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
             .overlay {
-                if hasAdjustmentConflict && !selected && !isUnavailable {
+                if needsReview && !selected {
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(palette.warning, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        .stroke(
+                            strongConflict ? palette.critical.opacity(0.72) : palette.warning,
+                            style: StrokeStyle(lineWidth: 1, dash: [3, 2])
+                        )
                 }
             }
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel(accessibilityLabel(date: date, selected: selected, conflicts: conflicts))
-        .accessibilityValue(isUnavailable ? "選択不可" : "選択可能")
+        .accessibilityValue(needsReview ? "要確認・選択可能" : "選択可能")
+    }
+
+    private func dayScheduleSummary(_ date: Date) -> some View {
+        let dayItems = store.items.filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+        return VStack(alignment: .leading, spacing: 5) {
+            Text("\(date.japaneseShortDate) の予定")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.secondaryText)
+            if dayItems.isEmpty {
+                Text("予定なし")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+            } else {
+                ForEach(dayItems) { item in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(palette.color(for: item))
+                            .frame(width: 7, height: 7)
+                        Text(item.title)
+                        Spacer()
+                        Text(item.timeDescription)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(MiraSpacing.sm)
+        .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.small))
     }
 
     private func makeCandidate(on date: Date) -> CandidateSlotSnapshot {
@@ -198,46 +245,9 @@ struct CandidateDatePicker: View {
         var parts = [date.japaneseDayTitle]
         parts.append(selected ? "選択済み" : "未選択")
         parts.append(contentsOf: conflicts)
+        if !conflicts.isEmpty {
+            parts.append("確認後に選択できます")
+        }
         return parts.joined(separator: "、")
-    }
-}
-
-/// A compact wrapping layout for chips, implemented with the native Layout protocol.
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: width.isFinite ? width : x, height: y + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
     }
 }

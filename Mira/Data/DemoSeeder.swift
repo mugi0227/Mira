@@ -85,9 +85,7 @@ enum DemoSeeder {
 
         let defaults = targets.isEmpty ? [
             MarginKind.rest: 4,
-            .freeEvening: 8,
             .reading: 2,
-            .solo: 2,
             .personalProject: 2,
             .importantPeople: 2
         ] : targets
@@ -163,10 +161,28 @@ enum DemoSeeder {
     }
 
     static func message(title: String, candidates: [CandidateSlotSnapshot]) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d（E）"
-        let parts = candidates.map { "\(formatter.string(from: $0.startDate))\($0.timeOfDay == .allDay ? "" : " \($0.timeOfDay.title)")" }
-        return "\(parts.joined(separator: "、"))あたりが空いてるよ！\(title)どこがよさそう？"
+        let dayFormatter = DateFormatter()
+        dayFormatter.locale = Locale(identifier: "ja_JP")
+        dayFormatter.dateFormat = "M/d（E）"
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.locale = Locale(identifier: "ja_JP")
+        timeFormatter.dateFormat = "H:mm"
+
+        let lines = candidates
+            .filter { $0.status != .released }
+            .sorted { $0.startDate < $1.startDate }
+            .map { candidate -> String in
+                let day = dayFormatter.string(from: candidate.startDate)
+                if candidate.exactTimeKnown == false {
+                    return "・\(day) \(candidate.displayTimeBand.title)あたり"
+                }
+                if candidate.timeOfDay == .allDay {
+                    return "・\(day) 終日"
+                }
+                return "・\(day) \(timeFormatter.string(from: candidate.startDate))〜"
+            }
+
+        return "候補日です！\n\(lines.joined(separator: "\n"))\n\(title)に都合よさそうな日を教えてください。"
     }
 }
