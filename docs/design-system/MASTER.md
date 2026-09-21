@@ -93,13 +93,20 @@ State is never communicated by color alone. Use label, symbol, border style, opa
 
 ## Pixel Cat
 
-- warm blush accent
-- original in-code pixel cat
+- airy sky-blue gradient, frosted white cards, and small mint botanical accents
+- blue circular actions, pastel lavender / blue / pink progress pills, and a floating capsule tab bar
+- existing ginger-cat emotion artwork, with an in-code fallback
+- 26pt card corners with a white highlight border; opaque surfaces when Reduce Transparency is enabled
+- blue-gray ink and slate secondary text; dark mode uses navy surfaces with light blue accents
+- shared surfaces cover all four tabs, onboarding, forms, pushed screens, and conversation sheets
+- the persisted `pixelCat` identifier stays compatible with saved preferences
 - cat appears in guidance, onboarding, success, warning, and empty states
 - cat does not replace system icons
 - cat text stays short
 - cat notification voice is independently configurable
 - Art direction, ginger-tabby emotion concepts, and the deferred Washi Cat skin are documented in [skin-art-directions.md](../skin-art-directions.md).
+
+Reference direction: the user-supplied September calendar image (2026-09-21). A local, illustrative four-screen preview is in [cat-sky/index.html](../previews/cat-sky/index.html); it is not a simulator capture. The compiled tab coordinator is `MiraOverrides/MainTabCoordinator.swift`, as configured in `project.yml`.
 
 ## Interaction rules
 

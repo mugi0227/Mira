@@ -26,7 +26,7 @@ struct ConversationClarificationSheet: View {
                 Spacer()
             }
             .padding(MiraSpacing.lg)
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("Miraから確認")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -110,7 +110,7 @@ struct DeclineDraftSheet: View {
                 }
                 .padding(MiraSpacing.lg)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle(store.activeDeclineDraft?.title ?? "断り文")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -187,7 +187,7 @@ struct ChangePreviewSheet: View {
                         }
                         .padding(MiraSpacing.lg)
                     }
-                    .background(palette.background)
+                    .miraScreenBackground(palette)
                 } else {
                     ContentUnavailableView("変更案がありません", systemImage: "calendar.badge.exclamationmark")
                 }
@@ -335,7 +335,7 @@ struct EventCreationPreviewSheet: View {
                         }
                         .padding(MiraSpacing.lg)
                     }
-                    .background(palette.background)
+                    .miraScreenBackground(palette)
                 } else {
                     ContentUnavailableView("追加案がありません", systemImage: "calendar.badge.exclamationmark")
                 }
@@ -432,7 +432,7 @@ struct RebalanceProposalSheet: View {
                         }
                         .padding(MiraSpacing.lg)
                     }
-                    .background(palette.background)
+                    .miraScreenBackground(palette)
                 } else {
                     ContentUnavailableView("再設計案はありません", systemImage: "leaf")
                 }

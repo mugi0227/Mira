@@ -43,7 +43,7 @@ struct DayTimelineView: View {
                 .padding(.top, MiraSpacing.sm)
                 .padding(.bottom, 80)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .onAppear {
                 store.selectedDate = date
                 DispatchQueue.main.async {
@@ -53,6 +53,7 @@ struct DayTimelineView: View {
         }
         .navigationTitle(date.japaneseDayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

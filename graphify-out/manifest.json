@@ -1,0 +1,314 @@
+{
+  "MiraTests/LoadEngineTests.swift": {
+    "mtime": 1787747829.9063222,
+    "seen": 1787748282.119391,
+    "ast_hash": "7d19f62f01812451d5916dca4c203590",
+    "semantic_hash": "7d19f62f01812451d5916dca4c203590"
+  },
+  "MiraTests/ProtectionConflictTests.swift": {
+    "mtime": 1787747829.9063222,
+    "seen": 1787748282.1193948,
+    "ast_hash": "40b4a7a5d02882772be625f1270cf8f3",
+    "semantic_hash": "40b4a7a5d02882772be625f1270cf8f3"
+  },
+  "MiraTests/SchedulerEngineTests.swift": {
+    "mtime": 1787747829.9073274,
+    "seen": 1787748282.1193967,
+    "ast_hash": "33865a322263a2c2bcae7755b275fb26",
+    "semantic_hash": "33865a322263a2c2bcae7755b275fb26"
+  },
+  "MiraTests/TestFixtures.swift": {
+    "mtime": 1787747829.9073274,
+    "seen": 1787748282.1193974,
+    "ast_hash": "0aa4bdbafcd3d895d528ff69b3258613",
+    "semantic_hash": "0aa4bdbafcd3d895d528ff69b3258613"
+  },
+  "MiraUITests/MiraUITests.swift": {
+    "mtime": 1787747829.9083261,
+    "seen": 1787748282.119398,
+    "ast_hash": "f23de55e88eea3feacccbdcef85574d1",
+    "semantic_hash": "f23de55e88eea3feacccbdcef85574d1"
+  },
+  "Mira/App/AppRootView.swift": {
+    "mtime": 1787747829.8833244,
+    "seen": 1787748282.1193988,
+    "ast_hash": "8f86fb5aa009812875c5ddf4afd289d9",
+    "semantic_hash": "8f86fb5aa009812875c5ddf4afd289d9"
+  },
+  "Mira/App/MiraApp.swift": {
+    "mtime": 1787747829.8833244,
+    "seen": 1787748282.1193998,
+    "ast_hash": "205dd4b5f6a8a634e6567af4956c73a1",
+    "semantic_hash": "205dd4b5f6a8a634e6567af4956c73a1"
+  },
+  "Mira/App/MiraStore+Adjustments.swift": {
+    "mtime": 1787747829.8843236,
+    "seen": 1787748282.1194005,
+    "ast_hash": "30ad8f862623c5eb8a987d79ca3e9f59",
+    "semantic_hash": "30ad8f862623c5eb8a987d79ca3e9f59"
+  },
+  "Mira/App/MiraStore+Helpers.swift": {
+    "mtime": 1787747829.8843236,
+    "seen": 1787748282.119401,
+    "ast_hash": "b96fc483e56b226db00a561d982959b7",
+    "semantic_hash": "b96fc483e56b226db00a561d982959b7"
+  },
+  "Mira/App/MiraStore+Planning.swift": {
+    "mtime": 1787747829.885324,
+    "seen": 1787748282.1194017,
+    "ast_hash": "1de55ff50a2b4a2789250fa86cdcc40f",
+    "semantic_hash": "1de55ff50a2b4a2789250fa86cdcc40f"
+  },
+  "Mira/App/MiraStore+Settings.swift": {
+    "mtime": 1787747829.885324,
+    "seen": 1787748282.1194022,
+    "ast_hash": "d678f681c7034f78ba07a66a6121374b",
+    "semantic_hash": "d678f681c7034f78ba07a66a6121374b"
+  },
+  "Mira/App/MiraStore.swift": {
+    "mtime": 1787747829.885324,
+    "seen": 1787748282.1194031,
+    "ast_hash": "0e37bb1e263de7ab4b671dfa9476cfd7",
+    "semantic_hash": "0e37bb1e263de7ab4b671dfa9476cfd7"
+  },
+  "Mira/Core/Clock.swift": {
+    "mtime": 1787747829.8863225,
+    "seen": 1787748282.1194038,
+    "ast_hash": "ed71b0bf85c6421c202665f6213bdb09",
+    "semantic_hash": "ed71b0bf85c6421c202665f6213bdb09"
+  },
+  "Mira/Core/DateExtensions.swift": {
+    "mtime": 1787747829.8863225,
+    "seen": 1787748282.1194043,
+    "ast_hash": "cadb55c818fd58611cf2463d68fd1b08",
+    "semantic_hash": "cadb55c818fd58611cf2463d68fd1b08"
+  },
+  "Mira/Data/DemoSeeder.swift": {
+    "mtime": 1787747829.887324,
+    "seen": 1787748282.1194048,
+    "ast_hash": "24ce13f8c59f7f3da876d6b20aca1228",
+    "semantic_hash": "24ce13f8c59f7f3da876d6b20aca1228"
+  },
+  "Mira/Data/PersistenceModels.swift": {
+    "mtime": 1787747829.887324,
+    "seen": 1787748282.1194053,
+    "ast_hash": "649a6f4934fe74d1b1ce04e151faf07c",
+    "semantic_hash": "649a6f4934fe74d1b1ce04e151faf07c"
+  },
+  "Mira/DesignSystem/MiraTheme.swift": {
+    "mtime": 1787747829.8883219,
+    "seen": 1787748282.119406,
+    "ast_hash": "272d2d86bdf13f040c285f1de682e3f2",
+    "semantic_hash": "272d2d86bdf13f040c285f1de682e3f2"
+  },
+  "Mira/DesignSystem/PixelCatView.swift": {
+    "mtime": 1787747829.8893259,
+    "seen": 1787748282.1194067,
+    "ast_hash": "2561eb0a5c0fbdcf1b05b9cce8be2667",
+    "semantic_hash": "2561eb0a5c0fbdcf1b05b9cce8be2667"
+  },
+  "Mira/DesignSystem/SharedComponents.swift": {
+    "mtime": 1787747829.8903239,
+    "seen": 1787748282.1194074,
+    "ast_hash": "01673fd0f0cb6112856335920dec175c",
+    "semantic_hash": "01673fd0f0cb6112856335920dec175c"
+  },
+  "Mira/Domain/DomainModels.swift": {
+    "mtime": 1787747829.8913224,
+    "seen": 1787748282.1194081,
+    "ast_hash": "db4e908b4e80e7affa3447765c07e496",
+    "semantic_hash": "db4e908b4e80e7affa3447765c07e496"
+  },
+  "Mira/Domain/LoadEngine.swift": {
+    "mtime": 1787747829.8913224,
+    "seen": 1787748282.1194086,
+    "ast_hash": "6fc3dafee9f0bff58653eeb7db6360df",
+    "semantic_hash": "6fc3dafee9f0bff58653eeb7db6360df"
+  },
+  "Mira/Domain/ProtectionAndConflictEngines.swift": {
+    "mtime": 1787747829.892322,
+    "seen": 1787748282.119409,
+    "ast_hash": "d66824935ca151f5dc43e11cf6173cdb",
+    "semantic_hash": "d66824935ca151f5dc43e11cf6173cdb"
+  },
+  "Mira/Domain/SchedulerEngine.swift": {
+    "mtime": 1787747829.893322,
+    "seen": 1787748282.11941,
+    "ast_hash": "0cc44b6e3aa4b6a87e267fc5291ea453",
+    "semantic_hash": "0cc44b6e3aa4b6a87e267fc5291ea453"
+  },
+  "Mira/Features/Adjustments/AdjustmentDetailSheet.swift": {
+    "mtime": 1787747829.8953235,
+    "seen": 1787748282.1194108,
+    "ast_hash": "cc5277ac1d2e1d014631e6078b4a7ae3",
+    "semantic_hash": "cc5277ac1d2e1d014631e6078b4a7ae3"
+  },
+  "Mira/Features/Adjustments/AdjustmentsView.swift": {
+    "mtime": 1787747829.8953235,
+    "seen": 1787748282.1194115,
+    "ast_hash": "7ad629e4bf8bc916db0f3943ee439bd0",
+    "semantic_hash": "7ad629e4bf8bc916db0f3943ee439bd0"
+  },
+  "Mira/Features/Adjustments/CandidateDatePicker.swift": {
+    "mtime": 1787747829.897323,
+    "seen": 1787748282.119412,
+    "ast_hash": "f9747a2c05952d08fd6516c04ca2cda0",
+    "semantic_hash": "f9747a2c05952d08fd6516c04ca2cda0"
+  },
+  "Mira/Features/Adjustments/NewAdjustmentSheet.swift": {
+    "mtime": 1787747829.897323,
+    "seen": 1787748282.1194124,
+    "ast_hash": "76bd64eec234be5a23ddf82888710e31",
+    "semantic_hash": "76bd64eec234be5a23ddf82888710e31"
+  },
+  "Mira/Features/Adjustments/NewPendingInvitationSheet.swift": {
+    "mtime": 1787747829.897323,
+    "seen": 1787748282.1194131,
+    "ast_hash": "e6cf9653d3b918bd40d03c1abc2fe440",
+    "semantic_hash": "e6cf9653d3b918bd40d03c1abc2fe440"
+  },
+  "Mira/Features/Adjustments/PendingInvitationDetailSheet.swift": {
+    "mtime": 1787747829.8983219,
+    "seen": 1787748282.119414,
+    "ast_hash": "cfa43e766ea419945b0e1af84d91de98",
+    "semantic_hash": "cfa43e766ea419945b0e1af84d91de98"
+  },
+  "Mira/Features/Home/EventDetailSheet.swift": {
+    "mtime": 1787747829.8983219,
+    "seen": 1787748282.1194146,
+    "ast_hash": "3b6bcf421fa1a56828d7d885c5de21db",
+    "semantic_hash": "3b6bcf421fa1a56828d7d885c5de21db"
+  },
+  "Mira/Features/Home/HomeView.swift": {
+    "mtime": 1787747829.899322,
+    "seen": 1787748282.1194153,
+    "ast_hash": "afab62265dc3e00ad98ca8a1b81b6214",
+    "semantic_hash": "afab62265dc3e00ad98ca8a1b81b6214"
+  },
+  "Mira/Features/Home/NewItemSheet.swift": {
+    "mtime": 1787747829.899322,
+    "seen": 1787748282.1194158,
+    "ast_hash": "a098b70718ac2c947664cba641489674",
+    "semantic_hash": "a098b70718ac2c947664cba641489674"
+  },
+  "Mira/Features/Margins/MarginsView.swift": {
+    "mtime": 1787747829.900322,
+    "seen": 1787748282.1194165,
+    "ast_hash": "1e50ec02e0b2418cdcface2f86b64a13",
+    "semantic_hash": "1e50ec02e0b2418cdcface2f86b64a13"
+  },
+  "Mira/Features/Onboarding/OnboardingView.swift": {
+    "mtime": 1787747829.900322,
+    "seen": 1787748282.1194172,
+    "ast_hash": "7f9e92f72f41bb58e6548865987d26b1",
+    "semantic_hash": "7f9e92f72f41bb58e6548865987d26b1"
+  },
+  "Mira/Features/Settings/ImportantPeopleSheet.swift": {
+    "mtime": 1787747829.9013226,
+    "seen": 1787748282.119418,
+    "ast_hash": "bc70bc0b1d34119933d58e2c0ee37f16",
+    "semantic_hash": "bc70bc0b1d34119933d58e2c0ee37f16"
+  },
+  "Mira/Features/Settings/LegacyImportModels.swift": {
+    "mtime": 1787747829.9023228,
+    "seen": 1787748282.1194186,
+    "ast_hash": "db9ca429737c5d62198ab60f53b7e045",
+    "semantic_hash": "db9ca429737c5d62198ab60f53b7e045"
+  },
+  "Mira/Features/Settings/LegacyImportView.swift": {
+    "mtime": 1787747829.9033222,
+    "seen": 1787748282.119419,
+    "ast_hash": "0044643913874f38ca52c3c953da9d99",
+    "semantic_hash": "0044643913874f38ca52c3c953da9d99"
+  },
+  "Mira/Features/Settings/SettingsView.swift": {
+    "mtime": 1787747829.9033222,
+    "seen": 1787748282.1194198,
+    "ast_hash": "79d10141f7583c08af1ceb937652fcd6",
+    "semantic_hash": "79d10141f7583c08af1ceb937652fcd6"
+  },
+  "Mira/Features/Shared/MainTabView.swift": {
+    "mtime": 1787747829.904323,
+    "seen": 1787748282.1194208,
+    "ast_hash": "b08b678fe9e3d7125b20a668cf6f2473",
+    "semantic_hash": "b08b678fe9e3d7125b20a668cf6f2473"
+  },
+  "Mira/Features/Shared/MonthCalendarGrid.swift": {
+    "mtime": 1787747829.904323,
+    "seen": 1787748282.1194212,
+    "ast_hash": "1c6f9ac492f4f93fa26ca1e69c60ce93",
+    "semantic_hash": "1c6f9ac492f4f93fa26ca1e69c60ce93"
+  },
+  "Mira/Services/NotificationService.swift": {
+    "mtime": 1787747829.9053216,
+    "seen": 1787748282.119422,
+    "ast_hash": "9750327d3c2866aa5eb73aea6b3f1554",
+    "semantic_hash": "9750327d3c2866aa5eb73aea6b3f1554"
+  },
+  "Mira/Services/SemanticClassifier.swift": {
+    "mtime": 1787747829.9053216,
+    "seen": 1787748282.1194227,
+    "ast_hash": "b3602579ec58e6e6a81a6cc811bcaa44",
+    "semantic_hash": "b3602579ec58e6e6a81a6cc811bcaa44"
+  },
+  "scripts/bootstrap.sh": {
+    "mtime": 1787747829.9143236,
+    "seen": 1787748282.1194232,
+    "ast_hash": "516601485f84ff7f4de25669bc7e24fa",
+    "semantic_hash": "516601485f84ff7f4de25669bc7e24fa"
+  },
+  ".github/workflows/ios.yml": {
+    "mtime": 1787747829.8727853,
+    "seen": 1787748282.119424,
+    "ast_hash": "46638c1df624132907dc6d54d2211fa6",
+    "semantic_hash": "46638c1df624132907dc6d54d2211fa6"
+  },
+  "README.md": {
+    "mtime": 1787747829.9093237,
+    "seen": 1787748282.1194248,
+    "ast_hash": "06e0830fe30d39f097cccce13224df21",
+    "semantic_hash": "06e0830fe30d39f097cccce13224df21"
+  },
+  "docs/architecture-decisions.md": {
+    "mtime": 1787747829.9093237,
+    "seen": 1787748282.1194253,
+    "ast_hash": "f1211deca6028c4d1b01db27297ea4fe",
+    "semantic_hash": "f1211deca6028c4d1b01db27297ea4fe"
+  },
+  "docs/architecture.md": {
+    "mtime": 1787747829.9103222,
+    "seen": 1787748282.1194263,
+    "ast_hash": "6f22475edd9e7e8318c32ee2c4c29975",
+    "semantic_hash": "6f22475edd9e7e8318c32ee2c4c29975"
+  },
+  "docs/demo-script.md": {
+    "mtime": 1787747829.9103222,
+    "seen": 1787748282.1194267,
+    "ast_hash": "4465c5476999862f21aa6f84379f9080",
+    "semantic_hash": "4465c5476999862f21aa6f84379f9080"
+  },
+  "docs/design-system/MASTER.md": {
+    "mtime": 1787747829.9113219,
+    "seen": 1787748282.1194274,
+    "ast_hash": "fb269969da6e08b03004cdfa41d50e11",
+    "semantic_hash": "fb269969da6e08b03004cdfa41d50e11"
+  },
+  "docs/implementation-status.md": {
+    "mtime": 1787747829.9113219,
+    "seen": 1787748282.1194282,
+    "ast_hash": "4c15a3ffd537b82ae48455537fd65534",
+    "semantic_hash": "4c15a3ffd537b82ae48455537fd65534"
+  },
+  "docs/product-spec.md": {
+    "mtime": 1787747829.9123218,
+    "seen": 1787748282.1194286,
+    "ast_hash": "308a9eef49ed8d96c074532b6d82f18e",
+    "semantic_hash": "308a9eef49ed8d96c074532b6d82f18e"
+  },
+  "project.yml": {
+    "mtime": 1787747829.9133236,
+    "seen": 1787748282.119429,
+    "ast_hash": "8af95dd638cb452c88a52411206d02a2",
+    "semantic_hash": "8af95dd638cb452c88a52411206d02a2"
+  }
+}

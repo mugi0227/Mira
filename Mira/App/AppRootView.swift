@@ -8,7 +8,7 @@ struct AppRootView: View {
         let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme)
 
         ZStack {
-            palette.background.ignoresSafeArea()
+            MiraScreenBackground(palette: palette)
 
             if !store.isReady {
                 VStack(spacing: MiraSpacing.md) {

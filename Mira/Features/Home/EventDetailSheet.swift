@@ -34,7 +34,7 @@ struct EventDetailSheet: View {
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("詳細")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -27,7 +27,7 @@ struct SchedulingModeView: View {
                     }
                     .padding(.bottom, 120)
                 }
-                .background(palette.background)
+                .miraScreenBackground(palette)
                 .safeAreaInset(edge: .bottom) {
                     bottomAction(draft)
                 }
@@ -197,7 +197,7 @@ struct SchedulingModeView: View {
                         .background(selected ? Color.white.opacity(0.2) : palette.warning.opacity(0.16), in: Capsule())
                 }
             }
-            .foregroundStyle(selected ? Color.white : palette.primaryText)
+            .foregroundStyle(selected ? palette.onAccent : palette.primaryText)
             .padding(.horizontal, 10)
             .frame(minHeight: 36)
             .background(selected ? palette.accent : palette.surface, in: Capsule())
@@ -286,9 +286,12 @@ struct SchedulingModeView: View {
             }
         }
         .background(palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous))
         .overlay {
-            Rectangle().stroke(palette.primaryText.opacity(0.10), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous)
+                .stroke(palette.isCatSkin ? palette.cardBorder : palette.primaryText.opacity(0.10), lineWidth: palette.isCatSkin ? 1 : 0.5)
         }
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.sm : 0)
     }
 
     private func schedulingDayCell(_ date: Date, draft: SchedulingDraft) -> some View {
@@ -366,7 +369,7 @@ struct SchedulingModeView: View {
                         .font(.system(size: 6, weight: .bold))
                 }
             }
-            .foregroundStyle(selected ? Color.white : candidate.conflicts.isEmpty ? palette.primaryText : palette.warning)
+            .foregroundStyle(selected ? palette.onAccent : candidate.conflicts.isEmpty ? palette.primaryText : palette.warning)
             .frame(maxWidth: .infinity, minHeight: 24)
             .background(
                 selected
@@ -446,7 +449,13 @@ struct SchedulingModeView: View {
         .padding(.horizontal, MiraSpacing.md)
         .padding(.top, MiraSpacing.sm)
         .padding(.bottom, MiraSpacing.xs)
-        .background(.regularMaterial)
+        .background {
+            if palette.isCatSkin {
+                palette.surface
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
+        }
     }
 
     private var titleBinding: Binding<String> {

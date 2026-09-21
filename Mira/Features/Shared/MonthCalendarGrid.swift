@@ -35,7 +35,7 @@ struct MonthCalendarGrid: View {
                         }
                 }
             }
-            .background(palette.background)
+            .background(palette.isCatSkin ? palette.elevatedSurface.opacity(0.7) : palette.background)
 
             gridLine.frame(height: 0.5)
 
@@ -45,9 +45,16 @@ struct MonthCalendarGrid: View {
                 }
             }
         }
-        .background(palette.surface.opacity(0.42))
+        .background(palette.surface.opacity(palette.isCatSkin ? 0.92 : 0.42))
         .overlay(alignment: .top) { gridLine.frame(height: 0.5) }
         .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 22 : 0, style: .continuous))
+        .overlay {
+            if palette.isCatSkin {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
+            }
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -68,7 +75,7 @@ struct MonthCalendarGrid: View {
     }
 
     private var gridLine: some View {
-        Rectangle().fill(palette.primaryText.opacity(0.11))
+        Rectangle().fill(palette.primaryText.opacity(palette.isCatSkin ? 0.07 : 0.11))
     }
 
     private func weekdayColor(for index: Int) -> Color {
@@ -101,7 +108,7 @@ struct MonthCalendarGrid: View {
                 ZStack {
                     if isSelected {
                         Circle()
-                            .fill(palette.accent)
+                            .fill(palette.actionGradient)
                             .frame(width: 27, height: 27)
                     } else if isToday {
                         Circle()
@@ -194,7 +201,7 @@ struct MonthCalendarGrid: View {
         date: Date,
         isHoliday: Bool
     ) -> Color {
-        if isSelected { return .white }
+        if isSelected { return palette.onAccent }
         if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
         if isHoliday { return palette.critical.opacity(0.88) }
         let weekday = calendar.component(.weekday, from: date)
@@ -220,27 +227,32 @@ private struct CalendarEventStrip: View {
         HStack(spacing: 2) {
             if let symbol {
                 Image(systemName: symbol)
-                    .font(.system(size: 6.5, weight: .bold))
+                    .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
             }
 
             Text(item.title)
-                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                .font(.system(size: palette.isCatSkin ? 9.5 : 8.5, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .foregroundStyle(palette.primaryText)
         .padding(.horizontal, 3)
-        .frame(minHeight: 15, alignment: .leading)
-        .background(palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96))
+        .frame(minHeight: palette.isCatSkin ? 16 : 15, alignment: .leading)
+        .background(stripBackground)
         .overlay {
-            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+            RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
                 .stroke(
-                    item.kind == .margin ? palette.primaryText.opacity(0.28) : Color.clear,
+                    item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28) : Color.clear,
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
-        .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+    }
+
+    private var stripBackground: Color {
+        if palette.isCatSkin && item.kind == .confirmed && !item.isImportantTime { return .clear }
+        return palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96)
     }
 
     private var symbol: String? {

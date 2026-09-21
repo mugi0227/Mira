@@ -39,7 +39,7 @@ struct PendingInvitationDetailSheet: View {
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("検討中の誘い")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

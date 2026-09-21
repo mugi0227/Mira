@@ -64,7 +64,8 @@ struct ImportantPeopleSheet: View {
                 .listRowBackground(palette.surface)
             }
             .scrollContentBackground(.hidden)
-            .background(palette.background)
+            .miraFormStyle(palette)
+            .miraScreenBackground(palette)
             .navigationTitle("大切な人")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

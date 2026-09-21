@@ -41,7 +41,7 @@ struct MiraQuickInputBar: View {
                     Image(systemName: "scope")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .foregroundStyle(store.pinnedContext == nil ? palette.secondaryText : palette.accent)
+                        .foregroundStyle(palette.isCatSkin || store.pinnedContext != nil ? palette.accent : palette.secondaryText)
                         .background(palette.surface, in: Circle())
                 }
                 .accessibilityLabel("この話について予定を指定")
@@ -55,17 +55,19 @@ struct MiraQuickInputBar: View {
                     .onSubmit(send)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
-                    .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+                    .foregroundStyle(palette.primaryText)
+                    .background(palette.surface, in: RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.medium, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
-                            .stroke(palette.primaryText.opacity(0.07), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.medium, style: .continuous)
+                            .stroke(palette.isCatSkin ? palette.accent.opacity(0.14) : palette.primaryText.opacity(0.07), lineWidth: 1)
                     }
+                    .accessibilityLabel("Miraへのお願い")
                     .accessibilityIdentifier("miraQuickInput")
 
                 Button(action: send) {
                     if store.isInterpretingConversation {
                         ProgressView()
-                            .tint(.white)
+                            .tint(palette.onAccent)
                             .frame(width: 44, height: 44)
                     } else {
                         Image(systemName: "arrow.up")
@@ -73,8 +75,16 @@ struct MiraQuickInputBar: View {
                             .frame(width: 44, height: 44)
                     }
                 }
-                .foregroundStyle(.white)
-                .background(canSend ? palette.accent : palette.secondaryText.opacity(0.35), in: Circle())
+                .foregroundStyle(palette.onAccent)
+                .background {
+                    if palette.isCatSkin {
+                        Circle().fill(palette.actionGradient)
+                            .opacity(canSend ? 1 : 0.45)
+                    } else {
+                        Circle().fill(canSend ? palette.accent : palette.secondaryText.opacity(0.35))
+                    }
+                }
+                .buttonStyle(MiraPressStyle())
                 .disabled(!canSend)
                 .accessibilityLabel("Miraへ送る")
                 .accessibilityIdentifier("miraSendButton")
@@ -93,9 +103,7 @@ struct MiraQuickInputBar: View {
                 }
             }
         }
-        .padding(MiraSpacing.sm)
-        .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous))
-        .shadow(color: palette.shadow, radius: 12, y: 5)
+        .modifier(QuickInputSurface(palette: palette))
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -122,6 +130,22 @@ struct MiraQuickInputBar: View {
         text = ""
         isFocused.wrappedValue = false
         Task { await store.handleConversationInput(value) }
+    }
+}
+
+private struct QuickInputSurface: ViewModifier {
+    let palette: MiraThemePalette
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if palette.isCatSkin {
+            content.miraCard(palette, padding: MiraSpacing.sm)
+        } else {
+            content
+                .padding(MiraSpacing.sm)
+                .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous))
+                .shadow(color: palette.shadow, radius: 12, y: 5)
+        }
     }
 }
 
@@ -180,13 +204,15 @@ struct ContextPickerSheet: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .listRowBackground(palette.surface)
                             .accessibilityIdentifier("contextResult-\(result.id.uuidString)")
                         }
                     }
                 }
                 .listStyle(.plain)
+                .miraFormStyle(palette)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("この話について")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "案件・予定を検索")
@@ -244,7 +270,7 @@ struct ConversationHistorySheet: View {
                                 if turn.role == .user { Spacer(minLength: 36) }
                                 Text(turn.text)
                                     .font(.subheadline)
-                                    .foregroundStyle(turn.role == .user ? .white : palette.primaryText)
+                                    .foregroundStyle(turn.role == .user ? palette.onAccent : palette.primaryText)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
                                     .background(
@@ -258,7 +284,7 @@ struct ConversationHistorySheet: View {
                 }
                 .padding(MiraSpacing.md)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle(store.conversationCase(id: caseID)?.title ?? "Miraとの会話")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

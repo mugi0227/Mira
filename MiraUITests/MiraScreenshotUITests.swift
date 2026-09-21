@@ -26,7 +26,7 @@ final class MiraScreenshotUITests: XCTestCase {
         let start = app.buttons["余白を置いて始める"]
         XCTAssertTrue(start.waitForExistence(timeout: 4))
         start.tap()
-        XCTAssertTrue(app.tabBars.buttons["ホーム"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["ホーム"].waitForExistence(timeout: 8))
         settle(1.0)
         try capture("04-home-full-width-calendar")
         try capture("05-home-universal-assistant")
@@ -38,11 +38,11 @@ final class MiraScreenshotUITests: XCTestCase {
         try captureNaturalLanguageChangePreview(in: app)
         try captureNaturalEventPreview(in: app)
 
-        app.tabBars.buttons["調整"].tap()
+        app.buttons["調整"].tap()
         settle()
         try capture("13-adjustments-soft-holds")
 
-        app.tabBars.buttons["マイ余白"].tap()
+        app.buttons["マイ余白"].tap()
         settle()
         try capture("14-my-margins-automatic-plan")
 
@@ -66,7 +66,7 @@ final class MiraScreenshotUITests: XCTestCase {
             settle()
         }
 
-        app.tabBars.buttons["設定"].tap()
+        app.buttons["設定"].tap()
         settle()
         try capture("17-settings")
 
@@ -152,7 +152,7 @@ final class MiraScreenshotUITests: XCTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 3))
         back.tap()
         app.navigationBars["予定を追加"].buttons["閉じる"].tap()
-        XCTAssertTrue(app.tabBars.buttons["ホーム"].waitForExistence(timeout: 4))
+        XCTAssertTrue(app.buttons["ホーム"].waitForExistence(timeout: 4))
         settle()
     }
 
@@ -241,8 +241,8 @@ final class MiraScreenshotUITests: XCTestCase {
             return
         }
 
-        XCTAssertTrue(app.tabBars.buttons["設定"].waitForExistence(timeout: 6))
-        app.tabBars.buttons["設定"].tap()
+        XCTAssertTrue(app.buttons["設定"].waitForExistence(timeout: 6))
+        app.buttons["設定"].tap()
 
         let reset = app.buttons["サンプル状態へリセット"]
         XCTAssertTrue(reset.waitForExistence(timeout: 4))

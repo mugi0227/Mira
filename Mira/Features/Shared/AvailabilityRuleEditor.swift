@@ -109,10 +109,10 @@ struct AvailabilityRuleEditor: View {
                     }
                 }
             }
-            .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+            .background(palette.surface, in: RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
-                    .stroke(palette.primaryText.opacity(0.08), lineWidth: 1)
+                RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
+                    .stroke(palette.isCatSkin ? palette.cardBorder : palette.primaryText.opacity(0.08), lineWidth: 1)
             }
         }
         .environment(\.locale, Locale(identifier: "ja_JP"))
@@ -262,7 +262,7 @@ struct BaseRulesEditorSheet: View {
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("基本時間")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

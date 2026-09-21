@@ -12,10 +12,9 @@ struct LegacyImportView: View {
     private let items = LegacyImportSample.items
 
     var body: some View {
-        ZStack {
-            palette.background.ignoresSafeArea()
-            content
-        }
+        content
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .miraScreenBackground(palette)
         .navigationTitle("カレンダーの引っ越し")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: step) { _, newValue in

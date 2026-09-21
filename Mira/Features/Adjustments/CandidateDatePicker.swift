@@ -173,7 +173,7 @@ struct CandidateDatePicker: View {
                 }
                 .frame(height: 6)
             }
-            .foregroundStyle(selected ? Color.white : palette.primaryText)
+            .foregroundStyle(selected ? palette.onAccent : palette.primaryText)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(
                 selected

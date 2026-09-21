@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(MiraStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
     @State private var showAddSheet = false
@@ -11,7 +12,7 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: MiraSpacing.lg) {
+            VStack(spacing: palette.isCatSkin ? MiraSpacing.sm : MiraSpacing.lg) {
                 monthHeader
                     .padding(.horizontal, MiraSpacing.md)
 
@@ -47,36 +48,25 @@ struct HomeView: View {
                     onSelectDate: openDay,
                     onSelectItem: { selectedItem = $0 }
                 )
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
             }
             .padding(.top, MiraSpacing.sm)
-            .padding(.bottom, 104)
+            .padding(.bottom, palette.isCatSkin ? MiraSpacing.md : 104)
             .contentShape(Rectangle())
             .onTapGesture {
                 isQuickInputFocused = false
             }
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(palette.isCatSkin ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Label("予定・余白を追加", systemImage: "plus")
-                    }
-                    Button {
-                        store.startManualScheduling()
-                    } label: {
-                        Label("日程を探す", systemImage: "calendar.badge.clock")
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                        .frame(width: 44, height: 44)
+            if !palette.isCatSkin {
+                ToolbarItem(placement: .topBarTrailing) {
+                    addMenu
                 }
-                .accessibilityLabel("追加メニュー")
             }
         }
         .sheet(isPresented: $showAddSheet) {
@@ -98,7 +88,16 @@ struct HomeView: View {
         return store.items.filter { interval.contains($0.startDate) }
     }
 
+    @ViewBuilder
     private var monthHeader: some View {
+        if palette.isCatSkin {
+            skyMonthHeader
+        } else {
+            standardMonthHeader
+        }
+    }
+
+    private var standardMonthHeader: some View {
         HStack {
             Button {
                 withAnimation(MiraMotion.standard) {
@@ -139,6 +138,82 @@ struct HomeView: View {
             .accessibilityLabel("次の月")
         }
         .foregroundStyle(palette.accent)
+    }
+
+    private var skyMonthHeader: some View {
+        HStack(spacing: 4) {
+            Button { changeMonth(by: -1) } label: {
+                Image(systemName: "chevron.left")
+                    .font(.body.weight(.medium))
+                    .frame(width: 44, height: 44)
+                    .background(palette.surface.opacity(0.7), in: Circle())
+            }
+            .accessibilityLabel("前の月")
+
+            VStack(spacing: 4) {
+                Text(store.selectedMonth.japaneseMonthTitle)
+                    .font(.title2.bold())
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text("やさしい毎日を、つくろう")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+
+            Button { changeMonth(by: 1) } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("次の月")
+
+            addMenu
+                .background(alignment: .bottomLeading) {
+                    MiraBotanicalAccent(palette: palette)
+                        .frame(width: 45, height: 60)
+                        .offset(x: -20, y: 8)
+                }
+        }
+        .foregroundStyle(palette.accent)
+        .buttonStyle(MiraPressStyle())
+        .padding(.vertical, 4)
+    }
+
+    private var addMenu: some View {
+        Menu {
+            Button { showAddSheet = true } label: {
+                Label("予定・余白を追加", systemImage: "plus")
+            }
+            Button { store.startManualScheduling() } label: {
+                Label("日程を探す", systemImage: "calendar.badge.clock")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(palette.isCatSkin ? .system(size: 28, weight: .regular) : .body)
+                .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
+                .frame(width: palette.isCatSkin ? 52 : 44, height: palette.isCatSkin ? 52 : 44)
+                .background {
+                    if palette.isCatSkin {
+                        Circle().fill(palette.actionGradient)
+                            .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
+                            .shadow(color: palette.shadow, radius: 10, y: 4)
+                    }
+                }
+        }
+        .accessibilityLabel("追加メニュー")
+    }
+
+    private func changeMonth(by offset: Int) {
+        withAnimation(reduceMotion ? nil : MiraMotion.standard) {
+            store.selectedMonth = store.selectedMonth.addingMonths(offset)
+            store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
+            store.ensurePlan(for: store.selectedMonth)
+            store.updateMarginRecommendation(for: store.selectedMonth)
+            store.recalculateBalance(for: store.selectedMonth)
+        }
     }
 
     @ViewBuilder
@@ -234,15 +309,18 @@ struct HomeView: View {
 }
 
 private struct AssistantCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(MiraStore.self) private var store
     let message: AssistantMessage
     let palette: MiraThemePalette
     let action: () -> Void
 
     var body: some View {
-        HStack(spacing: MiraSpacing.md) {
+        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: MiraSpacing.sm)) : AnyLayout(HStackLayout(spacing: MiraSpacing.md))
+        layout {
             if store.theme == .pixelCat {
-                PixelCatView(mood: message.mood, size: 70)
+                PixelCatView(mood: message.mood, size: 88)
+                    .background(palette.accentSoft.opacity(0.3), in: Circle())
             } else {
                 Image(systemName: message.mood == .warning ? "exclamationmark.circle.fill" : "leaf.fill")
                     .font(.system(size: 34, weight: .medium))
@@ -260,13 +338,29 @@ private struct AssistantCard: View {
                     .foregroundStyle(palette.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 if let actionTitle = message.actionTitle {
-                    Button(actionTitle, action: action)
+                    Button(action: action) {
+                        HStack(spacing: 8) {
+                            Text(actionTitle)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if palette.isCatSkin {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                            }
+                        }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(palette.accent)
-                        .frame(minHeight: 36)
+                        .padding(.horizontal, palette.isCatSkin ? 14 : 0)
+                        .frame(minHeight: 44)
+                        .background(palette.isCatSkin ? palette.accentSoft.opacity(0.85) : .clear, in: Capsule())
+                    }
+                    .buttonStyle(MiraPressStyle())
                 }
             }
             Spacer(minLength: 0)
+        }
+        .padding(.vertical, palette.isCatSkin ? 4 : 0)
+        .background {
+            if palette.isCatSkin { MiraCompanionBackdrop(palette: palette) }
         }
         .miraCard(palette)
         .accessibilityElement(children: .contain)

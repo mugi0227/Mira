@@ -23,7 +23,7 @@ struct MarginsView: View {
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
         }
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("マイ余白")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -32,7 +32,14 @@ struct MarginsView: View {
                     showAddMargin = true
                 } label: {
                     Image(systemName: "plus")
+                        .font(palette.isCatSkin ? .body.weight(.semibold) : .body)
+                        .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
                         .frame(width: 44, height: 44)
+                        .background {
+                            if palette.isCatSkin {
+                                Circle().fill(palette.actionGradient)
+                            }
+                        }
                 }
                 .accessibilityLabel("余白を追加")
             }
@@ -62,6 +69,9 @@ struct MarginsView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 44)
+                    .background {
+                        if palette.isCatSkin { Circle().fill(palette.surface) }
+                    }
             }
             .accessibilityLabel("前の月")
 
@@ -82,6 +92,9 @@ struct MarginsView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .frame(width: 44, height: 44)
+                    .background {
+                        if palette.isCatSkin { Circle().fill(palette.surface) }
+                    }
             }
             .accessibilityLabel("次の月")
         }
@@ -116,9 +129,22 @@ struct MarginsView: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(palette.accent)
-                .frame(minHeight: 36)
+                .frame(minHeight: palette.isCatSkin ? 44 : 36)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.sm : 0)
+                .background {
+                    if palette.isCatSkin { Capsule().fill(palette.accentSoft) }
+                }
             }
             Spacer(minLength: 0)
+        }
+        .background(alignment: .bottomTrailing) {
+            if palette.isCatSkin {
+                MiraBotanicalAccent(palette: palette)
+                    .frame(width: 66, height: 88)
+                    .opacity(0.35)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
         .miraCard(palette)
     }
@@ -146,7 +172,7 @@ struct MarginsView: View {
                     } label: {
                         Text(level.title)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(store.marginComfortLevel == level ? .white : palette.primaryText)
+                            .foregroundStyle(store.marginComfortLevel == level ? palette.onAccent : palette.primaryText)
                             .frame(maxWidth: .infinity, minHeight: 36)
                             .background(store.marginComfortLevel == level ? palette.accent : palette.elevatedSurface, in: Capsule())
                     }
@@ -460,7 +486,8 @@ private struct GoalEditorSheet: View {
                 .listRowBackground(palette.surface)
             }
             .scrollContentBackground(.hidden)
-            .background(palette.background)
+            .miraFormStyle(palette)
+            .miraScreenBackground(palette)
             .navigationTitle("余白目標")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

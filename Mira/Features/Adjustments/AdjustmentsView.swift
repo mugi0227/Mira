@@ -11,6 +11,25 @@ struct AdjustmentsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if palette.isCatSkin {
+                HStack(spacing: MiraSpacing.md) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("会いたい時間を、心地よく")
+                            .font(.title3.bold())
+                            .foregroundStyle(palette.primaryText)
+                        Text("日程も、返事待ちも、ここでひと息。")
+                            .font(.subheadline)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                    MiraBotanicalAccent(palette: palette)
+                        .frame(width: 48, height: 60)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, MiraSpacing.lg)
+                .padding(.top, MiraSpacing.sm)
+            }
+
             Picker("表示", selection: $segment) {
                 ForEach(AdjustmentSegment.allCases) { segment in
                     Text(segment.title).tag(segment)
@@ -33,7 +52,7 @@ struct AdjustmentsView: View {
                 .padding(.bottom, 104)
             }
         }
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("調整")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -46,7 +65,14 @@ struct AdjustmentsView: View {
                     }
                 } label: {
                     Image(systemName: "plus")
+                        .font(palette.isCatSkin ? .body.weight(.semibold) : .body)
+                        .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
                         .frame(width: 44, height: 44)
+                        .background {
+                            if palette.isCatSkin {
+                                Circle().fill(palette.actionGradient)
+                            }
+                        }
                 }
                 .accessibilityLabel(segment == .adjustments ? "日程を探す" : "検討中の誘いを追加")
             }
@@ -71,7 +97,7 @@ struct AdjustmentsView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(palette.accent)
                     .frame(width: 48, height: 48)
-                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.small))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("新しい日程を探す")
                         .font(.headline)
@@ -86,7 +112,7 @@ struct AdjustmentsView: View {
                     .font(.caption.bold())
                     .foregroundStyle(palette.secondaryText)
             }
-            .miraCard(palette, padding: MiraSpacing.sm)
+            .miraCard(palette, padding: palette.isCatSkin ? MiraSpacing.md : MiraSpacing.sm)
         }
         .buttonStyle(MiraPressStyle())
     }

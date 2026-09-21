@@ -49,7 +49,8 @@ struct NewPendingInvitationSheet: View {
                 .listRowBackground(palette.surface)
             }
             .scrollContentBackground(.hidden)
-            .background(palette.background)
+            .miraFormStyle(palette)
+            .miraScreenBackground(palette)
             .navigationTitle("検討中に置く")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

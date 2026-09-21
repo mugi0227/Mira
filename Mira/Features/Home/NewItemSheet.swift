@@ -53,7 +53,8 @@ struct NewItemSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(palette.background)
+            .miraFormStyle(palette)
+            .miraScreenBackground(palette)
             .navigationTitle(mode == .event ? "予定を追加" : "余白を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

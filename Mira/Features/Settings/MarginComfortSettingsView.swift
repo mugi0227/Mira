@@ -73,7 +73,7 @@ struct MarginComfortSettingsView: View {
             }
             .padding(MiraSpacing.md)
         }
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("余白のおまかせ")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

@@ -9,6 +9,28 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            if palette.isCatSkin {
+                Section {
+                    HStack(spacing: MiraSpacing.md) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Miraを、あなたらしく")
+                                .font(.title3.bold())
+                                .foregroundStyle(palette.primaryText)
+                            Text("毎日に合う、心地よい使い方へ。")
+                                .font(.subheadline)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        Spacer(minLength: 0)
+                        MiraBotanicalAccent(palette: palette)
+                            .frame(width: 48, height: 64)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.vertical, MiraSpacing.xs)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             Section("着せ替え") {
                 NavigationLink {
                     ThemePickerView(palette: palette)
@@ -136,7 +158,8 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
         }
         .scrollContentBackground(.hidden)
-        .background(palette.background)
+        .miraFormStyle(palette)
+        .miraScreenBackground(palette)
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showImportantPeople) { ImportantPeopleSheet(palette: palette) }
@@ -186,7 +209,7 @@ private struct ThemePickerView: View {
             }
             .padding(MiraSpacing.md)
         }
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("スキン")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -204,32 +227,66 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .pixelCat ? "小さなドット猫と、やさしい猫口調" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .pixelCat ? "空色とやわらかな光、猫と過ごす毎日" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()
                     if selected { Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(palette.accent) }
                 }
-                HStack(spacing: MiraSpacing.sm) {
-                    if theme == .pixelCat {
-                        PixelCatView(mood: .relaxed, size: 64)
-                    } else {
-                        Image(systemName: "leaf.circle.fill").font(.system(size: 48)).foregroundStyle(palette.accent).frame(width: 64)
+                VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+                    HStack(spacing: MiraSpacing.sm) {
+                        if theme == .pixelCat {
+                            PixelCatView(mood: .relaxed, size: 64)
+                        } else {
+                            Image(systemName: "leaf.circle.fill").font(.system(size: 48)).foregroundStyle(palette.accent).frame(width: 64)
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです").font(.headline)
+                            Text("予定も余白も、ちゃんと居場所があります。")
+                                .font(.caption).foregroundStyle(palette.secondaryText)
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです").font(.headline)
-                        Text("予定も余白も、ちゃんと居場所があります。")
-                            .font(.caption).foregroundStyle(palette.secondaryText)
+                    if palette.isCatSkin {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 6) { previewChips }
+                            VStack(alignment: .leading, spacing: 6) { previewChips }
+                        }
                     }
                 }
                 .padding(MiraSpacing.sm)
-                .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    if palette.isCatSkin {
+                        RoundedRectangle(cornerRadius: MiraRadius.medium)
+                            .fill(palette.backgroundGradient)
+                    } else {
+                        RoundedRectangle(cornerRadius: MiraRadius.small)
+                            .fill(palette.elevatedSurface)
+                    }
+                }
             }
             .foregroundStyle(palette.primaryText)
             .miraCard(palette)
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel("\(theme.displayName)スキン" + (selected ? "、選択中" : ""))
+    }
+
+    private var previewChips: some View {
+        Group {
+            previewChip("休息", symbol: "moon.stars.fill", color: palette.rest)
+            previewChip("読書", symbol: "book.closed.fill", color: palette.reading)
+            previewChip("大切な時間", symbol: "heart.fill", color: palette.important)
+        }
+    }
+
+    private func previewChip(_ title: String, symbol: String, color: Color) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(palette.primaryText)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(color, in: Capsule())
     }
 }
 
@@ -262,7 +319,7 @@ private struct AIStatusView: View {
             }
             .padding(MiraSpacing.md)
         }
-        .background(palette.background)
+        .miraScreenBackground(palette)
         .navigationTitle("オンデバイスAI")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -321,7 +378,8 @@ private struct LoadAndBufferSettingsView: View {
             .listRowBackground(palette.surface)
         }
         .scrollContentBackground(.hidden)
-        .background(palette.background)
+        .miraFormStyle(palette)
+        .miraScreenBackground(palette)
         .navigationTitle("負荷と前後の余白")
         .navigationBarTitleDisplayMode(.inline)
     }

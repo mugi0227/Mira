@@ -18,9 +18,21 @@ struct PrimaryButton: View {
                     .font(.headline)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
-            .foregroundStyle(.white)
-            .background(isDisabled ? palette.secondaryText.opacity(0.35) : palette.accent)
-            .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+            .foregroundStyle(palette.onAccent)
+            .background {
+                if isDisabled {
+                    palette.secondaryText.opacity(0.35)
+                } else {
+                    palette.actionGradient
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 26 : MiraRadius.medium, style: .continuous))
+            .overlay {
+                if palette.isCatSkin {
+                    Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)
+                }
+            }
+            .shadow(color: palette.isCatSkin && !isDisabled ? palette.shadow : .clear, radius: 10, y: 4)
         }
         .buttonStyle(MiraPressStyle())
         .disabled(isDisabled)
@@ -36,7 +48,7 @@ struct ProgressPill: View {
     let palette: MiraThemePalette
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: palette.isCatSkin ? 4 : 6) {
             Image(systemName: symbol)
                 .font(.caption.weight(.semibold))
                 .accessibilityHidden(true)
@@ -47,9 +59,14 @@ struct ProgressPill: View {
                 .font(.caption.monospacedDigit().weight(.semibold))
         }
         .foregroundStyle(palette.primaryText)
-        .padding(.horizontal, 11)
+        .padding(.horizontal, palette.isCatSkin ? 8 : 11)
         .frame(minHeight: 36)
-        .background(palette.accentSoft, in: Capsule())
+        .background(palette.isCatSkin ? palette.goalTint(for: symbol) : palette.accentSoft, in: Capsule())
+        .overlay {
+            if palette.isCatSkin {
+                Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) \(current)回、目標\(target)回")
     }

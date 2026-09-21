@@ -62,7 +62,7 @@ struct NewAdjustmentSheet: View {
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
             }
-            .background(palette.background)
+            .miraScreenBackground(palette)
             .navigationTitle("日程を調整")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

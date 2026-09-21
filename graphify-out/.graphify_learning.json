@@ -1,0 +1,542 @@
+{
+  "generated_at": "2026-08-30T05:07:46.071569+00:00",
+  "nodes": {
+    "app": {
+      "code_fingerprint": "",
+      "label": "App",
+      "last": "2026-08-30T00:07:50.866722+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:07:50.866722+00:00",
+          "outcome": "useful",
+          "q": "Diagnose CompileAssetCatalogVariant failure after adding pixel cat assets"
+        }
+      ],
+      "score": 0.99519932,
+      "source_file": "",
+      "status": "tentative",
+      "uses": 1
+    },
+    "docs_design_system_master": {
+      "code_fingerprint": "387fb5be5947ad1230e17b5e787c94a12ea634f50ca4b74eb9a0084ae6e2a51c",
+      "label": "Design System Master",
+      "last": "2026-08-29T17:22:39.730650+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T17:22:39.730650+00:00",
+          "outcome": "useful",
+          "q": "Can the generated ginger cat sprite sheet be used in the Mira app, and what is the best integration approach?"
+        },
+        {
+          "date": "2026-08-29T17:13:54.925708+00:00",
+          "outcome": "useful",
+          "q": "Where should Mira skin concept images and decisions be documented?"
+        }
+      ],
+      "score": 1.977361814,
+      "source_file": "docs/design-system/MASTER.md",
+      "status": "preferred",
+      "uses": 2
+    },
+    "foundation_models": {
+      "code_fingerprint": "2fdf0585fdccd066ee7afb25381fc40e3c4ff9239e3da96fa852baa02fddb6f2",
+      "label": "Apple Foundation Models",
+      "last": "2026-08-26T12:46:30.000246+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-26T12:46:30.000246+00:00",
+          "outcome": "useful",
+          "q": "windowsでできるように環境整備できない？"
+        }
+      ],
+      "score": 0.91845788,
+      "source_file": "docs/architecture.md",
+      "status": "tentative",
+      "uses": 1
+    },
+    "github_workflows_ios_yml": {
+      "code_fingerprint": "f73558bd89296619a01973013657dccaf762471301b82a7eb6a7add81ebef683",
+      "label": "iOS CI Workflow",
+      "last": "2026-08-30T00:33:58.964681+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:33:58.964681+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build #7 simulator failure after holiday-state fix"
+        },
+        {
+          "date": "2026-08-30T00:26:28.555131+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build failure after Processing empty-Mira.plist"
+        },
+        {
+          "date": "2026-08-30T00:07:50.866722+00:00",
+          "outcome": "useful",
+          "q": "Diagnose CompileAssetCatalogVariant failure after adding pixel cat assets"
+        },
+        {
+          "date": "2026-08-29T10:35:14.594601+00:00",
+          "outcome": "useful",
+          "q": "download直下のcodemagic版、やったけどThe name for this app is invalidになった"
+        },
+        {
+          "date": "2026-08-29T10:32:37.190904+00:00",
+          "outcome": "useful",
+          "q": "このセッションで作ったipaと、codemagicで作ったipaではコードが異なる気がするんですが"
+        }
+      ],
+      "score": 4.950887201,
+      "source_file": ".github/workflows/ios.yml",
+      "status": "preferred",
+      "uses": 5
+    },
+    "mira": {
+      "code_fingerprint": "64925a8c94a82ad2196a5e49fa3173465bba96d24be67b42bad0cd24fa3ec952",
+      "label": "Mira",
+      "last": "2026-08-29T10:32:37.190904+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T10:32:37.190904+00:00",
+          "outcome": "useful",
+          "q": "このセッションで作ったipaと、codemagicで作ったipaではコードが異なる気がするんですが"
+        }
+      ],
+      "score": 0.982266491,
+      "source_file": "MiraTests/TestFixtures.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_app_approotview_approotview": {
+      "code_fingerprint": "d968d62912a5af7374c2ef44f08e18c9436cd0208462672497d63cef198669af",
+      "label": "AppRootView",
+      "last": "2026-08-30T04:48:10.258071+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T04:48:10.258071+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page literally move from the top to the bottom of the screen?"
+        }
+      ],
+      "score": 0.999685616,
+      "source_file": "Mira/App/AppRootView.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_app_miraapp_miraapp": {
+      "code_fingerprint": "122d1e0460c5a34b311721d25b6bcfb4b0081ca0969a1ae8b3ebd9cbf89cad32",
+      "label": "MiraApp",
+      "last": "2026-08-29T10:35:14.594601+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T10:35:14.594601+00:00",
+          "outcome": "useful",
+          "q": "download直下のcodemagic版、やったけどThe name for this app is invalidになった"
+        },
+        {
+          "date": "2026-08-26T12:46:30.000246+00:00",
+          "outcome": "useful",
+          "q": "windowsでできるように環境整備できない？"
+        }
+      ],
+      "score": 1.900765717,
+      "source_file": "Mira/App/MiraApp.swift",
+      "status": "preferred",
+      "uses": 2
+    },
+    "mira_app_mirastore_mirastore": {
+      "code_fingerprint": "90cc369b557ff0b38e7a8efd91c3d7895027525f010c520f91c9d84535463f0a",
+      "label": "MiraStore",
+      "last": "2026-08-30T00:26:28.555131+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:26:28.555131+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build failure after Processing empty-Mira.plist"
+        }
+      ],
+      "score": 0.99549682,
+      "source_file": "Mira/App/MiraStore.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_app_mirastore_settings": {
+      "code_fingerprint": "72c06540778670ff89530509e77ec6775fe44a7a2459f864cc0e614c2e4006d3",
+      "label": "MiraStore+Settings.swift",
+      "last": "2026-08-30T00:33:58.964681+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:33:58.964681+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build #7 simulator failure after holiday-state fix"
+        }
+      ],
+      "score": 0.995616732,
+      "source_file": "Mira/App/MiraStore+Settings.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_designsystem_miratheme_miramotion": {
+      "code_fingerprint": "86f36475c352135bebbec29fcc5944ec1a0c0f28d1936560f9558091e6253bc9",
+      "label": "MiraMotion",
+      "last": "2026-08-30T04:48:10.258071+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T04:48:10.258071+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page literally move from the top to the bottom of the screen?"
+        },
+        {
+          "date": "2026-08-30T04:44:08.828134+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page oscillate vertically forever?"
+        }
+      ],
+      "score": 1.999306691,
+      "source_file": "Mira/DesignSystem/MiraTheme.swift",
+      "status": "preferred",
+      "uses": 2
+    },
+    "mira_designsystem_miratheme_mirathemepalette": {
+      "code_fingerprint": "86f36475c352135bebbec29fcc5944ec1a0c0f28d1936560f9558091e6253bc9",
+      "label": "MiraThemePalette",
+      "last": "2026-08-29T17:22:39.730650+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T17:22:39.730650+00:00",
+          "outcome": "useful",
+          "q": "Can the generated ginger cat sprite sheet be used in the Mira app, and what is the best integration approach?"
+        }
+      ],
+      "score": 0.988750284,
+      "source_file": "Mira/DesignSystem/MiraTheme.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_designsystem_pixelcatview_pixelcatview": {
+      "code_fingerprint": "c351945c539f3053435f612883d81367d6f1f3ef44737ee5b75242e0b0a2757c",
+      "label": "PixelCatView",
+      "last": "2026-08-30T04:48:10.258071+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T04:48:10.258071+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page literally move from the top to the bottom of the screen?"
+        },
+        {
+          "date": "2026-08-30T04:44:08.828134+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page oscillate vertically forever?"
+        },
+        {
+          "date": "2026-08-29T18:27:58.572775+00:00",
+          "outcome": "useful",
+          "q": "Replace Inviting, Worried, and Thinking pixel-cat artwork with corrected transparent versions"
+        },
+        {
+          "date": "2026-08-29T17:22:39.730650+00:00",
+          "outcome": "useful",
+          "q": "Can the generated ginger cat sprite sheet be used in the Mira app, and what is the best integration approach?"
+        },
+        {
+          "date": "2026-08-29T17:13:54.925708+00:00",
+          "outcome": "useful",
+          "q": "Where should Mira skin concept images and decisions be documented?"
+        }
+      ],
+      "score": 4.966455512,
+      "source_file": "Mira/DesignSystem/PixelCatView.swift",
+      "status": "preferred",
+      "uses": 5
+    },
+    "mira_domain_domainmodels_catmood": {
+      "code_fingerprint": "970b8ef2ae3e6ac1987063842c915d4c17ae7e9a5b77cfc1ff8ffb99983b9cd1",
+      "label": "CatMood",
+      "last": "2026-08-29T18:27:58.572775+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T18:27:58.572775+00:00",
+          "outcome": "useful",
+          "q": "Replace Inviting, Worried, and Thinking pixel-cat artwork with corrected transparent versions"
+        },
+        {
+          "date": "2026-08-29T17:22:39.730650+00:00",
+          "outcome": "useful",
+          "q": "Can the generated ginger cat sprite sheet be used in the Mira app, and what is the best integration approach?"
+        },
+        {
+          "date": "2026-08-29T17:13:54.925708+00:00",
+          "outcome": "useful",
+          "q": "Where should Mira skin concept images and decisions be documented?"
+        }
+      ],
+      "score": 2.967148821,
+      "source_file": "Mira/Domain/DomainModels.swift",
+      "status": "preferred",
+      "uses": 3
+    },
+    "mira_domain_domainmodels_marginkind": {
+      "code_fingerprint": "970b8ef2ae3e6ac1987063842c915d4c17ae7e9a5b77cfc1ff8ffb99983b9cd1",
+      "label": "MarginKind",
+      "last": "2026-08-29T15:30:50.324478+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T15:30:50.324478+00:00",
+          "outcome": "useful",
+          "q": "Miraのキーボード解除、日別タイムライン、候補日選択、余白カテゴリ統合を実装するにはどこを変更するか"
+        }
+      ],
+      "score": 0.986977844,
+      "source_file": "Mira/Domain/DomainModels.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_adjustments_candidatedatepicker_candidatedatepicker": {
+      "code_fingerprint": "71fade7268cf810213327aaaf1caddf45998b34bb0f7430f0fc606bd4ff36279",
+      "label": "CandidateDatePicker",
+      "last": "2026-08-29T16:52:01.688570+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T16:52:01.688570+00:00",
+          "outcome": "useful",
+          "q": "カレンダーの日タップ、週開始、候補日表示、祝日、断り文、検討中から調整中のUXをどう改善するか"
+        }
+      ],
+      "score": 0.988264408,
+      "source_file": "Mira/Features/Adjustments/CandidateDatePicker.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_adjustments_pendinginvitationdetailsheet_pendinginvitationdetailsheet": {
+      "code_fingerprint": "aa5daf4d7a6ecd9825e1f4be5016227f0e1e7ed2fdfaaff59a56b52de7eaed5c",
+      "label": "PendingInvitationDetailSheet",
+      "last": "2026-08-29T16:52:01.688570+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T16:52:01.688570+00:00",
+          "outcome": "useful",
+          "q": "カレンダーの日タップ、週開始、候補日表示、祝日、断り文、検討中から調整中のUXをどう改善するか"
+        }
+      ],
+      "score": 0.988264408,
+      "source_file": "Mira/Features/Adjustments/PendingInvitationDetailSheet.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_home_homeview_homeview": {
+      "code_fingerprint": "f3327b3d2d2b50b283da513b31b2f1ffd4a84ada9788b0ca6c2c0b179b766132",
+      "label": "HomeView",
+      "last": "2026-08-29T15:30:50.324478+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T15:30:50.324478+00:00",
+          "outcome": "useful",
+          "q": "Miraのキーボード解除、日別タイムライン、候補日選択、余白カテゴリ統合を実装するにはどこを変更するか"
+        }
+      ],
+      "score": 0.986977844,
+      "source_file": "Mira/Features/Home/HomeView.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_margins_marginsview_marginsview": {
+      "code_fingerprint": "9ace79e2b2e8dcd916fa7c1b91ff261bb6799c90dfdc8142c2d79441ab4035e4",
+      "label": "MarginsView",
+      "last": "2026-08-30T04:48:10.258071+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T04:48:10.258071+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page literally move from the top to the bottom of the screen?"
+        },
+        {
+          "date": "2026-08-30T04:44:08.828134+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page oscillate vertically forever?"
+        },
+        {
+          "date": "2026-08-29T15:30:50.324478+00:00",
+          "outcome": "useful",
+          "q": "Miraのキーボード解除、日別タイムライン、候補日選択、余白カテゴリ統合を実装するにはどこを変更するか"
+        }
+      ],
+      "score": 2.986284535,
+      "source_file": "Mira/Features/Margins/MarginsView.swift",
+      "status": "preferred",
+      "uses": 3
+    },
+    "mira_features_onboarding_onboardingview_onboardingview": {
+      "code_fingerprint": "6aa7518247a660298cc881f4981887c81cfdccdf421d886af44811e04bb72f8b",
+      "label": "OnboardingView",
+      "last": "2026-08-29T18:27:58.572775+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T18:27:58.572775+00:00",
+          "outcome": "useful",
+          "q": "Replace Inviting, Worried, and Thinking pixel-cat artwork with corrected transparent versions"
+        },
+        {
+          "date": "2026-08-29T16:52:01.688570+00:00",
+          "outcome": "useful",
+          "q": "カレンダーの日タップ、週開始、候補日表示、祝日、断り文、検討中から調整中のUXをどう改善するか"
+        }
+      ],
+      "score": 1.978051414,
+      "source_file": "Mira/Features/Onboarding/OnboardingView.swift",
+      "status": "preferred",
+      "uses": 2
+    },
+    "mira_features_settings_settingsview_settingsview": {
+      "code_fingerprint": "dea80b07acb0c2b9eb68af5f0e2f6a5625eb4754949813ee7cfe450f8fe49ef8",
+      "label": "SettingsView",
+      "last": "2026-08-29T16:52:01.688570+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T16:52:01.688570+00:00",
+          "outcome": "useful",
+          "q": "カレンダーの日タップ、週開始、候補日表示、祝日、断り文、検討中から調整中のUXをどう改善するか"
+        }
+      ],
+      "score": 0.988264408,
+      "source_file": "Mira/Features/Settings/SettingsView.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_settings_settingsview_themepreviewcard": {
+      "code_fingerprint": "dea80b07acb0c2b9eb68af5f0e2f6a5625eb4754949813ee7cfe450f8fe49ef8",
+      "label": "ThemePreviewCard",
+      "last": "2026-08-29T17:22:39.730650+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-29T17:22:39.730650+00:00",
+          "outcome": "useful",
+          "q": "Can the generated ginger cat sprite sheet be used in the Mira app, and what is the best integration approach?"
+        },
+        {
+          "date": "2026-08-29T17:13:54.925708+00:00",
+          "outcome": "useful",
+          "q": "Where should Mira skin concept images and decisions be documented?"
+        }
+      ],
+      "score": 1.977361814,
+      "source_file": "Mira/Features/Settings/SettingsView.swift",
+      "status": "preferred",
+      "uses": 2
+    },
+    "mira_features_shared_maintabview_maintabview": {
+      "code_fingerprint": "f825a519c6b69e25c478b3c758984059589a2c1193588bcae9bfcda0bb83f4eb",
+      "label": "MainTabView",
+      "last": "2026-08-30T04:48:10.258071+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T04:48:10.258071+00:00",
+          "outcome": "useful",
+          "q": "Why does the cat on the My Margins page literally move from the top to the bottom of the screen?"
+        }
+      ],
+      "score": 0.999685616,
+      "source_file": "Mira/Features/Shared/MainTabView.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "mira_features_shared_monthcalendargrid_monthcalendargrid": {
+      "code_fingerprint": "05edc12f39e96025a27dc056bd9fb8dbe5a6df4ead4533ae11cd9ace52882b6d",
+      "label": "MonthCalendarGrid",
+      "last": "2026-08-30T00:33:58.964681+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:33:58.964681+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build #7 simulator failure after holiday-state fix"
+        },
+        {
+          "date": "2026-08-30T00:26:28.555131+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build failure after Processing empty-Mira.plist"
+        },
+        {
+          "date": "2026-08-29T16:52:01.688570+00:00",
+          "outcome": "useful",
+          "q": "カレンダーの日タップ、週開始、候補日表示、祝日、断り文、検討中から調整中のUXをどう改善するか"
+        },
+        {
+          "date": "2026-08-29T15:30:50.324478+00:00",
+          "outcome": "useful",
+          "q": "Miraのキーボード解除、日別タイムライン、候補日選択、余白カテゴリ統合を実装するにはどこを変更するか"
+        }
+      ],
+      "score": 3.966355804,
+      "source_file": "Mira/Features/Shared/MonthCalendarGrid.swift",
+      "status": "preferred",
+      "uses": 4
+    },
+    "mira_services_notificationservice": {
+      "code_fingerprint": "19d6cc2ee65940865e1e69e9839b6d70d62b4fc449646471c2b8c6f15449a342",
+      "label": "NotificationService.swift",
+      "last": "2026-08-26T12:46:30.000246+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-26T12:46:30.000246+00:00",
+          "outcome": "useful",
+          "q": "windowsでできるように環境整備できない？"
+        }
+      ],
+      "score": 0.91845788,
+      "source_file": "Mira/Services/NotificationService.swift",
+      "status": "tentative",
+      "uses": 1
+    },
+    "project_yml": {
+      "code_fingerprint": "eaa677507139cb5d8ec39f9af83681776e8ab6d88aeb15702783c7b3d3d73353",
+      "label": "XcodeGen Project Configuration",
+      "last": "2026-08-30T00:33:58.964681+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-30T00:33:58.964681+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build #7 simulator failure after holiday-state fix"
+        },
+        {
+          "date": "2026-08-30T00:26:28.555131+00:00",
+          "outcome": "useful",
+          "q": "Diagnose Codemagic build failure after Processing empty-Mira.plist"
+        },
+        {
+          "date": "2026-08-30T00:07:50.866722+00:00",
+          "outcome": "useful",
+          "q": "Diagnose CompileAssetCatalogVariant failure after adding pixel cat assets"
+        },
+        {
+          "date": "2026-08-29T10:35:14.594601+00:00",
+          "outcome": "useful",
+          "q": "download直下のcodemagic版、やったけどThe name for this app is invalidになった"
+        },
+        {
+          "date": "2026-08-29T10:32:37.190904+00:00",
+          "outcome": "useful",
+          "q": "このセッションで作ったipaと、codemagicで作ったipaではコードが異なる気がするんですが"
+        }
+      ],
+      "score": 5.869345081,
+      "source_file": "project.yml",
+      "status": "preferred",
+      "uses": 6
+    },
+    "swiftui": {
+      "code_fingerprint": "05edc12f39e96025a27dc056bd9fb8dbe5a6df4ead4533ae11cd9ace52882b6d",
+      "label": "SwiftUI",
+      "last": "2026-08-26T12:46:30.000246+00:00",
+      "provenance": [
+        {
+          "date": "2026-08-26T12:46:30.000246+00:00",
+          "outcome": "useful",
+          "q": "windowsでできるように環境整備できない？"
+        }
+      ],
+      "score": 0.91845788,
+      "source_file": "Mira/Features/Shared/MonthCalendarGrid.swift",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}

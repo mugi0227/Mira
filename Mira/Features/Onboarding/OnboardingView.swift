@@ -49,6 +49,7 @@ struct OnboardingView: View {
                 .padding(.bottom, MiraSpacing.lg)
         }
         .foregroundStyle(palette.primaryText)
+        .miraScreenBackground(palette)
         .accessibilityElement(children: .contain)
     }
 
@@ -118,7 +119,7 @@ struct OnboardingView: View {
                             .foregroundStyle(palette.primaryText)
                             .miraCard(palette)
                             .overlay {
-                                RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
+                                RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
                                     .stroke(selections.contains(kind) ? palette.accent : .clear, lineWidth: 2)
                             }
                         }
@@ -357,7 +358,7 @@ struct OnboardingView: View {
                     .font(.headline)
                     .frame(minWidth: 76, minHeight: 52)
                     .foregroundStyle(palette.primaryText)
-                    .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
+                    .background(palette.surface, in: RoundedRectangle(cornerRadius: palette.cardRadius))
                     .buttonStyle(MiraPressStyle())
             }
 

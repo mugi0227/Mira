@@ -12,7 +12,7 @@ final class GrillMeFlowUITests: XCTestCase {
     }
 
     func testUniversalInputOpensPreselectedSchedulingMode() throws {
-        let input = app.textFields["Miraに雑に投げる…"]
+        let input = app.descendants(matching: .any)["miraQuickInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 12))
         input.tap()
         input.typeText("来月友達と焼肉行きたい")
@@ -45,8 +45,65 @@ final class GrillMeFlowUITests: XCTestCase {
         capture("03-grill-context-picker")
     }
 
+    func testCatSkinKeepsNavigationAndSheetsUsable() throws {
+        let home = app.buttons["miraTab-home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 10))
+        XCTAssertTrue(home.isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["miraQuickInput"].exists)
+        capture("cat-skin-01-home")
+
+        let destinations = [
+            ("adjustments", "調整"),
+            ("margins", "マイ余白"),
+            ("settings", "設定")
+        ]
+        for (identifier, title) in destinations {
+            let tab = app.buttons["miraTab-\(identifier)"]
+            XCTAssertTrue(tab.exists)
+            XCTAssertTrue(tab.isHittable)
+            tab.tap()
+            XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
+            capture("cat-skin-\(identifier)")
+        }
+
+        let skinPicker = app.staticTexts["スキン"]
+        XCTAssertTrue(skinPicker.waitForExistence(timeout: 4))
+        skinPicker.tap()
+        XCTAssertTrue(app.navigationBars["スキン"].waitForExistence(timeout: 4))
+        capture("cat-skin-picker")
+        app.navigationBars["スキン"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["設定"].waitForExistence(timeout: 4))
+
+        home.tap()
+        let addMenu = app.buttons["追加メニュー"]
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 4))
+        addMenu.tap()
+        let addItem = app.buttons["予定・余白を追加"]
+        XCTAssertTrue(addItem.waitForExistence(timeout: 3))
+        addItem.tap()
+        let itemSheet = app.navigationBars["予定を追加"]
+        XCTAssertTrue(itemSheet.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.textFields["例：友達とご飯"].exists)
+        capture("cat-skin-new-item-sheet")
+        itemSheet.buttons["閉じる"].tap()
+        XCTAssertTrue(home.waitForExistence(timeout: 4))
+        XCTAssertTrue(home.isHittable)
+
+        let contextPicker = app.buttons["contextPickerButton"]
+        XCTAssertTrue(contextPicker.waitForExistence(timeout: 4))
+        contextPicker.tap()
+        let contextSheet = app.navigationBars["この話について"]
+        XCTAssertTrue(contextSheet.waitForExistence(timeout: 4))
+        XCTAssertTrue(app.segmentedControls.buttons["進行中"].exists)
+        XCTAssertTrue(app.switches["includePastToggle"].exists)
+        capture("cat-skin-context-sheet")
+        contextSheet.buttons["閉じる"].tap()
+        XCTAssertTrue(home.waitForExistence(timeout: 4))
+        XCTAssertTrue(home.isHittable)
+    }
+
     func testPastedEventShowsHumanReviewedPreview() throws {
-        let input = app.textFields["Miraに雑に投げる…"]
+        let input = app.descendants(matching: .any)["miraQuickInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         input.tap()
         input.typeText("9/12 カフェを予定に追加して")
@@ -79,7 +136,7 @@ final class GrillMeFlowUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.textFields["Miraに雑に投げる…"].waitForExistence(timeout: 12)
+        _ = app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 12)
     }
 
     private func capture(_ name: String) {
