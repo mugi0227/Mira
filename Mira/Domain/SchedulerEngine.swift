@@ -12,7 +12,8 @@ struct SchedulerEngine: Sendable {
         goals: [MarginGoalSnapshot],
         events: [CalendarItemSnapshot],
         existingMargins: [CalendarItemSnapshot],
-        baseRules: [BaseAvailabilityRule]
+        baseRules: [BaseAvailabilityRule],
+        notBefore: Date? = nil
     ) -> MarginPlacementProposal {
         let monthKey = MonthKey(date: month, calendar: calendar)
         var occupied = events
@@ -45,7 +46,7 @@ struct SchedulerEngine: Sendable {
                     baseRules: baseRules
                 )
                 .filter { candidate in
-                    !occupied.contains(where: { $0.intersects(candidate) })
+                    (notBefore.map { candidate.start >= $0 } ?? true) && !occupied.contains(where: { $0.intersects(candidate) })
                 }
                 .map { interval in
                     (interval, score(
@@ -96,24 +97,37 @@ struct SchedulerEngine: Sendable {
         events: [CalendarItemSnapshot],
         otherMargins: [CalendarItemSnapshot],
         baseRules: [BaseAvailabilityRule],
-        limit: Int = 3
+        limit: Int = 3,
+        notBefore: Date? = nil
     ) -> [Date] {
         guard let kind = margin.marginKind else { return [] }
         let key = MonthKey(date: month, calendar: calendar)
-        let duration = max(1, Int(margin.endDate.timeIntervalSince(margin.startDate) / 3600))
-        let syntheticGoal = MarginGoalSnapshot(
-            id: margin.sourceID ?? UUID(),
-            year: key.year,
-            month: key.month,
-            kind: kind,
-            targetCount: 1,
-            durationHours: duration,
-            priority: kind.defaultPriority,
-            isEnabled: true
-        )
+        let duration = margin.endDate.timeIntervalSince(margin.startDate)
+        guard duration.isFinite, duration > 0, limit > 0,
+              let days = calendar.range(of: .day, in: .month, for: key.firstDay) else { return [] }
         let occupied = (events + otherMargins.filter { $0.id != margin.id }).map(\.occupiedInterval)
-        return candidateIntervals(for: syntheticGoal, month: key, baseRules: baseRules)
-            .filter { candidate in !occupied.contains(where: { $0.intersects(candidate) }) }
+        let candidates = days.flatMap { day -> [DateInterval] in
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: key.firstDay) else { return [] }
+            let preferred = interval(for: kind, on: date, durationHours: 1).start
+            var starts = [preferred]
+            if kind == .rest && !margin.isAllDay {
+                let evening = date.setting(hour: 18, calendar: calendar)
+                if !starts.contains(evening) { starts.append(evening) }
+            }
+            // Relocation preserves exact minutes/seconds; auto-placement's shorter
+            // evening fallback must never silently shorten a previously saved margin.
+            return starts.map { DateInterval(start: $0, duration: duration) }
+        }
+        return candidates.filter { candidate in
+                let occupiedCandidate = DateInterval(
+                    start: candidate.start.addingTimeInterval(-Double(margin.bufferBeforeMinutes) * 60),
+                    end: candidate.end.addingTimeInterval(Double(margin.bufferAfterMinutes) * 60)
+                )
+                return (notBefore.map { candidate.start >= $0 } ?? true)
+                    && candidate.end <= key.interval.end
+                    && !isBlockedByBaseRule(occupiedCandidate, rules: baseRules)
+                    && !occupied.contains(where: { $0.intersects(occupiedCandidate) })
+            }
             .map { interval in
                 (interval.start, score(
                     interval: interval,
@@ -181,18 +195,21 @@ struct SchedulerEngine: Sendable {
     }
 
     private func isBlockedByBaseRule(_ interval: DateInterval, rules: [BaseAvailabilityRule]) -> Bool {
-        let weekday = calendar.component(.weekday, from: interval.start)
-        let relevant = rules.filter { $0.weekday == weekday }
-        guard !relevant.isEmpty else { return false }
-
-        let startComponents = calendar.dateComponents([.hour, .minute], from: interval.start)
-        let endComponents = calendar.dateComponents([.hour, .minute], from: interval.end)
-        let startMinute = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
-        let endMinute = (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
-
-        return relevant.contains { rule in
-            startMinute < rule.endMinute && rule.startMinute < endMinute
+        guard !rules.isEmpty else { return false }
+        var day = calendar.startOfDay(for: interval.start)
+        while day < interval.end {
+            let weekday = calendar.component(.weekday, from: day)
+            for rule in rules where rule.weekday == weekday {
+                let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day) ?? day
+                let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day) ?? day
+                // Calendar intervals are half-open: a base rule ending at 18:00
+                // leaves a slot beginning exactly at 18:00 available.
+                if end > start && start < interval.end && end > interval.start { return true }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { return true }
+            day = next
         }
+        return false
     }
 
     private func score(

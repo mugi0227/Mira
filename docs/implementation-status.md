@@ -1,37 +1,35 @@
-# Implementation Status
+# 実装状況 — 2026-09-21
 
-## Completed
+## 今回実装したこと
 
-- project scaffold and XcodeGen
-- SwiftData entities and local store
-- deterministic demo clock
-- three-month seed data
-- onboarding
-- home calendar and daily agenda
-- margin goal management and automatic placement
-- final-defense and relocation choices
-- pending invitations
-- adjustment sessions, candidate conflicts, sharing, confirmation
-- load and buffer engine
-- explicit load correction
-- Foundation Models adapter and fallback
-- Soft Minimal / Pixel Cat themes
-- local notification service
-- important people management
-- Legacy Calendar Import mock
-- unit and UI test sources
-- GitHub Actions workflow
+Miraの中心体験を、余白の提案から「入力する、迷ったら閉じる、続きに戻る、確認して決める」までつなげた。
 
-## Deferred by design
+| 項目 | 実装範囲 |
+| --- | --- |
+| 入力の保全 | 原文、文脈指定、予定フォーム、調整候補、返信文、確認プレビュー、初期設定を端末のファイルへ保存。ホームから再開・削除できる。保存失敗は表示し、入力を残す。 |
+| 初期設定 | おすすめから始める短い導線と、従来の詳細設定を併設。通常起動では現在日時を使い、サンプルを投入しない。 |
+| 確認と登録 | 予定・候補・検討中の誘いを承認前に確定しない。既存予定や休息枠と重なっても、本人の承認後は登録可能。確認後の状態変化は再確認する。 |
+| 調整案件 | 保存直後は未送信。コピーや共有だけでは送信済みにしない。明示操作で返事待ちへ進める。 |
+| 通知 | 有効にした利用者の返信期限を通知。完了・変更に合わせて更新し、通知から対象案件を開く。デモでは通知しない。 |
+| 取り消し | 直前のローカル予定操作を1件取り消せる。関係する案件状態も戻す。その後に別操作が入った場合は上書きしない。アプリ終了後には持ち越さない。 |
+| 端末カレンダー | 選択したカレンダーを期間単位で取得。月移動や候補期間に応じて取得範囲を更新。書出しは予定詳細から明示的に実行。外部予定の編集・削除は標準カレンダー編集画面で行う。 |
+| 日常利用 | 過去への自動配置を避ける。明示的に訂正した負荷から前後のバッファも更新。データベース読込みに失敗した場合は、保存できない状態で通常利用へ進めない。 |
+| Jev | 任意の意図分類アダプターとPythonバックエンド。既定はオフ。高いconfidenceの参照・相談・候補探しに限定し、予定の追加・変更を分類結果だけで確定しない。未設定・失敗時は端末の解釈を使う。 |
 
-- EventKit connection
-- CloudKit sync
-- real OCR
-- TestFlight / App Store distribution
-- Android
-- ToDo
+## 引き続き利用できる機能
 
-## Verification
+月間カレンダー、日別予定、月間の余白目標と自動配置、最終休息枠の確認、余白の移動、負荷推定と明示訂正、大切な人、検討中の誘い、複数候補の仮押さえ・共有文、Foundation Models対応端末での分類、Soft Minimal / Pixel Catの着せ替え、再現可能なデモデータ。
 
-- Linux pure-domain compilation and test type-check: complete
-- Full iOS build and XCTest: performed by GitHub Actions on macOS/Xcode
+## 未実装・利用条件
+
+- CloudKit同期、実OCR、Yahoo!カレンダーAPI、ウィジェット、Android、独立したToDo機能は未実装。Legacy Calendar Importはモックのまま。
+- Jevバックエンドはリポジトリに実装済み。配置と接続設定が必要で、実APIの日本語精度・速度はまだ測定していない。
+- 端末カレンダーはEventKit権限が必要。読込みと明示的な書出し・標準編集画面を組み合わせる。
+- App Store / TestFlightへの公開はこの変更に含めない。
+
+## 検証
+
+- `python scripts/test-domain.py`：全Swiftファイルの構文検査と、実ソースをそのまま使用する可搬ロジックテスト。対象・対象外の理由とSHA-256を `.build/domain-validation/manifest.json` に記録する。
+- `python -m unittest discover -s backend -p "test_*.py" -v`：Jevバックエンドの認証・入力・出力・失敗処理をモックで検証する。
+- SwiftDataの承認・取り消し・通常起動・下書き復元テスト、再起動後の下書き再開UIテストを追加。実行にはiOS SDKが必要。
+- Windows上の構文検査や可搬テストは、iOSビルド成功の証明にはしない。Xcode検証の実行結果は作業完了時に記録する。

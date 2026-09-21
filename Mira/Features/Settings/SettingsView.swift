@@ -6,6 +6,7 @@ struct SettingsView: View {
 
     @State private var showResetConfirmation = false
     @State private var showImportantPeople = false
+    @State private var showEverydayConfirmation = false
 
     var body: some View {
         List {
@@ -30,6 +31,24 @@ struct SettingsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
+
+            Section {
+                Toggle("日常の日時を使う", isOn: Binding(
+                    get: { !store.demoModeEnabled },
+                    set: { value in Task { await store.setDemoModeEnabled(!value) } }
+                ))
+                NavigationLink { DeviceCalendarSettingsView(palette: palette) } label: {
+                    Label("iPhoneカレンダーと接続", systemImage: "calendar.badge.plus")
+                }
+                if store.demoModeEnabled {
+                    Button("サンプルを片付けて日常用に始める") { showEverydayConfirmation = true }
+                }
+            } header: {
+                Text("日常のカレンダー")
+            } footer: {
+                Text("日時を切り替えても、保存済みの予定はそのまま残ります。")
+            }
+            .listRowBackground(palette.surface)
 
             Section("着せ替え") {
                 NavigationLink {
@@ -88,7 +107,7 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
-                Toggle("調整期限・余白不足を知らせる", systemImage: "bell.fill", isOn: Binding(
+                Toggle("返事や日程調整の期限を知らせる", systemImage: "bell.fill", isOn: Binding(
                     get: { store.notificationsEnabled },
                     set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
                 ))
@@ -100,6 +119,9 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section("予定の理解") {
+                NavigationLink { JevSettingsView(palette: palette) } label: {
+                    Label("クラウドの入力補助", systemImage: "cloud")
+                }
                 NavigationLink {
                     AIStatusView(palette: palette)
                 } label: {
@@ -135,7 +157,7 @@ struct SettingsView: View {
             } header: {
                 Text("カレンダーの引っ越し")
             } footer: {
-                Text("デモでは抽出画面まで動作します。実OCRとEventKit登録は本番フェーズで接続します。")
+                Text("PDF・画像からの抽出は現在デモです。iPhoneにある予定は「iPhoneカレンダーと接続」から読み込めます。")
             }
             .listRowBackground(palette.surface)
 
@@ -148,7 +170,7 @@ struct SettingsView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("余白 Calendar Demo").font(.caption.weight(.semibold))
+                    Text(store.demoModeEnabled ? "Mira・デモのカレンダー" : "Mira・あなたの余白").font(.caption.weight(.semibold))
                     Text("予定を埋める前に、自分が送りたい生活を守るカレンダー。")
                         .font(.caption2)
                         .foregroundStyle(palette.secondaryText)
@@ -163,6 +185,12 @@ struct SettingsView: View {
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showImportantPeople) { ImportantPeopleSheet(palette: palette) }
+        .confirmationDialog("Mira内のデータを片付けて始めますか？", isPresented: $showEverydayConfirmation) {
+            Button("空のカレンダーで始める", role: .destructive) { Task { await store.startEverydayCalendar() } }
+            Button("やめる", role: .cancel) {}
+        } message: {
+            Text("Mira内の予定・余白・調整・下書きを削除します。iPhoneカレンダーの予定は削除しません。")
+        }
         .confirmationDialog("デモを最初の状態へ戻しますか？", isPresented: $showResetConfirmation) {
             Button("リセット", role: .destructive) { Task { await store.resetDemo() } }
             Button("キャンセル", role: .cancel) {}

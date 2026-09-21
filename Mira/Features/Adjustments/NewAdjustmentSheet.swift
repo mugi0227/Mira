@@ -13,10 +13,11 @@ struct NewAdjustmentSheet: View {
     @State private var timeOfDay: TimeOfDayKind = .afternoon
     @State private var hasDeadline = true
     @State private var deadline: Date
+    @State private var initializedDates = false
 
     init(palette: MiraThemePalette) {
         self.palette = palette
-        let base = DemoClock.standard.now
+        let base = Date()
         _month = State(initialValue: base.addingMonths(1))
         _deadline = State(initialValue: base.addingDays(7))
     }
@@ -69,20 +70,25 @@ struct NewAdjustmentSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("閉じる") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("作成") {
-                        store.createAdjustment(
+                        if store.createAdjustment(
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                             contact: contact,
                             dates: Array(selectedDates),
                             timeOfDay: timeOfDay,
                             deadline: hasDeadline ? deadline : nil
-                        )
-                        dismiss()
+                        ) { dismiss() }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedDates.isEmpty)
                 }
             }
         }
         .tint(palette.accent)
+        .onAppear {
+            guard !initializedDates else { return }
+            month = store.selectedMonth
+            deadline = store.now.addingDays(7)
+            initializedDates = true
+        }
     }
 
     private var previewMessage: String {

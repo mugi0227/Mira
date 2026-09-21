@@ -7,7 +7,8 @@ extension MiraStore {
     /// explicitly choose to add the event after reviewing the impact.
     func eventEntryConflicts(
         for event: CalendarItemSnapshot,
-        excludingItemID: UUID? = nil
+        excludingItemID: UUID? = nil,
+        excludingAdjustmentID: UUID? = nil
     ) -> [String] {
         let occupied = event.occupiedInterval
         let candidate = CandidateSlotSnapshot(
@@ -16,7 +17,7 @@ extension MiraStore {
             timeOfDay: event.isAllDay ? .allDay : timeOfDay(for: event.startDate)
         )
         let heldCandidates = adjustments
-            .filter { $0.status == .draft || $0.status == .waiting }
+            .filter { $0.id != excludingAdjustmentID && ($0.status == .draft || $0.status == .waiting) }
             .flatMap(\.candidates)
         let excludedID = excludingItemID ?? event.id
 
@@ -105,22 +106,57 @@ extension MiraStore {
 
     /// Commits a user-reviewed event. Choosing an exception consumes any
     /// protected margin under the event so goal progress reflects reality.
+    @discardableResult
     func commitAdvisedEvent(
         _ event: CalendarItemSnapshot,
         impact: ScheduleImpact,
         resolution: ImpactResolution,
-        chosenRelocationDate: Date? = nil
-    ) {
+        chosenRelocationDate: Date? = nil,
+        beforeSave: (() -> Void)? = nil
+    ) -> Bool {
+        guard !event.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              event.startDate.timeIntervalSinceReferenceDate.isFinite,
+              event.endDate.timeIntervalSinceReferenceDate.isFinite,
+              event.endDate > event.startDate,
+              event.bufferBeforeMinutes >= 0,
+              event.bufferAfterMinutes >= 0 else {
+            toast = "予定名と開始・終了日時を確認してください"
+            return false
+        }
+        do {
+            guard try entity(id: event.id) == nil else {
+                toast = "この予定はすでに登録されています"
+                return false
+            }
+        } catch {
+            toast = "保存済みの予定を確認できませんでした"
+            return false
+        }
+        let currentImpact = previewImpact(for: event)
+        guard Set(impact.overlappingMargins) == Set(currentImpact.overlappingMargins) else {
+            toast = "余白への影響が変わりました。最新の影響を確認してください"
+            return false
+        }
+        let relocationDate = chosenRelocationDate ?? currentImpact.relocationCandidates.first
+        if resolution == .relocate {
+            guard currentImpact.overlappingMargins.count == 1,
+                  let date = relocationDate, date >= now,
+                  currentImpact.relocationCandidates.contains(date) else {
+                toast = "移動先を見直すか、影響を承認してそのまま追加してください"
+                return false
+            }
+        }
+        let undo = captureCalendarUndo(title: "予定の追加")
         do {
             switch resolution {
             case .relocate:
-                if let date = chosenRelocationDate ?? impact.relocationCandidates.first {
-                    for margin in impact.overlappingMargins {
+                if let date = relocationDate {
+                    for margin in currentImpact.overlappingMargins {
                         try moveMargin(margin, to: date)
                     }
                 }
             case .exception:
-                for margin in impact.overlappingMargins {
+                for margin in currentImpact.overlappingMargins {
                     if let entity = try entity(id: margin.id) {
                         context.delete(entity)
                     }
@@ -128,15 +164,21 @@ extension MiraStore {
             }
 
             context.insert(CalendarItemEntity(snapshot: event))
+            beforeSave?()
             try context.save()
             try refresh()
+            finishCalendarMutation(undo)
             updateMarginRecommendation(for: event.startDate)
             recalculateBalance(for: event.startDate)
             toast = resolution == .exception && !impact.overlappingMargins.isEmpty
                 ? "例外として予定を追加したにゃ"
                 : "予定を追加したにゃ"
+            return true
         } catch {
+            context.rollback()
+            try? refresh()
             toast = "予定を保存できませんでした"
+            return false
         }
     }
 

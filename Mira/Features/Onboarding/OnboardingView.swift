@@ -9,6 +9,7 @@ private enum OnboardingMarginMode: String, CaseIterable, Identifiable {
 
 struct OnboardingView: View {
     @Environment(MiraStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
     @State private var step = 0
@@ -24,6 +25,8 @@ struct OnboardingView: View {
     @State private var availabilityRules = AvailabilityRuleDraft.standardWeekdays
     @State private var weekStartDay: WeekStartDay = .monday
     @State private var useDeviceHolidays = true
+    @State private var restoredDraft = false
+    @State private var usingQuickStart = false
 
     private let totalSteps = 6
 
@@ -42,7 +45,7 @@ struct OnboardingView: View {
                 ready.tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(MiraMotion.standard, value: step)
+            .animation(reduceMotion ? nil : MiraMotion.standard, value: step)
 
             navigationButtons
                 .padding(.horizontal, MiraSpacing.lg)
@@ -51,6 +54,13 @@ struct OnboardingView: View {
         .foregroundStyle(palette.primaryText)
         .miraScreenBackground(palette)
         .accessibilityElement(children: .contain)
+        .onAppear(perform: restoreProgress)
+        .onChange(of: progressSnapshot) { _, value in
+            if restoredDraft && !store.onboardingCompleted { store.onboardingDraft = value }
+        }
+        .onDisappear {
+            if !store.onboardingCompleted { store.onboardingDraft = progressSnapshot }
+        }
     }
 
     private var recommendation: MarginRecommendation {
@@ -62,20 +72,22 @@ struct OnboardingView: View {
     }
 
     private var progressHeader: some View {
-        HStack(spacing: MiraSpacing.xs) {
-            ForEach(0..<totalSteps, id: \.self) { index in
+        let count = usingQuickStart || step == 0 ? 2 : totalSteps
+        let current = usingQuickStart ? (step == 0 ? 0 : 1) : step
+        return HStack(spacing: MiraSpacing.xs) {
+            ForEach(0..<count, id: \.self) { index in
                 Capsule()
-                    .fill(index <= step ? palette.accent : palette.secondaryText.opacity(0.18))
+                    .fill(index <= current ? palette.accent : palette.secondaryText.opacity(0.18))
                     .frame(height: 5)
             }
         }
-        .accessibilityLabel("初期設定 \(step + 1) / \(totalSteps)")
+        .accessibilityLabel("初期設定 \(current + 1) / \(count)")
     }
 
     private var welcome: some View {
-        VStack(spacing: MiraSpacing.lg) {
-            Spacer()
-            PixelCatView(mood: .inviting, size: 132)
+        ScrollView {
+          VStack(spacing: MiraSpacing.lg) {
+            PixelCatView(mood: .inviting, size: 104)
             VStack(spacing: MiraSpacing.sm) {
                 Text("空いている時間を埋める前に")
                     .font(.title3.weight(.semibold))
@@ -88,9 +100,23 @@ struct OnboardingView: View {
                 .foregroundStyle(palette.secondaryText)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
-            Spacer()
+            VStack(spacing: MiraSpacing.sm) {
+                Text("まずはおすすめを確認。細かな設定はあとから変えられます。")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+                    .multilineTextAlignment(.center)
+                Button("自分に合わせて設定する") {
+                    usingQuickStart = false
+                    step = 1
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+                .foregroundStyle(palette.accent)
+            }
+          }
+          .frame(maxWidth: .infinity)
+          .padding(MiraSpacing.lg)
         }
-        .padding(MiraSpacing.lg)
     }
 
     private var chooseMargins: some View {
@@ -354,7 +380,7 @@ struct OnboardingView: View {
     private var navigationButtons: some View {
         HStack(spacing: MiraSpacing.sm) {
             if step > 0 {
-                Button("戻る") { step -= 1 }
+                Button("戻る") { step = usingQuickStart && step == totalSteps - 1 ? 0 : step - 1 }
                     .font(.headline)
                     .frame(minWidth: 76, minHeight: 52)
                     .foregroundStyle(palette.primaryText)
@@ -363,7 +389,7 @@ struct OnboardingView: View {
             }
 
             PrimaryButton(
-                title: step == totalSteps - 1 ? "余白を置いて始める" : "次へ",
+                title: step == totalSteps - 1 ? "余白を置いて始める" : (step == 0 ? "おすすめを確認" : "次へ"),
                 symbol: step == totalSteps - 1 ? "sparkles" : "arrow.right",
                 palette: palette,
                 isDisabled: step == 1 && selections.isEmpty
@@ -378,11 +404,49 @@ struct OnboardingView: View {
                         weekStartDay: weekStartDay,
                         useDeviceHolidays: useDeviceHolidays
                     )
+                    if store.onboardingCompleted { store.onboardingDraft = nil }
+                } else if step == 0 {
+                    usingQuickStart = true
+                    step = totalSteps - 1
                 } else {
                     step += 1
                 }
             }
         }
+    }
+
+    private var progressSnapshot: OnboardingDraft {
+        OnboardingDraft(
+            step: step,
+            selections: selections,
+            targets: targets,
+            automatic: marginMode == .automatic,
+            comfort: marginComfort,
+            rules: availabilityRules.map {
+                OnboardingDraft.Rule(weekday: $0.weekday, isEnabled: $0.isEnabled, startMinute: $0.startMinute, endMinute: $0.endMinute)
+            },
+            weekStartDay: weekStartDay,
+            useDeviceHolidays: useDeviceHolidays,
+            quickStart: usingQuickStart
+        )
+    }
+
+    private func restoreProgress() {
+        guard !restoredDraft else { return }
+        if let draft = store.onboardingDraft {
+            step = min(max(0, draft.step), totalSteps - 1)
+            selections = draft.selections
+            targets = draft.targets
+            marginMode = draft.automatic ? .automatic : .manual
+            marginComfort = draft.comfort
+            availabilityRules = draft.rules.map {
+                AvailabilityRuleDraft(weekday: $0.weekday, isEnabled: $0.isEnabled, startMinute: $0.startMinute, endMinute: $0.endMinute)
+            }
+            weekStartDay = draft.weekStartDay
+            useDeviceHolidays = draft.useDeviceHolidays
+            usingQuickStart = draft.quickStart ?? false
+        }
+        restoredDraft = true
     }
 
     private var availabilitySummary: String {

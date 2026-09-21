@@ -3,15 +3,12 @@ import XCTest
 final class MiraUITests: XCTestCase {
     func testOnboardingReachesHome() {
         let app = XCUIApplication()
-        app.launchArguments += ["-ui-testing"]
+        app.launchArguments += ["-ui-testing", "-reset-demo"]
         app.launch()
 
-        let next = app.buttons["次へ"]
+        let next = app.buttons["おすすめを確認"]
         if next.waitForExistence(timeout: 4) {
-            for _ in 0..<5 {
-                XCTAssertTrue(next.waitForExistence(timeout: 3))
-                next.tap()
-            }
+            next.tap()
             let start = app.buttons["余白を置いて始める"]
             XCTAssertTrue(start.waitForExistence(timeout: 3))
             start.tap()

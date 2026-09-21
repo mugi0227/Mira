@@ -15,7 +15,8 @@ struct SchedulingRecommendationEngine: Sendable {
         items: [CalendarItemSnapshot],
         heldCandidates: [CandidateSlotSnapshot],
         baseRules: [BaseAvailabilityRule],
-        limitOverride: Int? = nil
+        limitOverride: Int? = nil,
+        notBefore: Date? = nil
     ) -> [CandidateRecommendation] {
         let bands = timeBands.isEmpty ? duration.selectableBands : timeBands
         let days = candidateDays(in: dateRange)
@@ -27,6 +28,7 @@ struct SchedulingRecommendationEngine: Sendable {
             for band in bands {
                 guard duration.selectableBands.contains(band) || band == .allDay else { continue }
                 let interval = band.representativeInterval(on: day, duration: duration, calendar: calendar)
+                if let notBefore, interval.start < notBefore { continue }
                 var score = 100.0
                 var reasons: [String] = []
                 var conflicts: [String] = []

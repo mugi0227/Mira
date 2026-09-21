@@ -15,6 +15,7 @@ struct PendingInvitationDetailSheet: View {
     @State private var showAcceptOptions = false
     @State private var showDeclineDraft = false
     @State private var showConversationHistory = false
+    @State private var reviewContext: ScheduleReviewContext?
 
     var body: some View {
         NavigationStack {
@@ -56,8 +57,7 @@ struct PendingInvitationDetailSheet: View {
                     commit(resolution: .exception, relocation: nil)
                 }
                 Button("日程を調整する") {
-                    store.convertPendingToAdjustment(invitation)
-                    dismiss()
+                    if store.convertPendingToAdjustment(invitation) { dismiss() }
                 }
                 Button("いったん戻る", role: .cancel) {}
             } message: {
@@ -196,17 +196,19 @@ struct PendingInvitationDetailSheet: View {
 
     private var actions: some View {
         VStack(spacing: MiraSpacing.sm) {
-            PrimaryButton(title: "参加する", symbol: "checkmark", palette: palette, isDisabled: preparedEvent == nil) {
-                if needsReview {
-                    showAcceptOptions = true
-                } else {
-                    commit(resolution: .exception, relocation: nil)
+            PrimaryButton(title: "参加する", symbol: "checkmark", palette: palette, isDisabled: preparedEvent == nil || isAnalyzing) {
+                Task {
+                    await analyze()
+                    if needsReview {
+                        showAcceptOptions = true
+                    } else {
+                        commit(resolution: .exception, relocation: nil)
+                    }
                 }
             }
 
             Button {
-                store.convertPendingToAdjustment(invitation)
-                dismiss()
+                if store.convertPendingToAdjustment(invitation) { dismiss() }
             } label: {
                 Label("日程を調整する", systemImage: "calendar.badge.clock")
                     .frame(maxWidth: .infinity, minHeight: 48)
@@ -227,8 +229,7 @@ struct PendingInvitationDetailSheet: View {
             .tint(palette.warning)
 
             Button(role: .destructive) {
-                store.declinePending(invitation)
-                dismiss()
+                if store.declinePending(invitation) { dismiss() }
             } label: {
                 Text("文章は作らず、今回は見送る")
                     .frame(maxWidth: .infinity, minHeight: 48)
@@ -285,6 +286,7 @@ struct PendingInvitationDetailSheet: View {
 
     @MainActor
     private func analyze() async {
+        do { try store.refresh() } catch { return }
         guard let candidate = invitation.candidates.first else { return }
         isAnalyzing = true
         var event = await store.prepareEvent(
@@ -298,23 +300,34 @@ struct PendingInvitationDetailSheet: View {
         event.durationBucket = candidate.displayDuration
         event.exactTimeKnown = candidate.exactTimeKnown ?? true
         event.conversationCaseID = invitation.conversationCaseID
+        do { try store.refresh() } catch {
+            isAnalyzing = false
+            return
+        }
         preparedEvent = event
         impact = store.previewImpact(for: event)
         conflicts = store.eventEntryConflicts(for: event)
         worsenedGoalDeficits = store.worsenedGoalDeficits(afterAdding: event)
+        reviewContext = store.scheduleReviewContext()
         isAnalyzing = false
     }
 
     private func commit(resolution: MiraStore.ImpactResolution, relocation: Date?) {
-        guard let preparedEvent else { return }
-        store.commitAdvisedEvent(
-            preparedEvent,
-            impact: impact,
+        guard let preparedEvent, let reviewContext else { return }
+        if store.acceptPending(
+            invitation,
+            approvedEvent: preparedEvent,
+            reviewContext: reviewContext,
             resolution: resolution,
             chosenRelocationDate: relocation
-        )
-        store.markPending(invitation, as: .accepted)
-        dismiss()
+        ) {
+            dismiss()
+        } else {
+            Task {
+                await analyze()
+                showAcceptOptions = true
+            }
+        }
     }
 
     private func candidateDescription(_ candidate: CandidateSlotSnapshot) -> String {

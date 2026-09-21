@@ -10,7 +10,10 @@ struct AdjustmentDetailSheet: View {
 
     @State private var showCancelConfirmation = false
     @State private var showConversationHistory = false
-    @State private var candidateToConfirm: CandidateSlotSnapshot?
+    @State private var confirmationReview: CandidateConfirmationReview?
+    @State private var showCandidateReview = false
+    @State private var isPreparingConfirmation = false
+    @State private var showDeadlineEditor = false
 
     var body: some View {
         NavigationStack {
@@ -19,6 +22,9 @@ struct AdjustmentDetailSheet: View {
                     statusHeader
                     candidateSection
                     sharingCard
+                    if session.status == .draft || session.status == .waiting {
+                        deadlineCard
+                    }
                     if session.conversationCaseID != nil {
                         Button {
                             showConversationHistory = true
@@ -30,7 +36,7 @@ struct AdjustmentDetailSheet: View {
                         .buttonStyle(.bordered)
                         .tint(palette.accent)
                     }
-                    if session.status == .waiting {
+                    if session.status == .draft || session.status == .waiting {
                         cancelButton
                     }
                 }
@@ -43,35 +49,43 @@ struct AdjustmentDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("閉じる") { dismiss() } }
             }
-            .confirmationDialog("この日で確定しますか？", isPresented: Binding(
-                get: { candidateToConfirm != nil },
-                set: { if !$0 { candidateToConfirm = nil } }
-            ), titleVisibility: .visible) {
-                Button("この日で確定") {
-                    guard let candidate = candidateToConfirm else { return }
-                    Task {
-                        await store.confirmCandidate(sessionID: session.id, candidateID: candidate.id)
-                        candidateToConfirm = nil
-                        dismiss()
+            .confirmationDialog("登録すると変わること", isPresented: $showCandidateReview, titleVisibility: .visible) {
+                if let review = confirmationReview {
+                    ForEach(review.impact.relocationCandidates.prefix(2), id: \.self) { date in
+                        Button("余白を \(date.japaneseShortDate) へ移して確定") {
+                            commit(review, resolution: .relocate, relocation: date)
+                        }
+                    }
+                    Button(review.needsException ? "影響を承認して、この日で確定" : "この日で確定") {
+                        commit(review, resolution: .exception, relocation: nil)
                     }
                 }
-                Button("やめる", role: .cancel) { candidateToConfirm = nil }
+                Button("いったん戻る", role: .cancel) {}
             } message: {
-                if let candidateToConfirm {
-                    Text("\(candidateToConfirm.startDate.japaneseShortDate) \(candidateDescription(candidateToConfirm))を確定し、ほかの候補を解放します。")
+                if let review = confirmationReview {
+                    Text("\(review.candidate.startDate.japaneseShortDate) \(candidateDescription(review.candidate))\n\n\(review.summary)")
                 }
             }
             .confirmationDialog("調整を取りやめますか？", isPresented: $showCancelConfirmation) {
                 Button("候補日をすべて解放", role: .destructive) {
                     Task {
-                        await store.cancelAdjustment(session)
-                        dismiss()
+                        if await store.cancelAdjustment(session) { dismiss() }
                     }
                 }
                 Button("やめる", role: .cancel) {}
             }
             .sheet(isPresented: $showConversationHistory) {
                 ConversationHistorySheet(palette: palette, caseID: session.conversationCaseID)
+            }
+            .sheet(isPresented: $showDeadlineEditor) {
+                AdjustmentDeadlineEditor(session: session, palette: palette)
+            }
+            .overlay {
+                if isPreparingConfirmation {
+                    ProgressView("最新の予定と余白を確認中")
+                        .padding(MiraSpacing.lg)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
+                }
             }
         }
         .tint(palette.accent)
@@ -150,12 +164,13 @@ struct AdjustmentDetailSheet: View {
                                 .foregroundStyle(palette.secondaryText)
                         }
                         Spacer()
-                        if session.status == .waiting, candidate.status == .held {
-                            Button("確定") { candidateToConfirm = candidate }
+                        if session.status == .draft || session.status == .waiting, candidate.status == .held {
+                            Button("確定") { prepareConfirmation(candidate) }
                                 .font(.subheadline.weight(.semibold))
                                 .buttonStyle(.borderedProminent)
                                 .tint(palette.accent)
                                 .frame(minHeight: 44)
+                                .disabled(isPreparingConfirmation)
                         } else {
                             Text(candidateStatus(candidate.status))
                                 .font(.caption.weight(.semibold))
@@ -184,7 +199,7 @@ struct AdjustmentDetailSheet: View {
 
     private var sharingCard: some View {
         Group {
-            if session.candidates.isEmpty {
+            if session.candidates.isEmpty || session.status == .confirmed || session.status == .cancelled {
                 EmptyView()
             } else {
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -212,6 +227,21 @@ struct AdjustmentDetailSheet: View {
                         .buttonStyle(.borderedProminent)
                     }
                     .tint(palette.accent)
+
+                    if session.status == .draft {
+                        Text("コピーや共有だけでは送信済みにしません。相手へ送った後で記録できます。")
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                        PrimaryButton(title: "相手へ送った・返事待ちにする", symbol: "paperplane.fill", palette: palette) {
+                            Task { await store.markAdjustmentSent(session) }
+                        }
+                    } else if session.status == .waiting {
+                        Button("まだ送っていない状態へ戻す") {
+                            Task { await store.markAdjustmentUnsent(session) }
+                        }
+                        .font(.caption)
+                        .frame(minHeight: 44)
+                    }
                 }
                 .miraCard(palette)
             }
@@ -231,10 +261,54 @@ struct AdjustmentDetailSheet: View {
 
     private var statusText: String {
         switch session.status {
-        case .draft: "下書き"
+        case .draft: "送る準備・まだ相手へ送っていません"
         case .waiting: "返事待ち・候補日をゆるく仮押さえ中"
         case .confirmed: "日程確定済み"
         case .cancelled: "キャンセル済み"
+        }
+    }
+
+    private var deadlineCard: some View {
+        Button { showDeadlineEditor = true } label: {
+            HStack {
+                Label("返事を確認する期限", systemImage: "bell")
+                Spacer()
+                Text(session.responseDeadline?.japaneseShortDate ?? "設定しない")
+                Image(systemName: "chevron.right")
+            }
+            .font(.subheadline)
+            .frame(minHeight: 44)
+            .miraCard(palette)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(palette.primaryText)
+    }
+
+    private func prepareConfirmation(_ candidate: CandidateSlotSnapshot) {
+        isPreparingConfirmation = true
+        Task {
+            confirmationReview = await store.prepareCandidateConfirmation(sessionID: session.id, candidateID: candidate.id)
+            isPreparingConfirmation = false
+            showCandidateReview = confirmationReview != nil
+        }
+    }
+
+    private func commit(_ review: CandidateConfirmationReview, resolution: MiraStore.ImpactResolution, relocation: Date?) {
+        isPreparingConfirmation = true
+        Task {
+            let saved = await store.confirmCandidate(
+                sessionID: session.id,
+                candidateID: review.candidate.id,
+                approval: review,
+                resolution: resolution,
+                chosenRelocationDate: relocation
+            )
+            isPreparingConfirmation = false
+            if saved {
+                dismiss()
+            } else {
+                prepareConfirmation(review.candidate)
+            }
         }
     }
 
@@ -254,5 +328,47 @@ struct AdjustmentDetailSheet: View {
         case .confirmed: "確定"
         case .released: "解放済み"
         }
+    }
+}
+
+private struct AdjustmentDeadlineEditor: View {
+    @Environment(MiraStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let session: AdjustmentEntity
+    let palette: MiraThemePalette
+    @State private var enabled: Bool
+    @State private var deadline: Date
+
+    init(session: AdjustmentEntity, palette: MiraThemePalette) {
+        self.session = session
+        self.palette = palette
+        _enabled = State(initialValue: session.responseDeadline != nil)
+        _deadline = State(initialValue: session.responseDeadline ?? Date().addingTimeInterval(2 * 86_400))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Toggle("期限を設定する", isOn: $enabled)
+                if enabled {
+                    DatePicker("期限", selection: $deadline, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                }
+                Text("送信済みにした調整だけ通知します。期限を変えると通知も更新します。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .navigationTitle("返事の確認期限")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("閉じる") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        Task {
+                            if await store.updateAdjustmentDeadline(session, deadline: enabled ? deadline : nil) { dismiss() }
+                        }
+                    }
+                }
+            }
+        }
+        .tint(palette.accent)
     }
 }

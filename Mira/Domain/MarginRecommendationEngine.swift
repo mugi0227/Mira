@@ -101,48 +101,78 @@ struct RebalanceEngine: Sendable {
         items: [CalendarItemSnapshot],
         goals: [MarginGoalSnapshot],
         baseRules: [BaseAvailabilityRule],
-        scheduler: SchedulerEngine
+        scheduler: SchedulerEngine,
+        notBefore: Date? = nil
     ) -> RebalanceProposal? {
         let key = MonthKey(date: month, calendar: calendar)
         let monthItems = items.filter { key.interval.contains($0.startDate) }
         let margins = monthItems.filter { $0.kind == .margin }
-        let events = monthItems.filter { $0.kind != .margin }
-        let deficits = goalDeficits(goals: goals, items: monthItems, month: key)
+        let events = items.filter { $0.kind != .margin }
+        let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
+        let deficits = goalDeficits(goals: monthGoals, items: monthItems, month: key)
         let overloadedMargins = margins.filter { margin in
-            events.contains { event in
+            !margin.isImportantTime && (notBefore.map { margin.startDate >= $0 } ?? true) && events.contains { event in
                 calendar.isDate(event.startDate, inSameDayAs: margin.startDate) && event.loadClass >= .heavy
             }
+        }.sorted {
+            if $0.startDate == $1.startDate { return $0.id.uuidString < $1.id.uuidString }
+            return $0.startDate < $1.startDate
         }
 
         var moves: [RebalanceMove] = []
+        // Reserve each proposed interval before looking for the next one. This
+        // also includes margins/events crossing either boundary of this month.
+        var workingMargins = items.filter { $0.kind == .margin }
 
         for margin in overloadedMargins.prefix(2) {
             let candidates = scheduler.relocationCandidates(
                 for: margin,
                 month: month,
                 events: events,
-                otherMargins: margins,
-                baseRules: baseRules
+                otherMargins: workingMargins,
+                baseRules: baseRules,
+                limit: 62,
+                notBefore: notBefore
             )
-            guard let candidate = candidates.first,
-                  !calendar.isDate(candidate, inSameDayAs: margin.startDate) else { continue }
+            guard let candidate = candidates.first(where: {
+                !calendar.isDate($0, inSameDayAs: margin.startDate)
+            }) else { continue }
+            let duration = margin.endDate.timeIntervalSince(margin.startDate)
             moves.append(RebalanceMove(
                 marginItemID: margin.id,
                 title: margin.title,
                 from: margin.startDate,
                 to: candidate,
-                benefit: "重い予定と余白を分けます"
+                benefit: "重い予定と余白を分けます",
+                durationSeconds: duration,
+                marginKind: margin.marginKind,
+                isAllDay: margin.isAllDay
             ))
+            var relocated = margin
+            relocated.startDate = candidate
+            relocated.endDate = candidate.addingTimeInterval(duration)
+            workingMargins.removeAll { $0.id == margin.id }
+            workingMargins.append(relocated)
         }
 
-        for (kind, missing) in deficits where missing > 0 && kind != .importantPeople && kind != .freeEvening {
-            let duration = kind.defaultDurationHours
+        let orderedGoals = monthGoals.filter { $0.isEnabled }.sorted {
+            if $0.priority != $1.priority { return $0.priority > $1.priority }
+            if $0.kind != $1.kind { return $0.kind.rawValue < $1.kind.rawValue }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        var proposedKinds: Set<MarginKind> = []
+        for goal in orderedGoals {
+            let kind = goal.kind
+            guard moves.count < 4, let missing = deficits[kind], missing > 0,
+                  kind != .importantPeople, kind != .freeEvening,
+                  goal.durationHours > 0, proposedKinds.insert(kind).inserted else { continue }
+            let duration = Double(goal.durationHours) * 60 * 60
             let temporary = CalendarItemSnapshot(
                 id: UUID(),
                 title: kind.title,
-                startDate: key.firstDay.setting(hour: kind == .rest ? 9 : 13),
-                endDate: key.firstDay.setting(hour: kind == .rest ? 21 : 13 + duration),
-                isAllDay: kind == .rest,
+                startDate: key.firstDay,
+                endDate: key.firstDay.addingTimeInterval(duration),
+                isAllDay: kind == .rest && duration >= 10 * 60 * 60,
                 kind: .margin,
                 marginKind: kind,
                 loadClass: .light,
@@ -152,30 +182,56 @@ struct RebalanceEngine: Sendable {
                 isImportantTime: false,
                 sourceID: nil
             )
-            let candidates = scheduler.relocationCandidates(
-                for: temporary,
-                month: month,
-                events: events,
-                otherMargins: margins,
-                baseRules: baseRules
-            )
-            for candidate in candidates.prefix(min(missing, 2)) {
+            for _ in 0..<min(missing, 2, 4 - moves.count) {
+                guard let candidate = scheduler.relocationCandidates(
+                    for: temporary,
+                    month: month,
+                    events: events,
+                    otherMargins: workingMargins,
+                    baseRules: baseRules,
+                    limit: 1,
+                    notBefore: notBefore
+                ).first else { break }
+                let newID = UUID()
                 moves.append(RebalanceMove(
-                    marginItemID: UUID(),
+                    marginItemID: newID,
                     title: kind.title,
                     from: key.firstDay,
                     to: candidate,
-                    benefit: "不足している\(kind.title)を1枠戻します"
+                    benefit: "不足している\(kind.title)を1枠戻します",
+                    durationSeconds: duration,
+                    marginKind: kind,
+                    isAllDay: temporary.isAllDay
+                ))
+                // The placeholder ID must differ for each addition so that the
+                // next relocation search does not exclude an earlier new slot.
+                workingMargins.append(CalendarItemSnapshot(
+                    id: newID, title: kind.title,
+                    startDate: candidate, endDate: candidate.addingTimeInterval(duration),
+                    isAllDay: temporary.isAllDay, kind: .margin, marginKind: kind,
+                    loadClass: .light, loadReason: temporary.loadReason,
+                    bufferBeforeMinutes: 0, bufferAfterMinutes: 0,
+                    isImportantTime: false, sourceID: goal.id
                 ))
             }
         }
 
         guard !moves.isEmpty else { return nil }
-        let stateHash = stableStateHash(items: monthItems, goals: goals)
+        guard let stateHash = stableStateHash(
+            month: key.firstDay, items: items, goals: monthGoals, baseRules: baseRules, moves: moves
+        ) else { return nil }
         let summary = moves.count == 1
             ? "この1枠を動かすと、今月の余白が整います。"
             : "この\(moves.count)枠を組み直すと、今月の余白が整います。"
-        return RebalanceProposal(month: key.firstDay, moves: Array(moves.prefix(4)), summary: summary, stateHash: stateHash)
+        return RebalanceProposal(month: key.firstDay, moves: moves, summary: summary, stateHash: stateHash)
+    }
+
+    /// Random proposal/addition IDs are not scheduling state. Everything the
+    /// user reviews (including the exact interval) must still match.
+    func matches(_ reviewed: RebalanceProposal, _ current: RebalanceProposal, items: [CalendarItemSnapshot]) -> Bool {
+        reviewed.month == current.month
+            && reviewed.stateHash == current.stateHash
+            && moveSignatures(reviewed.moves, items: items) == moveSignatures(current.moves, items: items)
     }
 
     private func goalDeficits(
@@ -214,14 +270,67 @@ struct RebalanceEngine: Sendable {
         return range.compactMap { calendar.date(byAdding: .day, value: $0 - 1, to: key.firstDay) }
     }
 
-    private func stableStateHash(items: [CalendarItemSnapshot], goals: [MarginGoalSnapshot]) -> String {
-        let itemPart = items.sorted { $0.id.uuidString < $1.id.uuidString }.map {
-            "\($0.id.uuidString):\(Int($0.startDate.timeIntervalSince1970)):\(Int($0.endDate.timeIntervalSince1970)):\($0.loadClass.rawValue):\($0.kind.rawValue)"
-        }.joined(separator: "|")
-        let goalPart = goals.sorted { $0.id.uuidString < $1.id.uuidString }.map {
-            "\($0.kind.rawValue):\($0.targetCount):\($0.isEnabled)"
-        }.joined(separator: "|")
-        return fnv1a64(itemPart + "#" + goalPart)
+    private struct MoveSignature: Codable, Equatable {
+        var existingMarginID: UUID?
+        var title: String
+        var from: Date
+        var to: Date
+        var durationSeconds: TimeInterval?
+        var marginKind: MarginKind?
+        var isAllDay: Bool?
+    }
+
+    private struct GoalSignature: Codable {
+        var id: UUID
+        var year: Int
+        var month: Int
+        var kind: MarginKind
+        var targetCount: Int
+        var durationHours: Int
+        var priority: Int
+        var isEnabled: Bool
+    }
+
+    private struct StateSignature: Codable {
+        var month: Date
+        var items: [CalendarItemSnapshot]
+        var goals: [GoalSignature]
+        var baseRules: [[Int]]
+        var moves: [MoveSignature]
+    }
+
+    private func moveSignatures(_ moves: [RebalanceMove], items: [CalendarItemSnapshot]) -> [MoveSignature] {
+        let existingIDs = Set(items.map(\.id))
+        return moves.map {
+            MoveSignature(
+                existingMarginID: existingIDs.contains($0.marginItemID) ? $0.marginItemID : nil,
+                title: $0.title, from: $0.from, to: $0.to,
+                durationSeconds: $0.durationSeconds, marginKind: $0.marginKind, isAllDay: $0.isAllDay
+            )
+        }
+    }
+
+    private func stableStateHash(
+        month: Date, items: [CalendarItemSnapshot], goals: [MarginGoalSnapshot],
+        baseRules: [BaseAvailabilityRule], moves: [RebalanceMove]
+    ) -> String? {
+        let state = StateSignature(
+            month: month,
+            items: items.sorted { $0.id.uuidString < $1.id.uuidString },
+            goals: goals.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+                GoalSignature(id: $0.id, year: $0.year, month: $0.month, kind: $0.kind,
+                              targetCount: $0.targetCount, durationHours: $0.durationHours,
+                              priority: $0.priority, isEnabled: $0.isEnabled)
+            },
+            baseRules: baseRules.map { [$0.weekday, $0.startMinute, $0.endMinute] }.sorted {
+                $0.lexicographicallyPrecedes($1)
+            },
+            moves: moveSignatures(moves, items: items)
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(state), let value = String(data: data, encoding: .utf8) else { return nil }
+        return fnv1a64(value)
     }
 
     private func fnv1a64(_ value: String) -> String {

@@ -1,6 +1,6 @@
 import Foundation
 
-struct EventCreationPreview: Identifiable, Hashable, Sendable {
+struct EventCreationPreview: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var caseID: UUID?
     var event: CalendarItemSnapshot
@@ -8,7 +8,7 @@ struct EventCreationPreview: Identifiable, Hashable, Sendable {
     var impact: ScheduleImpact
 }
 
-struct ConversationClarification: Identifiable, Hashable, Sendable {
+struct ConversationClarification: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var caseID: UUID?
     var question: String

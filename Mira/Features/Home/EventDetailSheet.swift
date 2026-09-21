@@ -23,13 +23,14 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
+                    DeviceCalendarActionView(item: item, palette: palette)
                     if item.kind != .margin && item.kind != .birthday {
                         loadCard
                     }
                     if item.kind == .margin {
                         marginCard
                     }
-                    deleteButton
+                    if item.deviceEvent == nil { deleteButton }
                 }
                 .padding(MiraSpacing.md)
                 .padding(.bottom, MiraSpacing.xl)
@@ -96,6 +97,11 @@ struct EventDetailSheet: View {
                         .font(.caption)
                         .foregroundStyle(palette.secondaryText)
                 }
+            }
+            if item.bufferBeforeMinutes > 0 && !item.isAllDay {
+                DetailRow(symbol: "figure.walk", title: "準備を始める目安",
+                    value: item.startDate.addingTimeInterval(-Double(item.bufferBeforeMinutes) * 60)
+                        .formatted(date: .omitted, time: .shortened), palette: palette)
             }
             if item.bufferBeforeMinutes > 0 || item.bufferAfterMinutes > 0 {
                 Divider().overlay(palette.primaryText.opacity(0.08))

@@ -23,13 +23,15 @@ struct ProtectionEngine: Sendable {
         var deficits: [MarginKind: Int] = [:]
         var worst: ProtectionLevel = .flexible
 
-        for margin in overlapping {
-            guard let kind = margin.marginKind else { continue }
+        for kind in Set(overlapping.compactMap(\.marginKind)) {
             let target = goals.first(where: { $0.kind == kind })?.targetCount ?? 0
             let current = items.filter {
                 $0.kind == .margin && $0.marginKind == kind && monthKey.interval.contains($0.startDate)
             }.count
-            let after = max(0, current - 1)
+            let consumed = overlapping.filter {
+                $0.marginKind == kind && monthKey.interval.contains($0.startDate)
+            }.count
+            let after = max(0, current - consumed)
             let deficit = max(0, target - after)
             deficits[kind] = deficit
 

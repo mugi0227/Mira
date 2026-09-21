@@ -6,6 +6,7 @@ struct NewItemSheet: View {
 
     let palette: MiraThemePalette
     let initialDate: Date
+    private let initialDraft: ManualEventDraft
 
     @State private var mode: NewItemMode = .event
     @State private var title = ""
@@ -25,14 +26,24 @@ struct NewItemSheet: View {
     @State private var alternativeEventDates: [Date] = []
     @State private var showImpact = false
     @State private var selectedRelocationDate: Date?
+    @State private var showGoalReview = false
+    @State private var showDiscardConfirmation = false
+    @State private var finishedDraft = false
+    @State private var reviewContext: ScheduleReviewContext?
 
-    init(palette: MiraThemePalette, initialDate: Date) {
+    init(palette: MiraThemePalette, initialDate: Date, startInMarginMode: Bool = false, draft: ManualEventDraft? = nil) {
         self.palette = palette
         self.initialDate = initialDate
-        let start = initialDate.setting(hour: 18)
-        _date = State(initialValue: initialDate)
-        _startTime = State(initialValue: start)
-        _endTime = State(initialValue: start.addingTimeInterval(2 * 3600))
+        let value = draft ?? ManualEventDraft(date: initialDate, isMargin: startInMarginMode)
+        self.initialDraft = value
+        _mode = State(initialValue: value.isMargin ? .margin : .event)
+        _title = State(initialValue: value.title)
+        _date = State(initialValue: value.date)
+        _startTime = State(initialValue: value.startTime)
+        _endTime = State(initialValue: value.endTime)
+        _isAllDay = State(initialValue: value.isAllDay)
+        _isImportant = State(initialValue: value.isImportant)
+        _marginKind = State(initialValue: value.marginKind)
     }
 
     var body: some View {
@@ -59,13 +70,19 @@ struct NewItemSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
+                    Button("保存して閉じる") {
+                        store.saveDraft(.eventForm(formDraft))
+                        if store.draftPersistenceIssue == nil { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("追加") {
                         Task { await save() }
                     }
                     .disabled(!canSave || isPreparing)
+                }
+                ToolbarItem(placement: .bottomBar) {
+                    Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
                 }
             }
             .confirmationDialog(
@@ -92,14 +109,29 @@ struct NewItemSheet: View {
 
                 if impact.protectionLevel == .finalDefense {
                     Button("今月の目標を見直す") {
-                        store.toast = "マイ余白から今月の目標を変更できるにゃ"
-                        dismiss()
+                        store.saveDraft(.eventForm(formDraft))
+                        showGoalReview = true
                     }
                 }
 
                 Button("いったん戻る", role: .cancel) {}
             } message: {
                 Text(reviewDialogMessage)
+            }
+            .sheet(isPresented: $showGoalReview, onDismiss: {
+                Task { await refreshSecretaryPreview() }
+            }) {
+                EventGoalReviewSheet(month: date, palette: palette)
+            }
+            .alert("この下書きを削除しますか？", isPresented: $showDiscardConfirmation) {
+                Button("削除", role: .destructive) {
+                    finishedDraft = true
+                    store.discardSavedDraft(id: initialDraft.id)
+                    dismiss()
+                }
+                Button("続ける", role: .cancel) {}
+            } message: {
+                Text("カレンダーに登録した予定は変わりません。")
             }
             .overlay {
                 if isPreparing {
@@ -113,6 +145,15 @@ struct NewItemSheet: View {
             }
         }
         .tint(palette.accent)
+        .interactiveDismissDisabled(isPreparing || store.draftPersistenceIssue != nil)
+        .onChange(of: formDraft) { _, value in
+            if !finishedDraft { store.saveDraft(.eventForm(value)) }
+        }
+        .onDisappear {
+            if !finishedDraft, formDraft != initialDraft || !title.isEmpty || store.savedDrafts.contains(where: { $0.id == initialDraft.id }) {
+                store.saveDraft(.eventForm(formDraft))
+            }
+        }
         .task(id: secretaryInputKey) {
             guard mode == .event, canSave else {
                 resetSecretaryPreview()
@@ -450,14 +491,14 @@ struct NewItemSheet: View {
         projectedGoalDeficits = projected
         worsenedGoalDeficits = worsened
         alternativeEventDates = alternatives
+        reviewContext = store.scheduleReviewContext()
         isReviewing = false
     }
 
     @MainActor
     private func save() async {
         if mode == .margin {
-            store.addMargin(kind: marginKind, on: date)
-            dismiss()
+            if store.addMargin(kind: marginKind, on: date) { finishAndDismiss() }
             return
         }
 
@@ -473,6 +514,7 @@ struct NewItemSheet: View {
         projectedGoalDeficits = store.projectedGoalDeficits(afterAdding: event)
         worsenedGoalDeficits = store.worsenedGoalDeficits(afterAdding: event)
         alternativeEventDates = store.alternativeEventStartDates(for: event)
+        reviewContext = store.scheduleReviewContext()
         isPreparing = false
 
         let needsExplicitReview = !liveConflicts.isEmpty
@@ -483,8 +525,7 @@ struct NewItemSheet: View {
         if needsExplicitReview {
             showImpact = true
         } else {
-            store.commitEvent(event)
-            dismiss()
+            if store.commitEvent(event) { finishAndDismiss() }
         }
     }
 
@@ -548,13 +589,80 @@ struct NewItemSheet: View {
 
     private func commitPreparedEvent(resolution: MiraStore.ImpactResolution) {
         guard let preparedEvent else { return }
-        store.commitAdvisedEvent(
+        guard reviewContext == store.scheduleReviewContext() else {
+            selectedRelocationDate = nil
+            store.toast = "予定が変わったので、最新の影響を確認してください。"
+            Task {
+                await refreshSecretaryPreview()
+                showImpact = true
+            }
+            return
+        }
+        let saved = store.commitAdvisedEvent(
             preparedEvent,
             impact: impact,
             resolution: resolution,
             chosenRelocationDate: selectedRelocationDate
         )
+        if saved { finishAndDismiss() }
+    }
+
+    private var formDraft: ManualEventDraft {
+        var value = initialDraft
+        value.title = title
+        value.date = date
+        value.startTime = startTime
+        value.endTime = endTime
+        value.isAllDay = isAllDay
+        value.isImportant = isImportant
+        value.marginKind = marginKind
+        value.isMargin = mode == .margin
+        return value
+    }
+
+    private func finishAndDismiss() {
+        finishedDraft = true
+        store.completeSavedDraft(id: initialDraft.id)
         dismiss()
+    }
+}
+
+private struct EventGoalReviewSheet: View {
+    @Environment(MiraStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let month: Date
+    let palette: MiraThemePalette
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("入力中の予定は残っています。この月に守りたい時間を変更して、予定の確認へ戻れます。")
+                        .font(.subheadline)
+                }
+                Section("\(month.japaneseMonthTitle)に守る時間") {
+                    ForEach(monthGoals) { goal in
+                        Stepper("\(goal.kind.title) \(goal.targetCount)回", value: Binding(
+                            get: { monthGoals.first(where: { $0.id == goal.id })?.targetCount ?? goal.targetCount },
+                            set: { store.updateGoal(goal, target: $0) }
+                        ), in: 0...20)
+                    }
+                }
+            }
+            .navigationTitle("今月の目標")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("予定の入力へ戻る") { dismiss() }
+                }
+            }
+            .task { store.ensurePlan(for: month) }
+        }
+        .tint(palette.accent)
+    }
+
+    private var monthGoals: [MarginGoalSnapshot] {
+        let key = MonthKey(date: month)
+        return store.goals.filter { $0.year == key.year && $0.month == key.month }.sorted { $0.priority > $1.priority }
     }
 }
 

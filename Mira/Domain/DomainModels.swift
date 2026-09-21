@@ -227,7 +227,7 @@ enum CatMood: String, Codable {
 
 // MARK: - Domain snapshots
 
-struct CalendarItemSnapshot: Identifiable, Hashable, Sendable {
+struct CalendarItemSnapshot: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var title: String
     var startDate: Date
@@ -245,6 +245,7 @@ struct CalendarItemSnapshot: Identifiable, Hashable, Sendable {
     var durationBucket: DurationBucket? = nil
     var exactTimeKnown: Bool = true
     var conversationCaseID: UUID? = nil
+    var deviceEvent: DeviceEventReference? = nil
 
     var occupiedInterval: DateInterval {
         let start = Calendar.mira.date(byAdding: .minute, value: -bufferBeforeMinutes, to: startDate) ?? startDate
@@ -343,7 +344,7 @@ struct LoadEvaluation: Hashable, Sendable {
     var source: String
 }
 
-struct ScheduleImpact: Hashable, Sendable {
+struct ScheduleImpact: Codable, Hashable, Sendable {
     var overlappingMargins: [CalendarItemSnapshot]
     var freeEveningDelta: Double
     var projectedGoalDeficits: [MarginKind: Int]

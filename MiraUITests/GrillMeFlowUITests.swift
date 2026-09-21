@@ -85,7 +85,7 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(itemSheet.waitForExistence(timeout: 4))
         XCTAssertTrue(app.textFields["例：友達とご飯"].exists)
         capture("cat-skin-new-item-sheet")
-        itemSheet.buttons["閉じる"].tap()
+        itemSheet.buttons["保存して閉じる"].tap()
         XCTAssertTrue(home.waitForExistence(timeout: 4))
         XCTAssertTrue(home.isHittable)
 
@@ -125,18 +125,34 @@ final class GrillMeFlowUITests: XCTestCase {
 
     private func completeOnboardingIfNeeded() {
         guard app.staticTexts["自分のための時間を守ろう。"].waitForExistence(timeout: 4) else { return }
-
-        for _ in 0..<5 {
-            let next = app.buttons["次へ"]
-            if next.waitForExistence(timeout: 3) {
-                next.tap()
-            }
-        }
+        let recommended = app.buttons["おすすめを確認"]
+        XCTAssertTrue(recommended.waitForExistence(timeout: 3))
+        recommended.tap()
         let finish = app.buttons["余白を置いて始める"]
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
         _ = app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 12)
+    }
+
+    func testInterruptedEntrySurvivesRelaunchAndResumesFromHome() throws {
+        app.buttons["追加メニュー"].tap()
+        app.buttons["予定・余白を追加"].tap()
+        let title = app.textFields["例：友達とご飯"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("途中で考えていた食事")
+        app.navigationBars["予定を追加"].buttons["保存して閉じる"].tap()
+        XCTAssertTrue(app.buttons["resumeLatestDraft"].waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        app.launch()
+        let resume = app.buttons["resumeLatestDraft"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 12))
+        resume.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, "途中で考えていた食事")
     }
 
     private func capture(_ name: String) {

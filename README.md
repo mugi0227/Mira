@@ -1,6 +1,6 @@
 # Mira — 余白カレンダー
 
-予定をたくさん入れるためではなく、**自分が送りたい生活を先に確保したうえで、人との予定も気持ちよく入れる**ためのiPhone向けSwiftUIデモです。
+**自分が送りたい生活の余白を確保しながら、人との予定を決める**ためのiPhoneアプリです。入力や判断を途中で止めても、保存した続きから再開できます。
 
 ## できること
 
@@ -15,6 +15,11 @@
 - Apple Foundation Models対応環境ではオンデバイス分類を使用
 - 非対応環境ではルールベースへ自動フォールバック
 - Soft Minimal / Pixel Cat の着せ替え
+- 入力・予定フォーム・調整候補・返信文・初期設定の下書き保存と再開
+- 直前の予定追加・変更・余白配置を取り消す操作
+- 未送信と返事待ちの区別、返信期限の通知と対象案件への移動
+- EventKitによる選択カレンダーの読込み、明示操作による書出し、標準編集画面との連携
+- オプションのJev意図分類（初期状態はオフ、Miraバックエンド経由）
 - 3か月分の再現可能なデモデータ
 - Yahoo!カレンダー等を想定したLegacy Calendar Importモック
 
@@ -24,7 +29,7 @@ Miraは予定を禁止する管理者ではなく、**影響と別候補を示�
 
 > それを入れるとこうなる。こっちなら楽。でも決めるのはあなた。
 
-基本時間・既存予定・余白・調整中候補と重なっても原則ハードブロックせず、影響を説明し、代替案を提示したうえで本人の最終判断を尊重します。ただし最後の休息枠など重要な余白は、単純なOKだけでは消せない最終防衛を入れます。
+基本時間・既存予定・余白・調整中候補と重なっても、影響を説明したうえで本人が承認すれば登録できます。最後の休息枠を使う場合も確認を挟み、最終判断は利用者に委ねます。確認後に予定が変わった場合は影響を再計算し、もう一度確認します。
 
 要求の正本は [`docs/requirements-specification.md`](docs/requirements-specification.md)、Grill-Meでの意思決定経緯は [`docs/grill-me-decisions.md`](docs/grill-me-decisions.md) を参照してください。
 
@@ -35,6 +40,7 @@ Miraは予定を禁止する管理者ではなく、**影響と別候補を示�
 - Observation
 - Structured Concurrency
 - UserNotifications
+- EventKit / EventKitUI
 - Foundation Models（iOS 26以上・利用可能端末のみ）
 - XcodeGen
 - XCTest / XCUITest
@@ -60,7 +66,7 @@ Developer Programへの登録は、Simulatorでのビルド・動作確認には
 
 ## デモ
 
-アプリ内のデモ時計は `2026-09-01 10:00 Asia/Tokyo` に固定されています。設定からサンプル状態へ戻せます。
+新規起動は現在日時を使い、サンプル予定は追加しません。設定のデモリセットを使うと、`2026-09-01 10:00 Asia/Tokyo` の固定時計とサンプル予定で試せます。既存のデモ利用者は、設定からローカルのサンプルを片付けて日常用へ移れます。
 
 推奨デモ導線：
 
@@ -77,13 +83,19 @@ Developer Programへの登録は、Simulatorでのビルド・動作確認には
 
 詳しくは [`docs/demo-script.md`](docs/demo-script.md) を参照してください。
 
-## 今回あえて接続していないもの
+## 検証と外部連携
 
-- EventKitによる実カレンダー読み書き
+`python scripts/test-domain.py` はSwiftが動く環境（WindowsではWSL）で、対応する実ソースをそのまま使ったロジックテストと全Swiftファイルの構文検査を行います。SwiftData・SwiftUI・EventKitを含むビルドとテストは、macOS/Xcodeの `make test` または `codemagic.yaml` で確認してください。
+
+Jevは `backend/README.md` のバックエンドを配置し、設定画面で接続先とクライアントトークンを指定したときだけ利用します。プロバイダーのAPIキーはサーバー側に保管します。未設定・通信失敗・不確かな分類では端末の解釈へ戻ります。実Jev APIでの日本語精度評価は未完了です。
+
+実装と検証の範囲は [`docs/implementation-status.md`](docs/implementation-status.md) を参照してください。
+
+## 未実装のもの
+
 - CloudKit同期
 - PDF・スクリーンショットの実OCR
 - Yahoo!カレンダーAPI
-- 外部LLM API
 - Android版
 - ToDo機能
 

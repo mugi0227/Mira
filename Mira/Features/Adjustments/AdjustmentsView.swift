@@ -191,12 +191,21 @@ private struct AdjustmentRow: View {
                 Text("候補 \(session.candidates.filter { $0.status == .held }.count)件" + contactSuffix)
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
-                if let deadline = session.responseDeadline {
-                    Label("返事期限 \(deadline.japaneseShortDate)", systemImage: "bell")
+                if session.status == .draft {
+                    Label("自分が送る番・未送信", systemImage: "paperplane")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                } else if session.status == .waiting {
+                    Label("相手の返事待ち", systemImage: "clock")
                         .font(.caption2)
                         .foregroundStyle(palette.warning)
-                } else if session.status == .waiting {
-                    Text("返事待ち・候補を仮押さえ中")
+                } else if session.status == .confirmed {
+                    Label("確定済み", systemImage: "checkmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(palette.success)
+                }
+                if let deadline = session.responseDeadline {
+                    Label("返事期限 \(deadline.japaneseShortDate)", systemImage: "bell")
                         .font(.caption2)
                         .foregroundStyle(palette.warning)
                 }

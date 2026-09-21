@@ -23,7 +23,7 @@ final class AppSettingsEntity {
         assistantEnabled: Bool = true,
         characterNotificationsEnabled: Bool = true,
         notificationsEnabled: Bool = false,
-        demoModeEnabled: Bool = true,
+        demoModeEnabled: Bool = false,
         marginComfortRaw: String = MarginComfortLevel.standard.rawValue,
         weekStartRaw: String? = WeekStartDay.monday.rawValue,
         deviceHolidaysEnabled: Bool? = false
@@ -62,6 +62,7 @@ final class CalendarItemEntity {
     var durationBucketRaw: String?
     var exactTimeKnown: Bool?
     var conversationCaseID: UUID?
+    var deviceEventData: Data?
     var createdAt: Date
     var updatedAt: Date
 
@@ -83,6 +84,7 @@ final class CalendarItemEntity {
         durationBucketRaw = snapshot.durationBucket?.rawValue
         exactTimeKnown = snapshot.exactTimeKnown
         conversationCaseID = snapshot.conversationCaseID
+        deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
         createdAt = .now
         updatedAt = .now
     }
@@ -105,7 +107,8 @@ final class CalendarItemEntity {
             schedulingTimeBand: schedulingTimeBandRaw.flatMap(SchedulingTimeBand.init(rawValue:)),
             durationBucket: durationBucketRaw.flatMap(DurationBucket.init(rawValue:)),
             exactTimeKnown: exactTimeKnown ?? true,
-            conversationCaseID: conversationCaseID
+            conversationCaseID: conversationCaseID,
+            deviceEvent: deviceEventData.flatMap { try? JSONDecoder().decode(DeviceEventReference.self, from: $0) }
         )
     }
 
@@ -126,6 +129,7 @@ final class CalendarItemEntity {
         durationBucketRaw = snapshot.durationBucket?.rawValue
         exactTimeKnown = snapshot.exactTimeKnown
         conversationCaseID = snapshot.conversationCaseID
+        deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
         updatedAt = .now
     }
 }
@@ -203,7 +207,7 @@ final class AdjustmentEntity {
         title: String,
         contactName: String? = nil,
         responseDeadline: Date? = nil,
-        status: AdjustmentStatus = .waiting,
+        status: AdjustmentStatus = .draft,
         candidates: [CandidateSlotSnapshot],
         generatedMessage: String,
         conversationCaseID: UUID? = nil

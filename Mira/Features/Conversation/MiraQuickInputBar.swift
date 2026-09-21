@@ -5,7 +5,7 @@ struct MiraQuickInputBar: View {
     let palette: MiraThemePalette
     var isFocused: FocusState<Bool>.Binding
 
-    @State private var text = ""
+    @State private var isSending = false
     @State private var showContextPicker = false
     @State private var showConversationHistory = false
 
@@ -47,7 +47,10 @@ struct MiraQuickInputBar: View {
                 .accessibilityLabel("この話について予定を指定")
                 .accessibilityIdentifier("contextPickerButton")
 
-                TextField("Miraに雑に投げる…", text: $text, axis: .vertical)
+                TextField("Miraに雑に投げる…", text: Binding(
+                    get: { store.quickInputText },
+                    set: { store.quickInputText = $0 }
+                ), axis: .vertical)
                     .lineLimit(1...4)
                     .textInputAutocapitalization(.never)
                     .focused(isFocused)
@@ -91,7 +94,7 @@ struct MiraQuickInputBar: View {
             }
 
             HStack {
-                Text("予定確認・日程探し・断り文・変更をまとめて頼めます")
+                Text(store.quickInputText.isEmpty ? "例：来週、友達とご飯の日を探して" : "書きかけの内容は自動で残ります")
                     .font(.caption2)
                     .foregroundStyle(palette.secondaryText)
                 Spacer()
@@ -121,15 +124,23 @@ struct MiraQuickInputBar: View {
     }
 
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isInterpretingConversation
+        !store.quickInputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isInterpretingConversation && !isSending
     }
 
     private func send() {
-        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return }
-        text = ""
+        guard canSend else { return }
+        let original = store.quickInputText
+        let value = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSending = true
         isFocused.wrappedValue = false
-        Task { await store.handleConversationInput(value) }
+        Task {
+            let saved = await store.handleConversationInput(value)
+            // Do not discard a newer thought typed while the assistant was working.
+            if saved, store.quickInputText == original, store.persistenceIssue == nil, store.draftPersistenceIssue == nil {
+                store.quickInputText = ""
+            }
+            isSending = false
+        }
     }
 }
 

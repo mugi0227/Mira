@@ -24,6 +24,8 @@ final class MiraStore {
     let marginRecommendationEngine = MarginRecommendationEngine()
     let rebalanceEngine = RebalanceEngine()
     let deviceHolidayService = DeviceHolidayService()
+    let deviceCalendarService = DeviceCalendarService()
+    let draftStorage: DraftStorage
 
     private(set) var isReady = false
     private(set) var items: [CalendarItemSnapshot] = []
@@ -50,16 +52,47 @@ final class MiraStore {
     var deviceHolidaysEnabled = false
     var presentedAddSheet = false
     var toast: String?
+    var calendarSyncStatus: String?
+    var isSyncingCalendar = false
+    var persistenceIssue: String?
+    var undoEntry: CalendarUndoEntry?
+    var isEmergencyStorage = false
+    var savedDrafts: [SavedMiraDraft] = []
+    var presentedEventForm: ManualEventDraft?
+    var isRestoringDrafts = false
+    var draftPersistenceIssue: String?
+    var quickInputText = "" {
+        didSet { if quickInputText != oldValue { persistDraftArchive() } }
+    }
+    var onboardingDraft: OnboardingDraft? {
+        didSet { persistDraftArchive() }
+    }
 
-    var activeSchedulingDraft: SchedulingDraft?
-    var activeSchedulingIntent: ConversationIntent = .findDates
-    var pinnedContext: ContextSearchResult?
-    var pendingInterpretation: ConversationInterpretation?
-    var pendingChangePreview: ChangePreview?
-    var pendingEventCreationPreview: EventCreationPreview?
-    var activeDeclineDraft: DeclineDraft?
+    var activeSchedulingDraft: SchedulingDraft? {
+        didSet { if let activeSchedulingDraft { saveDraft(.scheduling(activeSchedulingDraft, activeSchedulingIntent)) } }
+    }
+    var activeSchedulingIntent: ConversationIntent = .findDates {
+        didSet { if let activeSchedulingDraft { saveDraft(.scheduling(activeSchedulingDraft, activeSchedulingIntent)) } }
+    }
+    var pinnedContext: ContextSearchResult? {
+        didSet { persistDraftArchive() }
+    }
+    var pendingInterpretation: ConversationInterpretation? {
+        didSet { if let activeClarification { saveDraft(.clarification(activeClarification, pendingInterpretation)) } }
+    }
+    var pendingChangePreview: ChangePreview? {
+        didSet { if let pendingChangePreview { saveDraft(.change(pendingChangePreview)) } }
+    }
+    var pendingEventCreationPreview: EventCreationPreview? {
+        didSet { if let pendingEventCreationPreview { saveDraft(.eventPreview(pendingEventCreationPreview)) } }
+    }
+    var activeDeclineDraft: DeclineDraft? {
+        didSet { if let activeDeclineDraft { saveDraft(.decline(activeDeclineDraft)) } }
+    }
     var activeConversationCaseID: UUID?
-    var activeClarification: ConversationClarification?
+    var activeClarification: ConversationClarification? {
+        didSet { if let activeClarification { saveDraft(.clarification(activeClarification, pendingInterpretation)) } }
+    }
     var currentMarginRecommendation: MarginRecommendation?
     var activeRebalanceProposal: RebalanceProposal?
     var isRebalanceProposalPresented = false
@@ -71,13 +104,17 @@ final class MiraStore {
         container: ModelContainer,
         classifier: any EventSemanticClassifying = HybridSemanticClassifier(),
         conversationInterpreter: any ConversationInterpreting = HybridConversationInterpreter(),
-        declineGenerator: any DeclineDraftGenerating = HybridDeclineDraftGenerator()
+        declineGenerator: any DeclineDraftGenerating = HybridDeclineDraftGenerator(),
+        draftStorage: DraftStorage? = nil,
+        isEmergencyStorage: Bool = false
     ) {
         self.container = container
         self.context = ModelContext(container)
         self.classifier = classifier
         self.conversationInterpreter = conversationInterpreter
         self.declineGenerator = declineGenerator
+        self.draftStorage = draftStorage ?? (container.configurations.allSatisfy { $0.isStoredInMemoryOnly } ? DraftStorage() : DraftStorage.standard())
+        self.isEmergencyStorage = isEmergencyStorage
         self.clock = DemoClock.standard
         self.selectedMonth = DemoClock.standard.now
         self.selectedDate = DemoClock.standard.now
@@ -130,13 +167,15 @@ final class MiraStore {
 
             if ProcessInfo.processInfo.arguments.contains("-reset-demo") {
                 try resetPersistentTestState()
+                settingsEntity?.demoModeEnabled = true
+                try context.save()
             }
 
             applySettings()
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()
             selectedMonth = clock.now
             selectedDate = clock.now
-            try DemoSeeder.seedBaseline(in: context, clock: clock)
+            if demoModeEnabled { try DemoSeeder.seedBaseline(in: context, clock: clock) }
             try normalizeLegacyMarginKinds()
             try refresh()
             if deviceHolidaysEnabled {
@@ -145,9 +184,13 @@ final class MiraStore {
             aiStatus = await classifier.availabilityDescription
             updateMarginRecommendation(for: selectedMonth)
             recalculateBalance(for: selectedMonth)
+            loadDrafts()
+            await refreshDeviceCalendar()
+            await reconcileReminders()
             isReady = true
         } catch {
-            toast = "データを準備できませんでした"
+            context.rollback()
+            isEmergencyStorage = true
             isReady = true
         }
     }
@@ -214,6 +257,7 @@ final class MiraStore {
     }
 
     private func resetPersistentTestState() throws {
+        clearAllDrafts()
         try context.delete(model: CalendarItemEntity.self)
         try context.delete(model: MarginGoalEntity.self)
         try context.delete(model: BaseRuleEntity.self)

@@ -3,10 +3,14 @@ import UIKit
 
 struct MainTabView: View {
     @Environment(MiraStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     let palette: MiraThemePalette
 
     @State private var selectedTab: MiraTab = .home
     @State private var keyboardIsVisible = false
+    @State private var reminderAdjustment: AdjustmentEntity?
+    @State private var reminderInvitation: PendingInvitationEntity?
+    @AppStorage("mira.ui.pendingReminderDestination") private var pendingReminderRawValue = ""
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -50,6 +54,32 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardIsVisible = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: .miraOpenReminder)) { _ in
+            Task { await receivePendingReminder() }
+        }
+        .task(id: store.isReady) {
+            if store.isReady { await receivePendingReminder() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await receivePendingReminder() } }
+        }
+        .task(id: "\(pendingReminderRawValue):\(scenePhase == .active):\(store.isReady)") {
+            await openPendingReminderWhenAvailable()
+        }
+        .sheet(item: Binding(
+            get: { store.presentedEventForm },
+            set: { store.presentedEventForm = $0 }
+        )) { draft in
+            NewItemSheet(palette: palette, initialDate: draft.date, draft: draft)
+        }
+        .sheet(item: $reminderAdjustment) { session in
+            AdjustmentDetailSheet(session: session, palette: palette)
+                .onAppear { acknowledgeReminder(.init(kind: .adjustment, id: session.id)) }
+        }
+        .sheet(item: $reminderInvitation) { invitation in
+            PendingInvitationDetailSheet(invitation: invitation, palette: palette)
+                .onAppear { acknowledgeReminder(.init(kind: .invitation, id: invitation.id)) }
+        }
         .sheet(isPresented: schedulingPresented) {
             SchedulingModeView(palette: palette)
         }
@@ -68,6 +98,71 @@ struct MainTabView: View {
         .sheet(isPresented: rebalancePresented) {
             RebalanceProposalSheet(palette: palette)
         }
+    }
+
+    @MainActor
+    private func receivePendingReminder() async {
+        guard store.isReady,
+              let destination = await NotificationService.shared.consumePendingDestination() else { return }
+        // Keep the route until the destination actually appears, including across a relaunch.
+        pendingReminderRawValue = destination.rawValue
+    }
+
+    @MainActor
+    private func openPendingReminderWhenAvailable() async {
+        guard store.isReady, scenePhase == .active,
+              let destination = ReminderDestination(rawValue: pendingReminderRawValue) else { return }
+        var announcedWait = false
+        while isReminderPresentationBlocked {
+            if !announcedWait {
+                store.toast = "通知を受け取りました。今の画面を閉じると開きます。"
+                announcedWait = true
+            }
+            do { try await Task.sleep(for: .milliseconds(400)) }
+            catch { return }
+            guard !Task.isCancelled, scenePhase == .active,
+                  pendingReminderRawValue == destination.rawValue else { return }
+        }
+        guard !Task.isCancelled, pendingReminderRawValue == destination.rawValue else { return }
+        selectedTab = .adjustments
+        switch destination.kind {
+        case .adjustment:
+            reminderAdjustment = store.adjustments.first { $0.id == destination.id }
+            if reminderAdjustment == nil {
+                store.toast = "この日程調整は完了または削除されています。"
+                acknowledgeReminder(destination)
+            }
+        case .invitation:
+            reminderInvitation = store.pendingInvitations.first { $0.id == destination.id }
+            if reminderInvitation == nil {
+                store.toast = "この誘いは完了または削除されています。"
+                acknowledgeReminder(destination)
+            }
+        }
+    }
+
+    @MainActor
+    private var isReminderPresentationBlocked: Bool {
+        if store.activeSchedulingDraft != nil || store.activeClarification != nil ||
+            store.activeDeclineDraft != nil || store.pendingChangePreview != nil ||
+            store.pendingEventCreationPreview != nil || store.presentedEventForm != nil ||
+            (store.isRebalanceProposalPresented && store.activeRebalanceProposal != nil) ||
+            reminderAdjustment != nil || reminderInvitation != nil { return true }
+        guard let root = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .filter({ $0.activationState == .foregroundActive })
+            .flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController else { return true }
+        return hasPresentedController(root)
+    }
+
+    @MainActor
+    private func hasPresentedController(_ controller: UIViewController) -> Bool {
+        controller.presentedViewController != nil || controller.isBeingDismissed ||
+            controller.children.contains(where: { hasPresentedController($0) })
+    }
+
+    private func acknowledgeReminder(_ destination: ReminderDestination) {
+        if pendingReminderRawValue == destination.rawValue { pendingReminderRawValue = "" }
     }
 
     private var floatingTabBar: some View {

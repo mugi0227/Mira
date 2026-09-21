@@ -180,9 +180,8 @@ struct ChangePreviewSheet: View {
 
                             impactCard(conflicts: preview.conflicts, impact: preview.impact)
 
-                            PrimaryButton(title: "変更を保存", symbol: "checkmark", palette: palette) {
-                                store.applyChangePreview()
-                                dismiss()
+                            PrimaryButton(title: preview.conflicts.isEmpty && preview.impact.overlappingMargins.isEmpty ? "変更を保存" : "影響を承認して変更を保存", symbol: "checkmark", palette: palette) {
+                                if store.applyChangePreview() { dismiss() }
                             }
                         }
                         .padding(MiraSpacing.lg)
@@ -319,18 +318,16 @@ struct EventCreationPreviewSheet: View {
                                 .miraCard(palette)
 
                                 PrimaryButton(title: "余白を移して追加", symbol: "arrow.left.arrow.right", palette: palette) {
-                                    store.applyEventCreationPreview(resolution: .relocate)
-                                    dismiss()
+                                    if store.applyEventCreationPreview(resolution: .relocate) { dismiss() }
                                 }
                             }
 
                             PrimaryButton(
-                                title: preview.conflicts.isEmpty && preview.impact.overlappingMargins.isEmpty ? "予定を追加" : "このまま追加する",
+                                title: preview.conflicts.isEmpty && preview.impact.overlappingMargins.isEmpty ? "予定を追加" : "影響を承認して追加する",
                                 symbol: "calendar.badge.plus",
                                 palette: palette
                             ) {
-                                store.applyEventCreationPreview(resolution: .exception)
-                                dismiss()
+                                if store.applyEventCreationPreview(resolution: .exception) { dismiss() }
                             }
                         }
                         .padding(MiraSpacing.lg)
@@ -396,17 +393,16 @@ struct RebalanceProposalSheet: View {
                                     Text(move.title)
                                         .font(.headline)
                                     if isExistingMargin(move) {
-                                        HStack {
-                                            Text(move.from.japaneseShortDate)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(timingDescription(move.from, move: move))
                                                 .strikethrough()
-                                            Image(systemName: "arrow.right")
-                                                .foregroundStyle(palette.accent)
-                                            Text(move.to.japaneseShortDate)
+                                            Label(timingDescription(move.to, move: move), systemImage: "arrow.down")
                                                 .fontWeight(.semibold)
+                                                .foregroundStyle(palette.accent)
                                         }
                                         .font(.subheadline)
                                     } else {
-                                        Label("\(move.to.japaneseShortDate) に新しく追加", systemImage: "plus.circle.fill")
+                                        Label("\(timingDescription(move.to, move: move)) に追加", systemImage: "plus.circle.fill")
                                             .font(.subheadline.weight(.semibold))
                                             .foregroundStyle(palette.accent)
                                     }
@@ -418,8 +414,7 @@ struct RebalanceProposalSheet: View {
                             }
 
                             PrimaryButton(title: "この案を適用", symbol: "sparkles", palette: palette) {
-                                store.applyRebalanceProposal(proposal)
-                                dismiss()
+                                if store.applyRebalanceProposal(proposal) { dismiss() }
                             }
 
                             Button("今回は見送る") {
@@ -450,5 +445,19 @@ struct RebalanceProposalSheet: View {
 
     private func isExistingMargin(_ move: RebalanceMove) -> Bool {
         store.items.contains { $0.id == move.marginItemID && $0.kind == .margin }
+    }
+
+    private func timingDescription(_ date: Date, move: RebalanceMove) -> String {
+        let existing = store.items.first { $0.id == move.marginItemID }
+        if move.isAllDay ?? existing?.isAllDay ?? false {
+            return "\(date.japaneseShortDate) 終日"
+        }
+        let format = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+        let start = "\(date.japaneseShortDate) \(date.formatted(format))"
+        guard let duration = move.durationSeconds ?? existing.map({ $0.endDate.timeIntervalSince($0.startDate) }),
+              duration > 0 else { return start }
+        let end = date.addingTimeInterval(duration)
+        let endDay = Calendar.current.isDate(date, inSameDayAs: end) ? "" : "\(end.japaneseShortDate) "
+        return "\(start)–\(endDay)\(end.formatted(format))（\(Int(duration / 60))分）"
     }
 }

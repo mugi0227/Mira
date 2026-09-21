@@ -8,10 +8,11 @@ struct NewPendingInvitationSheet: View {
     @State private var title = ""
     @State private var contact = ""
     @State private var hasCandidate = false
-    @State private var date = DemoClock.standard.now.addingDays(7)
+    @State private var date = Date().addingDays(7)
     @State private var timeOfDay: TimeOfDayKind = .evening
     @State private var hasDeadline = true
-    @State private var deadline = DemoClock.standard.now.addingDays(2)
+    @State private var deadline = Date().addingDays(2)
+    @State private var initializedDates = false
 
     var body: some View {
         NavigationStack {
@@ -57,19 +58,24 @@ struct NewPendingInvitationSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("閉じる") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("追加") {
-                        store.createPendingInvitation(
+                        if store.createPendingInvitation(
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                             contact: contact,
                             candidateDate: hasCandidate ? date : nil,
                             timeOfDay: timeOfDay,
                             deadline: hasDeadline ? deadline : nil
-                        )
-                        dismiss()
+                        ) { dismiss() }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
         .tint(palette.accent)
+        .onAppear {
+            guard !initializedDates else { return }
+            date = store.now.addingDays(7)
+            deadline = store.now.addingDays(2)
+            initializedDates = true
+        }
     }
 }

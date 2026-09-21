@@ -234,7 +234,7 @@ struct ConversationCaseState: Codable, Hashable, Sendable {
     }
 }
 
-struct ContextSearchResult: Identifiable, Hashable, Sendable {
+struct ContextSearchResult: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var kind: ConversationCaseKind
     var title: String
@@ -249,7 +249,7 @@ struct ContextSearchResult: Identifiable, Hashable, Sendable {
     var isPast: Bool
 }
 
-struct ConversationInterpretation: Hashable, Sendable {
+struct ConversationInterpretation: Codable, Hashable, Sendable {
     var intent: ConversationIntent
     var title: String
     var person: String?
@@ -399,7 +399,7 @@ struct SchedulingDraft: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
-struct ChangePreview: Identifiable, Hashable, Sendable {
+struct ChangePreview: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var caseID: UUID?
     var itemID: UUID
@@ -410,7 +410,7 @@ struct ChangePreview: Identifiable, Hashable, Sendable {
     var impact: ScheduleImpact
 }
 
-struct DeclineDraft: Identifiable, Hashable, Sendable {
+struct DeclineDraft: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var caseID: UUID?
     var title: String
@@ -459,14 +459,21 @@ struct RebalanceMove: Identifiable, Codable, Hashable, Sendable {
     var from: Date
     var to: Date
     var benefit: String
+    var durationSeconds: TimeInterval?
+    var marginKind: MarginKind?
+    var isAllDay: Bool?
 
-    init(id: UUID = UUID(), marginItemID: UUID, title: String, from: Date, to: Date, benefit: String) {
+    init(id: UUID = UUID(), marginItemID: UUID, title: String, from: Date, to: Date, benefit: String,
+         durationSeconds: TimeInterval? = nil, marginKind: MarginKind? = nil, isAllDay: Bool? = nil) {
         self.id = id
         self.marginItemID = marginItemID
         self.title = title
         self.from = from
         self.to = to
         self.benefit = benefit
+        self.durationSeconds = durationSeconds
+        self.marginKind = marginKind
+        self.isAllDay = isAllDay
     }
 }
 

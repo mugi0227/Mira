@@ -37,12 +37,15 @@ extension MiraStore {
     }
 
     func moveMargin(_ margin: CalendarItemSnapshot, to date: Date) throws {
-        guard let entity = try entity(id: margin.id) else { return }
+        guard let entity = try entity(id: margin.id), entity.snapshot.kind == .margin else {
+            throw MarginMovementError.missingMargin
+        }
         let duration = entity.endDate.timeIntervalSince(entity.startDate)
-        let components = Calendar.mira.dateComponents([.hour, .minute], from: entity.startDate)
-        let newStart = date.setting(hour: components.hour ?? 9, minute: components.minute ?? 0)
-        entity.startDate = newStart
-        entity.endDate = newStart.addingTimeInterval(duration)
+        guard date.timeIntervalSinceReferenceDate.isFinite, duration.isFinite, duration > 0 else {
+            throw MarginMovementError.invalidInterval
+        }
+        entity.startDate = date
+        entity.endDate = date.addingTimeInterval(duration)
         entity.updatedAt = .now
     }
 
@@ -84,4 +87,9 @@ extension MiraStore {
     func marginKind(for title: String) -> MarginKind? {
         MarginKind.allCases.first(where: { $0.title == title })
     }
+}
+
+private enum MarginMovementError: Error {
+    case missingMargin
+    case invalidInterval
 }

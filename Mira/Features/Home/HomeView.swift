@@ -5,9 +5,10 @@ struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
-    @State private var showAddSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
     @State private var selectedDayDestination: DayTimelineDestination?
+    @State private var showSavedDrafts = false
+    @State private var draftToResume: UUID?
     @FocusState private var isQuickInputFocused: Bool
 
     var body: some View {
@@ -20,6 +21,9 @@ struct HomeView: View {
                     .padding(.horizontal, MiraSpacing.md)
 
                 MiraQuickInputBar(palette: palette, isFocused: $isQuickInputFocused)
+                    .padding(.horizontal, MiraSpacing.md)
+
+                nextStepCard
                     .padding(.horizontal, MiraSpacing.md)
 
                 if store.assistantEnabled {
@@ -69,23 +73,109 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(isPresented: $showAddSheet) {
-            NewItemSheet(palette: palette, initialDate: store.selectedDate)
-        }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
+        }
+        .sheet(isPresented: $showSavedDrafts, onDismiss: {
+            if let id = draftToResume {
+                draftToResume = nil
+                store.resumeSavedDraft(id: id)
+            }
+        }) {
+            SavedDraftsSheet(palette: palette) { draftToResume = $0 }
         }
         .navigationDestination(item: $selectedDayDestination) { destination in
             DayTimelineView(date: destination.date, palette: palette)
         }
         .task(id: MonthKey(date: store.selectedMonth)) {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
+            await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
     }
 
     private var monthItems: [CalendarItemSnapshot] {
         let interval = MonthKey(date: store.selectedMonth).interval
         return store.items.filter { interval.contains($0.startDate) }
+    }
+
+    private var nextStepCard: some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+            if let draft = store.savedDrafts.first {
+                HStack {
+                    Label("続きからで大丈夫", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.secondaryText)
+                    Spacer()
+                    Button("下書き一覧") { showSavedDrafts = true }
+                        .font(.caption.weight(.semibold))
+                        .frame(minHeight: 44)
+                }
+                Text(draft.content.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                Text(draft.content.nextStep)
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+                Button {
+                    isQuickInputFocused = false
+                    store.resumeSavedDraft(id: draft.id)
+                } label: {
+                    Label("この続きから", systemImage: "arrow.right")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                }
+                .accessibilityIdentifier("resumeLatestDraft")
+            } else if let event = nextEvent {
+                Label(event.startDate <= store.now ? "いまの予定" : "次の予定", systemImage: "clock")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(palette.secondaryText)
+                Button {
+                    selectedItem = event
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.title).font(.headline)
+                            Text("\(event.startDate.japaneseShortDate) \(event.timeDescription)")
+                                .font(.subheadline)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if event.bufferBeforeMinutes > 0 {
+                    Text("支度・移動の余裕：\(event.bufferBeforeMinutes)分")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            } else {
+                Label("誘いや思いつきは、上の入力欄へ", systemImage: "leaf")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.secondaryText)
+            }
+            if let margin = nextMargin {
+                Text("次の余白：\(margin.startDate.japaneseShortDate) \(margin.title)")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+            }
+        }
+        .foregroundStyle(palette.primaryText)
+        .tint(palette.accent)
+        .miraCard(palette, padding: MiraSpacing.sm)
+    }
+
+    private var nextEvent: CalendarItemSnapshot? {
+        store.items.filter { $0.kind == .confirmed && $0.endDate > store.now }
+            .min { $0.startDate < $1.startDate }
+    }
+
+    private var nextMargin: CalendarItemSnapshot? {
+        store.items.filter { $0.kind == .margin && $0.endDate > store.now }
+            .min { $0.startDate < $1.startDate }
     }
 
     @ViewBuilder
@@ -184,7 +274,7 @@ struct HomeView: View {
 
     private var addMenu: some View {
         Menu {
-            Button { showAddSheet = true } label: {
+            Button { store.presentedEventForm = ManualEventDraft(date: store.selectedDate) } label: {
                 Label("予定・余白を追加", systemImage: "plus")
             }
             Button { store.startManualScheduling() } label: {
@@ -248,7 +338,7 @@ struct HomeView: View {
                         .foregroundStyle(palette.secondaryText)
                 }
                 Spacer()
-                Button("追加") { showAddSheet = true }
+                Button("追加") { store.presentedEventForm = ManualEventDraft(date: store.selectedDate) }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.accent)
                     .frame(minWidth: 60, minHeight: 44)

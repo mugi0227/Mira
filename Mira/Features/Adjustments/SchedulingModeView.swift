@@ -7,6 +7,10 @@ struct SchedulingModeView: View {
 
     @State private var pendingConflictCandidate: CandidateRecommendation?
     @State private var showDetailedTime = false
+    @State private var showDiscardConfirmation = false
+    @State private var showSaveReview = false
+    @State private var saveConflicts: [String] = []
+    @State private var saveReviewContext: ScheduleReviewContext?
 
     private var calendar: Calendar {
         var value = Calendar.mira
@@ -35,11 +39,30 @@ struct SchedulingModeView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("閉じる") {
-                            store.activeSchedulingDraft = nil
-                            dismiss()
+                        Button("保存して閉じる") {
+                            if store.persistDraftArchive() {
+                                store.activeSchedulingDraft = nil
+                                dismiss()
+                            }
                         }
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
+                        } label: {
+                            Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("下書きの操作")
+                    }
+                }
+                .alert("日程候補の下書きを削除しますか？", isPresented: $showDiscardConfirmation) {
+                    Button("削除", role: .destructive) {
+                        store.discardSavedDraft(id: draft.id)
+                        dismiss()
+                    }
+                    Button("続ける", role: .cancel) {}
+                } message: {
+                    Text("仮押さえ済みの候補や確定予定は変わりません。")
                 }
                 .confirmationDialog(
                     "この候補、ちょっと気になるにゃ",
@@ -61,15 +84,28 @@ struct SchedulingModeView: View {
                 } message: {
                     Text(pendingConflictCandidate?.conflicts.joined(separator: "。") ?? "")
                 }
+                .confirmationDialog("候補の重なりを確認", isPresented: $showSaveReview, titleVisibility: .visible) {
+                    Button("重複を承認して候補を保存") {
+                        if store.commitSchedulingDraft(approvedContext: saveReviewContext) { dismiss() }
+                    }
+                    Button("候補を見直す", role: .cancel) {}
+                } message: {
+                    Text(saveConflicts.joined(separator: "\n") + "\nこの候補を仮押さえします。確定するときも影響を確認できます。")
+                }
             } else {
                 ContentUnavailableView("調整内容がありません", systemImage: "calendar.badge.questionmark")
                     .onAppear { dismiss() }
             }
         }
         .tint(palette.accent)
+        .interactiveDismissDisabled(store.draftPersistenceIssue != nil)
         .task(id: store.activeSchedulingDraft?.month) {
-            if let month = store.activeSchedulingDraft?.month {
-                await store.refreshDeviceHolidays(for: month)
+            if let draft = store.activeSchedulingDraft {
+                await store.refreshDeviceHolidays(for: draft.month)
+                await store.refreshDeviceCalendar(around: draft.dateRangeStart, through: draft.dateRangeEnd)
+                if store.activeSchedulingDraft?.id == draft.id {
+                    store.refreshSchedulingRecommendations()
+                }
             }
         }
     }
@@ -442,8 +478,13 @@ struct SchedulingModeView: View {
                 palette: palette,
                 isDisabled: draft.selectedRecommendations.isEmpty
             ) {
-                store.commitSchedulingDraft()
-                dismiss()
+                saveConflicts = store.schedulingDraftConflicts()
+                if saveConflicts.isEmpty {
+                    if store.commitSchedulingDraft() { dismiss() }
+                } else {
+                    saveReviewContext = store.scheduleReviewContext()
+                    showSaveReview = true
+                }
             }
         }
         .padding(.horizontal, MiraSpacing.md)

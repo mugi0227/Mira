@@ -22,6 +22,8 @@ extension MiraStore {
             try refresh()
             autoPlaceMargins(for: selectedMonth)
         } catch {
+            context.rollback()
+            onboardingCompleted = false
             toast = "初期設定を保存できませんでした"
         }
     }
@@ -40,6 +42,7 @@ extension MiraStore {
                 toast = "前の月と同じ余白を、いったん置いておいたにゃ"
             }
         } catch {
+            context.rollback()
             toast = "未来月の設定を作れませんでした"
         }
     }
@@ -48,7 +51,7 @@ extension MiraStore {
         ensurePlan(for: month, provisional: false)
         let key = MonthKey(date: month)
         let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
-        let monthItems = items.filter { key.interval.contains($0.startDate) }
+        let monthItems = items.filter { $0.startDate < key.interval.end && $0.endDate > key.interval.start }
         let existingMargins = monthItems.filter { $0.kind == .margin }
         let events = monthItems.filter { $0.kind != .margin }
         let baseRules = fetchBaseRules()
@@ -57,18 +60,22 @@ extension MiraStore {
             goals: monthGoals,
             events: events,
             existingMargins: existingMargins,
-            baseRules: baseRules
+            baseRules: baseRules,
+            notBefore: now
         )
+        let undo = captureCalendarUndo(title: "余白の配置")
         do {
             proposal.slots.forEach { context.insert(CalendarItemEntity(snapshot: $0)) }
             try context.save()
             try refresh()
+            finishCalendarMutation(undo)
             updateMarginRecommendation(for: month)
             recalculateBalance(for: month)
             toast = proposal.unmetGoals.isEmpty
                 ? "余白をいい感じに置いたにゃ"
                 : "置けなかった余白もあるので、あとで見直してにゃ"
         } catch {
+            context.rollback()
             toast = "余白を配置できませんでした"
         }
     }
@@ -80,6 +87,7 @@ extension MiraStore {
         isAllDay: Bool,
         isImportant: Bool
     ) async -> CalendarItemSnapshot {
+        await refreshDeviceCalendar(around: startDate, through: endDate)
         let semantic = await classifier.classify(
             title: title,
             startDate: startDate,
@@ -112,56 +120,22 @@ extension MiraStore {
     }
 
     func previewImpact(for event: CalendarItemSnapshot) -> ScheduleImpact {
-        let overlapping = items.filter { $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval) }
-        let first = overlapping.first
-        let otherMargins = items.filter { $0.kind == .margin }
-        let candidates: [Date]
-        if let first {
-            candidates = scheduler.relocationCandidates(
-                for: first,
-                month: event.startDate,
-                events: items.filter { $0.kind != .margin && $0.id != event.id } + [event],
-                otherMargins: otherMargins,
-                baseRules: fetchBaseRules()
-            )
-        } else {
-            candidates = []
-        }
-        let key = MonthKey(date: event.startDate)
-        let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
-        return protectionEngine.analyze(
-            proposedEvent: event,
-            month: event.startDate,
-            items: items.filter { $0.id != event.id },
-            goals: monthGoals,
-            relocationCandidates: candidates
-        )
+        previewImpact(for: event, excludingItemID: event.id)
     }
 
+    @discardableResult
     func commitEvent(
         _ event: CalendarItemSnapshot,
         impact: ScheduleImpact = .none,
         resolution: ImpactResolution = .exception,
         chosenRelocationDate: Date? = nil
-    ) {
-        do {
-            if resolution == .relocate, let date = chosenRelocationDate ?? impact.relocationCandidates.first {
-                for margin in impact.overlappingMargins {
-                    try moveMargin(margin, to: date)
-                }
-            }
-            context.insert(CalendarItemEntity(snapshot: event))
-            try context.save()
-            try refresh()
-            updateMarginRecommendation(for: event.startDate)
-            recalculateBalance(for: event.startDate)
-            toast = "予定を追加したにゃ"
-        } catch {
-            toast = "予定を保存できませんでした"
-        }
+    ) -> Bool {
+        commitAdvisedEvent(event, impact: impact == .none ? previewImpact(for: event) : impact,
+            resolution: resolution, chosenRelocationDate: chosenRelocationDate)
     }
 
-    func addMargin(kind: MarginKind, on date: Date) {
+    @discardableResult
+    func addMargin(kind: MarginKind, on date: Date) -> Bool {
         let kind = kind.canonicalKind
         let duration = kind.defaultDurationHours
         let startHour = kind == .rest ? 9 : 13
@@ -182,31 +156,38 @@ extension MiraStore {
             isImportantTime: false,
             sourceID: nil
         )
-        context.insert(CalendarItemEntity(snapshot: snapshot))
-        try? context.save()
-        try? refresh()
-        recalculateBalance(for: date)
+        let undo = captureCalendarUndo(title: "余白の追加")
+        do {
+            context.insert(CalendarItemEntity(snapshot: snapshot))
+            try context.save()
+            try refresh()
+            finishCalendarMutation(undo)
+            recalculateBalance(for: date)
+            return true
+        } catch {
+            context.rollback()
+            persistenceIssue = "余白を保存できませんでした。入力を残しています。もう一度追加してください。"
+            return false
+        }
     }
 
     func moveItem(id: UUID, to date: Date) {
         do {
             guard let entity = try entity(id: id) else { return }
-            let oldDate = entity.startDate
+            guard entity.snapshot.deviceEvent == nil else {
+                toast = "この予定の詳細から「カレンダーで編集」を選んでください"
+                return
+            }
             let duration = entity.endDate.timeIntervalSince(entity.startDate)
             let oldComponents = Calendar.mira.dateComponents([.hour, .minute], from: entity.startDate)
             let newStart = date.setting(hour: oldComponents.hour ?? 9, minute: oldComponents.minute ?? 0)
-            entity.startDate = newStart
-            entity.endDate = newStart.addingTimeInterval(duration)
-            entity.updatedAt = .now
-            try context.save()
-            try refresh()
-            updateMarginRecommendation(for: oldDate)
-            updateMarginRecommendation(for: newStart)
-            recalculateBalance(for: oldDate)
-            if !Calendar.mira.isDate(oldDate, equalTo: newStart, toGranularity: .month) {
-                recalculateBalance(for: newStart)
-            }
-            toast = "移動したにゃ"
+            var after = entity.snapshot
+            after.startDate = newStart
+            after.endDate = newStart.addingTimeInterval(duration)
+            let impact = previewImpact(for: after, excludingItemID: id)
+            let conflicts = eventEntryConflicts(for: after, excludingItemID: id)
+            pendingChangePreview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
+                before: entity.snapshot, after: after, conflicts: conflicts, impact: impact)
         } catch {
             toast = "移動できませんでした"
         }
@@ -215,14 +196,21 @@ extension MiraStore {
     func deleteItem(id: UUID) {
         do {
             if let entity = try entity(id: id) {
+                guard entity.snapshot.deviceEvent == nil else {
+                    toast = "iPhoneの予定は、詳細の「カレンダーで編集」から削除できます"
+                    return
+                }
+                let undo = captureCalendarUndo(title: "予定の削除")
                 let affectedDate = entity.startDate
                 context.delete(entity)
                 try context.save()
                 try refresh()
+                finishCalendarMutation(undo)
                 updateMarginRecommendation(for: affectedDate)
                 recalculateBalance(for: affectedDate)
             }
         } catch {
+            context.rollback()
             toast = "削除できませんでした"
         }
     }
@@ -231,17 +219,23 @@ extension MiraStore {
         do {
             guard let entity = try entity(id: itemID) else { return }
             let affectedDate = entity.startDate
+            let undo = captureCalendarUndo(title: "負荷の変更")
             entity.loadRaw = load.rawValue
             entity.loadReason = "あなたが明示的に変更した負荷"
+            let buffer = loadEngine.correctedBuffers(title: entity.title, load: load)
+            entity.bufferBeforeMinutes = buffer.before
+            entity.bufferAfterMinutes = buffer.after
             if rememberKeyword {
                 context.insert(LoadRuleEntity(keyword: entity.title, loadClass: load))
             }
             try context.save()
             try refresh()
+            finishCalendarMutation(undo)
             updateMarginRecommendation(for: affectedDate)
             recalculateBalance(for: affectedDate)
             toast = rememberKeyword ? "似た予定にも覚えておくにゃ" : "この予定だけ直したにゃ"
         } catch {
+            context.rollback()
             toast = "負荷を変更できませんでした"
         }
     }
@@ -278,6 +272,7 @@ extension MiraStore {
                 recalculateBalance(for: MonthKey(year: goal.year, month: goal.month).firstDay)
             }
         } catch {
+            context.rollback()
             toast = "目標を変更できませんでした"
         }
     }

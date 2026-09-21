@@ -98,6 +98,11 @@ struct LoadEngine: Sendable {
         return (.normal, "other", true, "一般的な外出予定として推定")
     }
 
+    func correctedBuffers(title: String, load: LoadClass) -> (before: Int, after: Int) {
+        let classification = classifyByRules(title)
+        return buffers(for: load, category: "user-rule", outside: classification.outside)
+    }
+
     private func buffers(for loadClass: LoadClass, category: String, outside: Bool) -> (before: Int, after: Int) {
         guard outside else { return (0, loadClass == .light ? 0 : 15) }
         switch category {

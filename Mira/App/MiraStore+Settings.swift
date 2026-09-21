@@ -96,9 +96,39 @@ extension MiraStore {
             settingsEntity?.notificationsEnabled = false
         }
         try? context.save()
+        await reconcileReminders()
+    }
+
+    func setDemoModeEnabled(_ enabled: Bool) async {
+        demoModeEnabled = enabled
+        settingsEntity?.demoModeEnabled = enabled
+        clock = enabled ? DemoClock.standard : SystemClock()
+        selectedMonth = now
+        selectedDate = now
+        do {
+            try context.save()
+            if !enabled { ensurePlan(for: now) }
+            await refreshDeviceCalendar()
+            await reconcileReminders()
+        } catch {
+            context.rollback()
+            demoModeEnabled = settingsEntity?.demoModeEnabled ?? false
+            clock = demoModeEnabled ? DemoClock.standard : SystemClock()
+            selectedMonth = now
+            selectedDate = now
+            persistenceIssue = "日時の設定を保存できませんでした。もう一度お試しください。"
+        }
+    }
+
+    func startEverydayCalendar() async {
+        await resetLocalCalendar(demo: false)
     }
 
     func resetDemo() async {
+        await resetLocalCalendar(demo: true)
+    }
+
+    private func resetLocalCalendar(demo: Bool) async {
         do {
             try context.delete(model: CalendarItemEntity.self)
             try context.delete(model: MarginGoalEntity.self)
@@ -114,7 +144,17 @@ extension MiraStore {
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
             settingsEntity?.deviceHolidaysEnabled = false
+            settingsEntity?.demoModeEnabled = demo
+            settingsEntity?.notificationsEnabled = false
             try context.save()
+            demoModeEnabled = demo
+            notificationsEnabled = false
+            deviceCalendarService.enabled = false
+            clock = demo ? DemoClock.standard : SystemClock()
+            selectedMonth = now
+            selectedDate = now
+            undoEntry = nil
+            clearAllDrafts()
             onboardingCompleted = false
             theme = .pixelCat
             marginComfortLevel = .standard
@@ -131,11 +171,14 @@ extension MiraStore {
             activeClarification = nil
             activeRebalanceProposal = nil
             isRebalanceProposalPresented = false
-            try DemoSeeder.seedBaseline(in: context, clock: DemoClock.standard)
+            if demo { try DemoSeeder.seedBaseline(in: context, clock: DemoClock.standard) }
             try refresh()
-            toast = "最初の状態に戻したにゃ"
+            await reconcileReminders()
+            toast = demo ? "サンプル状態に戻しました" : "あなたのカレンダーを始めましょう"
         } catch {
-            toast = "リセットできませんでした"
+            context.rollback()
+            try? refresh()
+            persistenceIssue = "リセットを完了できませんでした。保存状態を確認して、もう一度お試しください。"
         }
     }
 }

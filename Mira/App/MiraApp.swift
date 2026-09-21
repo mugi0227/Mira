@@ -3,27 +3,37 @@ import SwiftUI
 
 @main
 struct MiraApp: App {
-    private let modelContainer: ModelContainer
+    @State private var modelContainer: ModelContainer
     @State private var store: MiraStore
 
     init() {
-        let container = Self.makeModelContainer()
-        modelContainer = container
+        _ = NotificationService.shared
+        let result = Self.makeModelContainer()
+        _modelContainer = State(initialValue: result.container)
         _store = State(initialValue: MiraStore(
-            container: container,
-            conversationInterpreter: ProductionConversationInterpreter()
+            container: result.container,
+            conversationInterpreter: JevAssistedConversationInterpreter(),
+            isEmergencyStorage: result.isEmergency
         ))
     }
 
     var body: some Scene {
         WindowGroup {
             AppRootView()
+                .id(ObjectIdentifier(store))
                 .environment(store)
                 .modelContainer(modelContainer)
+                .onReceive(NotificationCenter.default.publisher(for: .miraRetryStorage)) { _ in
+                    let result = Self.makeModelContainer()
+                    modelContainer = result.container
+                    store = MiraStore(container: result.container,
+                        conversationInterpreter: JevAssistedConversationInterpreter(),
+                        isEmergencyStorage: result.isEmergency)
+                }
         }
     }
 
-    private static func makeModelContainer() -> ModelContainer {
+    private static func makeModelContainer() -> (container: ModelContainer, isEmergency: Bool) {
         let schema = Schema([
             AppSettingsEntity.self,
             CalendarItemEntity.self,
@@ -37,16 +47,16 @@ struct MiraApp: App {
             RebalanceProposalEntity.self
         ])
         do {
-            return try ModelContainer(
+            return (try ModelContainer(
                 for: schema,
                 configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)]
-            )
+            ), false)
         } catch {
             do {
-                return try ModelContainer(
+                return (try ModelContainer(
                     for: schema,
                     configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
-                )
+                ), true)
             } catch {
                 fatalError("ModelContainer initialization failed: \(error)")
             }

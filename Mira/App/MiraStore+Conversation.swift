@@ -31,12 +31,15 @@ extension MiraStore {
         conversationCase(id: caseID)?.turns ?? []
     }
 
-    func handleConversationInput(_ rawText: String) async {
+    @discardableResult
+    func handleConversationInput(_ rawText: String) async -> Bool {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isInterpretingConversation else { return }
+        guard !text.isEmpty, !isInterpretingConversation else { return false }
 
         isInterpretingConversation = true
         defer { isInterpretingConversation = false }
+        let inputAtStart = quickInputText
+        let pinnedAtStart = pinnedContext?.id
 
         let automaticCandidates = caseSearchEngine.automaticCandidates(
             for: text,
@@ -59,6 +62,9 @@ extension MiraStore {
             searchCandidates: automaticCandidates,
             recentTurns: recentTurns
         )
+        guard quickInputText == inputAtStart, pinnedContext?.id == pinnedAtStart else { return false }
+        await refreshDeviceCalendar(around: interpretation.dateRangeStart ?? interpretation.candidateDates.first,
+            through: interpretation.dateRangeEnd ?? interpretation.candidateDates.last)
         pendingInterpretation = interpretation
 
         let resolvedContext = effectivePinned ?? resolvedAutomaticContext(from: automaticCandidates)
@@ -137,6 +143,15 @@ extension MiraStore {
         case .unknown:
             presentClarification(for: interpretation, originalText: text, caseEntity: caseEntity)
         }
+        do {
+            try context.save()
+            try refresh()
+            return draftPersistenceIssue == nil
+        } catch {
+            context.rollback()
+            persistenceIssue = "入力を保存できませんでした。内容はそのままにして、もう一度お試しください。"
+            return false
+        }
     }
 
     func answerClarification(_ option: String) async {
@@ -149,7 +164,8 @@ extension MiraStore {
                 pinnedContext = contextResult(forCaseID: caseID)
             }
         }
-        await handleConversationInput("\(clarification.originalText) \(option)")
+        let saved = await handleConversationInput("\(clarification.originalText) \(option)")
+        if saved { completeSavedDraft(id: clarification.id) }
         if previousPinned == nil {
             pinnedContext = nil
         }
@@ -327,30 +343,53 @@ extension MiraStore {
         activeSchedulingDraft = draft
     }
 
-    func commitSchedulingDraft() {
-        guard let draft = activeSchedulingDraft else { return }
+    func schedulingDraftConflicts() -> [String] {
+        guard let draft = activeSchedulingDraft else { return [] }
+        let ownAdjustment = conversationCase(id: draft.conversationCaseID)?.state.relatedAdjustmentID
+        return Array(Set(draft.selectedRecommendations.flatMap { recommendation in
+            let candidate = candidateSnapshot(from: recommendation, draft: draft)
+            return ConflictEngine(calendar: .mira).conflicts(candidate: candidate,
+                events: items, otherCandidates: heldCandidates(excluding: ownAdjustment), baseRules: fetchBaseRules())
+        })).sorted()
+    }
+
+    @discardableResult
+    func commitSchedulingDraft(approvedContext: ScheduleReviewContext? = nil) -> Bool {
+        guard let draft = activeSchedulingDraft else { return false }
+        if !schedulingDraftConflicts().isEmpty, approvedContext != scheduleReviewContext() {
+            toast = "現在の重なりを確認して、承認すると候補にできます"
+            return false
+        }
         let selected = draft.selectedRecommendations.sorted {
             if $0.day != $1.day { return $0.day < $1.day }
             return $0.timeBand.rawValue < $1.timeBand.rawValue
         }
         guard !selected.isEmpty else {
             toast = "候補を1つ以上選んでにゃ"
-            return
+            return false
         }
 
-        let candidates = selected.map { candidateSnapshot(from: $0, draft: draft) }
+        let candidates = selected.map { recommendation -> CandidateSlotSnapshot in
+            var candidate = candidateSnapshot(from: recommendation, draft: draft)
+            candidate.overlapOverrideApproved = approvedContext != nil
+            return candidate
+        }
         let message = DemoSeeder.message(title: draft.title, candidates: candidates)
         let caseEntity = conversationCase(id: draft.conversationCaseID)
 
         if activeSchedulingIntent == .checkInvitation {
-            let entity = PendingInvitationEntity(
+            let existing = pendingInvitations.first { $0.id == caseEntity?.state.relatedInvitationID && $0.status == .considering }
+            let entity = existing ?? PendingInvitationEntity(
                 title: draft.title,
                 contactName: draft.person,
                 status: .considering,
                 candidates: candidates,
                 conversationCaseID: caseEntity?.id
             )
-            context.insert(entity)
+            if existing == nil { context.insert(entity) }
+            entity.title = draft.title
+            entity.contactName = draft.person
+            entity.candidates = candidates
             if let caseEntity {
                 caseEntity.kind = .invitation
                 caseEntity.status = .active
@@ -366,12 +405,12 @@ extension MiraStore {
                   let existing = adjustments.first(where: { $0.id == adjustmentID }) {
             existing.title = draft.title
             existing.contactName = draft.person
-            existing.status = .waiting
+            existing.status = .draft
             existing.candidates = candidates
             existing.generatedMessage = message
             if let caseEntity {
                 caseEntity.kind = .adjustment
-                caseEntity.status = .waiting
+                caseEntity.status = .active
                 var state = caseEntity.state
                 state.candidates = candidates
                 state.durationBucket = draft.durationBucket
@@ -383,7 +422,7 @@ extension MiraStore {
             let entity = AdjustmentEntity(
                 title: draft.title,
                 contactName: draft.person,
-                status: .waiting,
+                status: .draft,
                 candidates: candidates,
                 generatedMessage: message,
                 conversationCaseID: caseEntity?.id
@@ -391,7 +430,7 @@ extension MiraStore {
             context.insert(entity)
             if let caseEntity {
                 caseEntity.kind = .adjustment
-                caseEntity.status = .waiting
+                caseEntity.status = .active
                 var state = caseEntity.state
                 state.relatedAdjustmentID = entity.id
                 state.candidates = candidates
@@ -405,19 +444,51 @@ extension MiraStore {
         do {
             try context.save()
             try refresh()
+            completeSavedDraft(id: draft.id)
             activeSchedulingDraft = nil
             pinnedContext = nil
-            toast = "候補を仮押さえしたにゃ"
+            Task { await reconcileReminders() }
+            toast = activeSchedulingIntent == .checkInvitation
+                ? "検討中の誘いに保存しました。返事は後で決められます"
+                : "候補を保存しました。次は相手に送る番です"
+            return true
         } catch {
+            context.rollback()
             toast = "日程調整を保存できませんでした"
+            return false
         }
     }
 
-    func applyChangePreview() {
-        guard let preview = pendingChangePreview else { return }
+    @discardableResult
+    func applyChangePreview() -> Bool {
+        guard var preview = pendingChangePreview else { return false }
         do {
-            guard let entity = try entity(id: preview.itemID) else { return }
+            guard let entity = try entity(id: preview.itemID) else { return false }
+            guard entity.snapshot.deviceEvent == nil else {
+                toast = "この予定の詳細から「カレンダーで編集」を選んでください"
+                return false
+            }
+            guard entity.snapshot == preview.before else {
+                toast = "元の予定が変わりました。詳細から変更内容を選び直してください"
+                return false
+            }
+            guard preview.after.endDate > preview.after.startDate else { return false }
+            let currentImpact = previewImpact(for: preview.after, excludingItemID: preview.itemID)
+            let currentConflicts = eventEntryConflicts(for: preview.after, excludingItemID: preview.itemID)
+            if currentImpact != preview.impact || currentConflicts != preview.conflicts {
+                preview.impact = currentImpact
+                preview.conflicts = currentConflicts
+                pendingChangePreview = preview
+                toast = "予定の状況が変わりました。更新した影響を確認してください"
+                return false
+            }
+            let undo = captureCalendarUndo(title: "予定の変更")
             let previousDate = preview.before.startDate
+            if preview.after.kind == .confirmed {
+                for margin in currentImpact.overlappingMargins {
+                    if let overlapped = try self.entity(id: margin.id) { context.delete(overlapped) }
+                }
+            }
             entity.apply(preview.after)
             if let caseEntity = conversationCase(id: preview.caseID) {
                 caseEntity.appendTurn(role: .assistant, text: "変更を保存したにゃ", at: now)
@@ -430,6 +501,8 @@ extension MiraStore {
             }
             try context.save()
             try refresh()
+            finishCalendarMutation(undo)
+            completeSavedDraft(id: preview.id)
             pendingChangePreview = nil
             updateMarginRecommendation(for: previousDate)
             updateMarginRecommendation(for: preview.after.startDate)
@@ -438,20 +511,38 @@ extension MiraStore {
                 recalculateBalance(for: preview.after.startDate)
             }
             toast = "変更を保存したにゃ"
+            return true
         } catch {
+            context.rollback()
             toast = "変更を保存できませんでした"
+            return false
         }
     }
 
-    func applyEventCreationPreview(resolution: ImpactResolution, relocationDate: Date? = nil) {
-        guard let preview = pendingEventCreationPreview else { return }
-        commitAdvisedEvent(
+    @discardableResult
+    func applyEventCreationPreview(resolution: ImpactResolution, relocationDate: Date? = nil) -> Bool {
+        guard var preview = pendingEventCreationPreview else { return false }
+        guard !items.contains(where: { $0.id == preview.event.id }) else {
+            completeSavedDraft(id: preview.id)
+            pendingEventCreationPreview = nil
+            return true
+        }
+        let currentImpact = previewImpact(for: preview.event)
+        let currentConflicts = eventEntryConflicts(for: preview.event)
+        if currentImpact != preview.impact || currentConflicts != preview.conflicts {
+            preview.impact = currentImpact
+            preview.conflicts = currentConflicts
+            pendingEventCreationPreview = preview
+            toast = "予定の状況が変わりました。更新した影響を確認してください"
+            return false
+        }
+        let saved = commitAdvisedEvent(
             preview.event,
-            impact: preview.impact,
+            impact: currentImpact,
             resolution: resolution,
             chosenRelocationDate: relocationDate
-        )
-        if let caseEntity = conversationCase(id: preview.caseID) {
+        ) {
+          if let caseEntity = self.conversationCase(id: preview.caseID) {
             caseEntity.kind = .confirmedEvent
             caseEntity.status = .confirmed
             var state = caseEntity.state
@@ -461,11 +552,13 @@ extension MiraStore {
             state.durationBucket = preview.event.durationBucket
             state.allowedTimeBands = preview.event.schedulingTimeBand.map { [$0] } ?? []
             caseEntity.state = state
-            caseEntity.appendTurn(role: .assistant, text: "予定を追加したにゃ", at: now)
-            try? context.save()
-            try? refresh()
+            caseEntity.appendTurn(role: .assistant, text: "予定を追加したにゃ", at: self.now)
+          }
         }
+        guard saved else { return false }
+        completeSavedDraft(id: preview.id)
         pendingEventCreationPreview = nil
+        return true
     }
 
     // MARK: - Private routing helpers
@@ -662,6 +755,12 @@ extension MiraStore {
         return text.range(of: explicitDayPattern, options: .regularExpression) == nil
     }
 
+    func refreshSchedulingRecommendations() {
+        if let draft = activeSchedulingDraft {
+            activeSchedulingDraft = recommendations(for: draft, preserveManualSelection: true)
+        }
+    }
+
     private func recommendations(
         for draft: SchedulingDraft,
         preserveManualSelection: Bool
@@ -678,13 +777,14 @@ extension MiraStore {
             timeBands: draft.timeBands,
             items: items,
             heldCandidates: held,
-            baseRules: fetchBaseRules()
+            baseRules: fetchBaseRules(),
+            notBefore: now
         )
         let recommendedIDs = Set(candidates.filter(\.isRecommended).map(\.id))
         if preserveManualSelection {
             let oldSelectedKeys = Set(draft.selectedRecommendations.map { selectionKey(day: $0.day, band: $0.timeBand) })
             let retained = candidates.filter { oldSelectedKeys.contains(selectionKey(day: $0.day, band: $0.timeBand)) }.map(\.id)
-            value.selectedRecommendationIDs = Set(retained).union(recommendedIDs)
+            value.selectedRecommendationIDs = Set(retained)
         } else {
             value.selectedRecommendationIDs = recommendedIDs
         }

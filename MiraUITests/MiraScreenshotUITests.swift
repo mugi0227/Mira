@@ -7,19 +7,21 @@ final class MiraScreenshotUITests: XCTestCase {
 
     func testCaptureRepresentativeScreens() throws {
         let app = XCUIApplication()
-        app.launchArguments += ["-ui-testing"]
+        app.launchArguments += ["-ui-testing", "-reset-demo"]
         app.launch()
 
         try ensureOnboarding(in: app)
         try capture("01-onboarding-welcome")
 
-        for _ in 0..<4 {
+        app.buttons["自分に合わせて設定する"].tap()
+        for _ in 0..<2 {
             tapNext(in: app)
         }
 
         XCTAssertTrue(app.staticTexts["普段、予定を入れたくない時間はある？"].waitForExistence(timeout: 4))
         try capture("02-onboarding-base-hours")
 
+        tapNext(in: app)
         tapNext(in: app)
         try capture("03-onboarding-ready")
 
@@ -151,7 +153,7 @@ final class MiraScreenshotUITests: XCTestCase {
         let back = app.buttons["いったん戻る"]
         XCTAssertTrue(back.waitForExistence(timeout: 3))
         back.tap()
-        app.navigationBars["予定を追加"].buttons["閉じる"].tap()
+        app.navigationBars["予定を追加"].buttons["保存して閉じる"].tap()
         XCTAssertTrue(app.buttons["ホーム"].waitForExistence(timeout: 4))
         settle()
     }
@@ -173,7 +175,7 @@ final class MiraScreenshotUITests: XCTestCase {
         settle(1.0)
         try capture("09-conversational-scheduling-recommendations")
         XCTAssertTrue(app.staticTexts["Miraの案を添削するだけ"].exists)
-        app.navigationBars["日程を探す"].buttons["閉じる"].tap()
+        app.navigationBars["日程を探す"].buttons["保存して閉じる"].tap()
         settle()
     }
 
@@ -237,7 +239,7 @@ final class MiraScreenshotUITests: XCTestCase {
     }
 
     private func ensureOnboarding(in app: XCUIApplication) throws {
-        if app.buttons["次へ"].waitForExistence(timeout: 4) {
+        if app.buttons["おすすめを確認"].waitForExistence(timeout: 4) {
             return
         }
 
@@ -252,7 +254,7 @@ final class MiraScreenshotUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 4))
         confirm.tap()
 
-        XCTAssertTrue(app.buttons["次へ"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["おすすめを確認"].waitForExistence(timeout: 6))
         settle()
     }
 

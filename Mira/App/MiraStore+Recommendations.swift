@@ -53,7 +53,8 @@ extension MiraStore {
             items: items,
             goals: monthGoals,
             baseRules: fetchBaseRules(),
-            scheduler: scheduler
+            scheduler: scheduler,
+            notBefore: now
         )
 
         do {
@@ -69,8 +70,10 @@ extension MiraStore {
                 return
             }
 
-            if existing.contains(where: { $0.stateHash == proposal.stateHash && !$0.isDismissed }) {
-                activeRebalanceProposal = existing.first(where: { $0.stateHash == proposal.stateHash && !$0.isDismissed })?.proposal
+            if let current = existing.first(where: {
+                !$0.isDismissed && $0.proposal.map { rebalanceEngine.matches($0, proposal, items: items) } == true
+            }) {
+                activeRebalanceProposal = current.proposal
                 return
             }
 
@@ -80,26 +83,54 @@ extension MiraStore {
             try refresh()
             activeRebalanceProposal = proposal
         } catch {
+            context.rollback()
             // Rebalancing is advisory. A persistence failure must never block calendar edits.
         }
     }
 
-    func applyRebalanceProposal(_ proposal: RebalanceProposal) {
+    @discardableResult
+    func applyRebalanceProposal(_ proposal: RebalanceProposal) -> Bool {
         do {
+            try refresh()
+            let key = MonthKey(date: proposal.month)
+            let baseRules = try context.fetch(FetchDescriptor<BaseRuleEntity>()).map(\.snapshot)
+            let current = rebalanceEngine.propose(
+                month: proposal.month, items: items,
+                goals: goals.filter { $0.year == key.year && $0.month == key.month },
+                baseRules: baseRules, scheduler: scheduler, notBefore: now
+            )
+            let stored = rebalanceProposalEntities.first { $0.id == proposal.id && !$0.isDismissed }?.proposal
+            guard let current, let stored,
+                  rebalanceEngine.matches(proposal, stored, items: items),
+                  rebalanceEngine.matches(proposal, current, items: items) else {
+                recalculateBalance(for: proposal.month)
+                if activeRebalanceProposal == nil {
+                    // Keep the review open even when the elapsed time leaves no
+                    // feasible replacement; the user can explicitly close it.
+                    activeRebalanceProposal = proposal
+                    toast = "状況が変わり、今は再配置できる候補がありません"
+                } else {
+                    toast = "予定や時間が変わったため、提案を更新しました。もう一度確認してください"
+                }
+                return false
+            }
+            let undo = captureCalendarUndo(title: "余白の再配置")
             for move in proposal.moves {
                 if let margin = items.first(where: { $0.id == move.marginItemID && $0.kind == .margin }) {
                     try moveMargin(margin, to: move.to)
-                } else if let kind = marginKind(for: move.title) {
-                    let duration = kind.defaultDurationHours
-                    let startHour = kind == .rest ? 9 : (kind == .freeEvening || kind == .solo ? 18 : 13)
-                    let start = move.to.setting(hour: startHour)
-                    let end = Calendar.mira.date(byAdding: .hour, value: duration, to: start) ?? start
+                } else {
+                    guard let kind = move.marginKind, let duration = move.durationSeconds,
+                          duration.isFinite, duration > 0, let isAllDay = move.isAllDay else {
+                        throw RebalanceApplicationError.invalidInterval
+                    }
+                    let start = move.to
+                    let end = start.addingTimeInterval(duration)
                     context.insert(CalendarItemEntity(snapshot: CalendarItemSnapshot(
-                        id: UUID(),
-                        title: kind.title,
+                        id: move.marginItemID,
+                        title: move.title,
                         startDate: start,
                         endDate: end,
-                        isAllDay: kind == .rest,
+                        isAllDay: isAllDay,
                         kind: .margin,
                         marginKind: kind,
                         loadClass: .light,
@@ -116,10 +147,16 @@ extension MiraStore {
             }
             try context.save()
             try refresh()
+            finishCalendarMutation(undo)
             activeRebalanceProposal = nil
             toast = "余白の完成案を反映したにゃ"
+            return true
         } catch {
+            context.rollback()
+            try? refresh()
+            if activeRebalanceProposal == nil { activeRebalanceProposal = proposal }
             toast = "余白を組み直せませんでした"
+            return false
         }
     }
 
@@ -134,4 +171,8 @@ extension MiraStore {
         try? refresh()
         activeRebalanceProposal = nil
     }
+}
+
+private enum RebalanceApplicationError: Error {
+    case invalidInterval
 }

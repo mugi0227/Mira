@@ -32,7 +32,8 @@ extension MiraStore {
             timeBands: [band],
             items: items,
             heldCandidates: held,
-            baseRules: fetchBaseRules()
+            baseRules: fetchBaseRules(),
+            notBefore: now
         )
         draft.recommendations = recommendations
         draft.selectedRecommendationIDs = Set(recommendations.filter(\.isRecommended).map(\.id))

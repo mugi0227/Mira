@@ -5,7 +5,6 @@ struct MarginsView: View {
     let palette: MiraThemePalette
 
     @State private var selectedGoal: MarginGoalSnapshot?
-    @State private var showAddMargin = false
     @State private var showBaseRulesEditor = false
     @State private var showRebalanceSheet = false
 
@@ -29,7 +28,7 @@ struct MarginsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    showAddMargin = true
+                    store.presentedEventForm = ManualEventDraft(date: store.selectedDate, isMargin: true)
                 } label: {
                     Image(systemName: "plus")
                         .font(palette.isCatSkin ? .body.weight(.semibold) : .body)
@@ -47,16 +46,14 @@ struct MarginsView: View {
         .sheet(item: $selectedGoal) { goal in
             GoalEditorSheet(goal: goal, palette: palette)
         }
-        .sheet(isPresented: $showAddMargin) {
-            NewItemSheet(palette: palette, initialDate: store.selectedDate)
-        }
         .sheet(isPresented: $showBaseRulesEditor) {
             BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
         }
         .sheet(isPresented: $showRebalanceSheet) {
             RebalanceProposalSheet(palette: palette)
         }
-        .onAppear {
+        .task(id: MonthKey(date: store.selectedMonth)) {
+            await store.refreshDeviceCalendar(around: store.selectedMonth)
             store.updateMarginRecommendation(for: store.selectedMonth)
             store.recalculateBalance(for: store.selectedMonth)
         }

@@ -12,7 +12,6 @@ struct DayTimelineView: View {
     let date: Date
     let palette: MiraThemePalette
 
-    @State private var showAddSheet = false
     @State private var selectedItem: CalendarItemSnapshot?
 
     private let hourHeight: CGFloat = 64
@@ -57,16 +56,13 @@ struct DayTimelineView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    showAddSheet = true
+                    store.presentedEventForm = ManualEventDraft(date: date)
                 } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("この日に予定を追加")
             }
-        }
-        .sheet(isPresented: $showAddSheet) {
-            NewItemSheet(palette: palette, initialDate: date)
         }
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)

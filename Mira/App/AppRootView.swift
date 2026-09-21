@@ -1,8 +1,15 @@
 import SwiftUI
+import EventKit
+
+extension Notification.Name {
+    static let miraRetryStorage = Notification.Name("mira.retryStorage")
+}
 
 struct AppRootView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme)
@@ -10,7 +17,16 @@ struct AppRootView: View {
         ZStack {
             MiraScreenBackground(palette: palette)
 
-            if !store.isReady {
+            if store.isEmergencyStorage {
+                VStack(spacing: MiraSpacing.lg) {
+                    Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle)
+                    Text("保存済みのデータを開けませんでした").font(.title2.bold())
+                    Text("予定を失わないよう、データはそのまま残しています。空き容量を確認し、もう一度読み込んでください。")
+                    Button("もう一度読み込む") {
+                        NotificationCenter.default.post(name: .miraRetryStorage, object: nil)
+                    }.buttonStyle(.borderedProminent).frame(minHeight: 44)
+                }.padding(MiraSpacing.lg)
+            } else if !store.isReady {
                 VStack(spacing: MiraSpacing.md) {
                     PixelCatView(mood: .thinking, size: 84)
                     ProgressView("余白を準備中…")
@@ -24,7 +40,39 @@ struct AppRootView: View {
             }
         }
         .task {
-            if !store.isReady { await store.bootstrap() }
+            if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && store.isReady {
+                Task { await store.refreshDeviceCalendar(); await store.reconcileReminders() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
+            if store.isReady { Task { await store.refreshDeviceCalendar() } }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let issue = store.persistenceIssue ?? store.draftPersistenceIssue {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(issue, systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                    if store.draftPersistenceIssue != nil {
+                        Button("下書きの保存を再試行") { store.persistDraftArchive() }
+                            .frame(minHeight: 44)
+                    }
+                    if store.persistenceIssue != nil {
+                        Button("この案内を閉じる") { store.persistenceIssue = nil }
+                            .frame(minHeight: 44)
+                    }
+                }.padding().background(palette.surface)
+            } else if let undo = store.undoEntry {
+                HStack {
+                    Text("\(undo.title)を保存しました").font(.subheadline)
+                    Spacer()
+                    Button("取り消す") { Task { await store.undoLastCalendarMutation() } }.frame(minHeight: 44)
+                    Button { store.undoEntry = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                        .accessibilityLabel("取り消しの案内を閉じる")
+                }.padding(.horizontal).background(palette.surface)
+            }
         }
         .overlay(alignment: .top) {
             if let toast = store.toast {
@@ -38,12 +86,14 @@ struct AppRootView: View {
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: toast) {
-                        try? await Task.sleep(for: .seconds(2.6))
-                        withAnimation(MiraMotion.standard) { store.toast = nil }
+                        do { try await Task.sleep(for: .seconds(2.6)) }
+                        catch { return }
+                        guard store.toast == toast else { return }
+                        withAnimation(reduceMotion ? nil : MiraMotion.standard) { store.toast = nil }
                     }
             }
         }
-        .animation(MiraMotion.standard, value: store.onboardingCompleted)
+        .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
     }
 }
