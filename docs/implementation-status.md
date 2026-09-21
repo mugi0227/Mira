@@ -31,5 +31,19 @@ Miraの中心体験を、余白の提案から「入力する、迷ったら閉�
 
 - `python scripts/test-domain.py`：全Swiftファイルの構文検査と、実ソースをそのまま使用する可搬ロジックテスト。対象・対象外の理由とSHA-256を `.build/domain-validation/manifest.json` に記録する。
 - `python -m unittest discover -s backend -p "test_*.py" -v`：Jevバックエンドの認証・入力・出力・失敗処理をモックで検証する。
-- SwiftDataの承認・取り消し・通常起動・下書き復元テスト、再起動後の下書き再開UIテストを追加。実行にはiOS SDKが必要。
-- Windows上の構文検査や可搬テストは、iOSビルド成功の証明にはしない。Xcode検証の実行結果は作業完了時に記録する。
+- SwiftDataの承認・取り消し・通常起動・下書き復元テスト、再起動後の下書き再開UIテストを追加。
+
+### 2026-09-21の実行結果
+
+実装コミット `0430e28` を検証。変更前の退避コミットは `42dfc7b`。
+
+| 検証 | 結果 |
+| --- | --- |
+| Swift 6.0.3 / Linux | 可搬ロジックテスト33件成功。全105 Swiftファイルの構文検査成功。 |
+| Pythonバックエンド | モックテスト11件成功、構文コンパイル成功。 |
+| GitHub Actions / macOS | Simulatorビルド、iOS単体テスト88件、画面操作テスト5件すべて成功。 |
+| Codemagic / macOS | Simulatorビルド、iOS単体テスト88件、画面操作テスト5件、端末向けビルド、未署名IPAの生成すべて成功。 |
+
+[GitHub Actionsの実行記録](https://github.com/mugi0227/Mira/actions/runs/35588198596)、[Codemagicの実行記録](https://codemagic.io/app/6a92701382feb8b05ad320b3/build/6ab104eadd829410a8de9d48)。
+
+端末の実カレンダーとの連携・通知の実配送、および実Jev APIの日本語精度は、これらの自動テストでは検証していない。
