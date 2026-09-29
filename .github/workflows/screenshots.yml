@@ -2,7 +2,7 @@ name: Simulator Screenshots
 
 on:
   push:
-    branches: ["feature/advisory-event-entry"]
+    branches: ["mira-everyday-ux-screenshots-20260929-1149"]
   pull_request:
     branches: [main]
     paths:
