@@ -7,3 +7,5 @@ xcuserdata/
 Mira.xcodeproj/project.xcworkspace/xcuserdata/
 Mira.xcodeproj/xcuserdata/
 .swiftpm/
+
+server/node_modules/
