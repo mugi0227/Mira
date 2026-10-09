@@ -63,6 +63,7 @@ final class CalendarItemEntity {
     var exactTimeKnown: Bool?
     var conversationCaseID: UUID?
     var deviceEventData: Data?
+    var colorTagRaw: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -85,6 +86,7 @@ final class CalendarItemEntity {
         exactTimeKnown = snapshot.exactTimeKnown
         conversationCaseID = snapshot.conversationCaseID
         deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
+        colorTagRaw = snapshot.colorTag?.rawValue
         createdAt = .now
         updatedAt = .now
     }
@@ -108,7 +110,8 @@ final class CalendarItemEntity {
             durationBucket: durationBucketRaw.flatMap(DurationBucket.init(rawValue:)),
             exactTimeKnown: exactTimeKnown ?? true,
             conversationCaseID: conversationCaseID,
-            deviceEvent: deviceEventData.flatMap { try? JSONDecoder().decode(DeviceEventReference.self, from: $0) }
+            deviceEvent: deviceEventData.flatMap { try? JSONDecoder().decode(DeviceEventReference.self, from: $0) },
+            colorTag: colorTagRaw.flatMap(EventColorTag.init(rawValue:))
         )
     }
 
@@ -130,6 +133,7 @@ final class CalendarItemEntity {
         exactTimeKnown = snapshot.exactTimeKnown
         conversationCaseID = snapshot.conversationCaseID
         deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
+        colorTagRaw = snapshot.colorTag?.rawValue
         updatedAt = .now
     }
 }

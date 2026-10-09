@@ -10,11 +10,13 @@ struct EventDetailSheet: View {
     @State private var selectedLoad: LoadClass
     @State private var rememberSimilar = false
     @State private var showDeleteConfirmation = false
+    @State private var colorTag: EventColorTag?
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
         self.item = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
+        _colorTag = State(initialValue: item.colorTag)
     }
 
     var body: some View {
@@ -23,6 +25,9 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
+                    if item.kind != .margin {
+                        colorCard
+                    }
                     DeviceCalendarActionView(item: item, palette: palette)
                     if item.kind != .margin && item.kind != .birthday {
                         loadCard
@@ -58,8 +63,9 @@ struct EventDetailSheet: View {
         VStack(spacing: MiraSpacing.sm) {
             ZStack {
                 Circle()
-                    .fill(palette.color(for: item))
+                    .fill(headerFill)
                     .frame(width: 76, height: 76)
+                    .animation(MiraMotion.quick, value: colorTag)
                 Image(systemName: symbol)
                     .font(.system(size: 31, weight: .semibold))
                     .foregroundStyle(palette.primaryText)
@@ -75,6 +81,26 @@ struct EventDetailSheet: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var headerFill: Color {
+        guard item.kind != .margin else { return palette.color(for: item) }
+        var preview = item
+        preview.colorTag = colorTag
+        return palette.color(for: preview)
+    }
+
+    private var colorCard: some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+            Text("色")
+                .font(.headline)
+                .foregroundStyle(palette.primaryText)
+            EventColorPicker(selection: $colorTag, palette: palette) { tag in
+                store.setColor(itemID: item.id, to: tag)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .miraCard(palette)
     }
 
     private var detailCard: some View {

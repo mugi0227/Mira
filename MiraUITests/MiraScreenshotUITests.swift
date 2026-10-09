@@ -97,6 +97,9 @@ final class MiraScreenshotUITests: XCTestCase {
             if strip.exists, tap(strip, in: app) {
                 if app.navigationBars["詳細"].waitForExistence(timeout: 3) {
                     capture("\(prefix)a-event-detail")
+                    if tap(app.buttons["eventColor-mint"], in: app, timeout: 1) {
+                        capture("\(prefix)a2-event-detail-color-picked")
+                    }
                     app.swipeUp()
                     settle()
                     capture("\(prefix)b-event-detail-lower")
@@ -123,7 +126,11 @@ final class MiraScreenshotUITests: XCTestCase {
             app.swipeUp()
             settle()
             capture("\(prefix)f-add-event-form-lower")
-            dismissSheet(in: app)
+            if tap(app.buttons["下書きを削除"], in: app, timeout: 1) {
+                tap(app.alerts.buttons["削除"], in: app, timeout: 2)
+            } else {
+                dismissSheet(in: app)
+            }
         }
     }
 

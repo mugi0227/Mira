@@ -138,8 +138,45 @@ struct MiraThemePalette {
             case .none: return rest
             }
         }
+        if let tag = item.colorTag { return fill(for: tag) }
         if item.isImportantTime { return important }
         return surface
+    }
+
+    /// Soft background for an event chip; text stays primaryText on top of it.
+    func fill(for tag: EventColorTag) -> Color {
+        switch (tag, isDark) {
+        case (.sakura, false): Color(hex: 0xF9D5DF)
+        case (.peach, false): Color(hex: 0xFCDCC7)
+        case (.lemon, false): Color(hex: 0xF7EAB2)
+        case (.mint, false): Color(hex: 0xCDEBDD)
+        case (.sky, false): Color(hex: 0xD0E4F7)
+        case (.lavender, false): Color(hex: 0xE3D9F4)
+        case (.cocoa, false): Color(hex: 0xE8D9CB)
+        case (.gray, false): Color(hex: 0xE4E5E8)
+        case (.sakura, true): Color(hex: 0x6A3A49)
+        case (.peach, true): Color(hex: 0x6B4633)
+        case (.lemon, true): Color(hex: 0x5C5230)
+        case (.mint, true): Color(hex: 0x2F5446)
+        case (.sky, true): Color(hex: 0x2F4A66)
+        case (.lavender, true): Color(hex: 0x4A3D66)
+        case (.cocoa, true): Color(hex: 0x52433A)
+        case (.gray, true): Color(hex: 0x45474C)
+        }
+    }
+
+    /// Saturated version used for the picker dot and the chip's leading bar.
+    func swatch(for tag: EventColorTag) -> Color {
+        switch tag {
+        case .sakura: Color(hex: 0xE8879F)
+        case .peach: Color(hex: 0xF0A072)
+        case .lemon: Color(hex: 0xE2C044)
+        case .mint: Color(hex: 0x62BE98)
+        case .sky: Color(hex: 0x68A4DA)
+        case .lavender: Color(hex: 0xA28CD6)
+        case .cocoa: Color(hex: 0xAE8868)
+        case .gray: Color(hex: 0x9C9FA6)
+        }
     }
 }
 

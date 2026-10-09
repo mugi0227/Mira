@@ -246,6 +246,7 @@ struct CalendarItemSnapshot: Identifiable, Codable, Hashable, Sendable {
     var exactTimeKnown: Bool = true
     var conversationCaseID: UUID? = nil
     var deviceEvent: DeviceEventReference? = nil
+    var colorTag: EventColorTag? = nil
 
     var occupiedInterval: DateInterval {
         let start = Calendar.mira.date(byAdding: .minute, value: -bufferBeforeMinutes, to: startDate) ?? startDate

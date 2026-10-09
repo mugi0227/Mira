@@ -34,6 +34,15 @@ enum DemoSeeder {
             ("友達と遊ぶ", 80, 11, 9, true, false, .confirmed)
         ]
 
+        let demoColors: [String: EventColorTag] = [
+            "仕事": .gray, "会社の飲み会": .gray, "会社の歓迎会": .gray,
+            "みんなでご飯": .sakura, "友達と一日おでかけ": .sakura, "親友とランチ": .sakura, "友達と遊ぶ": .sakura,
+            "恋人とデート": .peach, "家族と外食": .peach,
+            "映画とカフェ": .lavender, "映画": .lavender, "ライブ": .lavender,
+            "週末旅行": .sky, "秋の旅行": .sky,
+            "美容院": .mint, "歯医者": .mint
+        ]
+
         for spec in specifications {
             let day = base.addingDays(spec.1, calendar: clock.calendar)
             let start = day.setting(hour: spec.2, calendar: clock.calendar)
@@ -44,7 +53,7 @@ enum DemoSeeder {
                 endDate: end,
                 isAllDay: spec.4
             )
-            let snapshot = CalendarItemSnapshot(
+            var snapshot = CalendarItemSnapshot(
                 id: UUID(),
                 title: spec.0,
                 startDate: start,
@@ -59,6 +68,7 @@ enum DemoSeeder {
                 isImportantTime: spec.5,
                 sourceID: nil
             )
+            snapshot.colorTag = demoColors[spec.0]
             context.insert(CalendarItemEntity(snapshot: snapshot))
         }
 

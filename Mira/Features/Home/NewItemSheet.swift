@@ -16,6 +16,8 @@ struct NewItemSheet: View {
     @State private var isAllDay = false
     @State private var isImportant = false
     @State private var marginKind: MarginKind = .rest
+    @State private var colorTag: EventColorTag?
+    @State private var colorChosenByUser = false
     @State private var isPreparing = false
     @State private var isReviewing = false
     @State private var preparedEvent: CalendarItemSnapshot?
@@ -44,6 +46,8 @@ struct NewItemSheet: View {
         _isAllDay = State(initialValue: value.isAllDay)
         _isImportant = State(initialValue: value.isImportant)
         _marginKind = State(initialValue: value.marginKind)
+        _colorTag = State(initialValue: value.colorTag)
+        _colorChosenByUser = State(initialValue: value.colorTag != nil)
     }
 
     var body: some View {
@@ -175,6 +179,16 @@ struct NewItemSheet: View {
             Section("予定") {
                 TextField("例：友達とご飯", text: $title)
                     .textInputAutocapitalization(.never)
+                    .onChange(of: title) { _, value in
+                        guard !colorChosenByUser else { return }
+                        colorTag = store.suggestedColor(forTitle: value)
+                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("色")
+                    EventColorPicker(selection: $colorTag, palette: palette) { _ in
+                        colorChosenByUser = true
+                    }
+                }
                 DatePicker("日付", selection: $date, displayedComponents: .date)
                 Toggle("終日", isOn: $isAllDay)
                 if !isAllDay {
@@ -552,7 +566,8 @@ struct NewItemSheet: View {
             startDate: start,
             endDate: end,
             isAllDay: isAllDay,
-            isImportant: isImportant
+            isImportant: isImportant,
+            colorTag: colorTag
         )
     }
 
@@ -588,7 +603,8 @@ struct NewItemSheet: View {
     }
 
     private func commitPreparedEvent(resolution: MiraStore.ImpactResolution) {
-        guard let preparedEvent else { return }
+        guard var preparedEvent else { return }
+        preparedEvent.colorTag = colorTag
         guard reviewContext == store.scheduleReviewContext() else {
             selectedRelocationDate = nil
             store.toast = "予定が変わったので、最新の影響を確認してください。"
@@ -617,6 +633,7 @@ struct NewItemSheet: View {
         value.isImportant = isImportant
         value.marginKind = marginKind
         value.isMargin = mode == .margin
+        value.colorTag = colorTag
         return value
     }
 

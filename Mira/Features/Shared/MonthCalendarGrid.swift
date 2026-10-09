@@ -237,9 +237,15 @@ private struct CalendarEventStrip: View {
                 .minimumScaleFactor(0.72)
         }
         .foregroundStyle(palette.primaryText)
-        .padding(.horizontal, 3)
+        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
+        .padding(.trailing, 3)
         .frame(minHeight: palette.isCatSkin ? 16 : 15, alignment: .leading)
         .background(stripBackground)
+        .overlay(alignment: .leading) {
+            if item.kind != .margin, let tag = item.colorTag {
+                palette.swatch(for: tag).frame(width: 2.5)
+            }
+        }
         .overlay {
             RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
                 .stroke(
@@ -251,7 +257,7 @@ private struct CalendarEventStrip: View {
     }
 
     private var stripBackground: Color {
-        if palette.isCatSkin && item.kind == .confirmed && !item.isImportantTime { return .clear }
+        if palette.isCatSkin && item.kind == .confirmed && !item.isImportantTime && item.colorTag == nil { return .clear }
         return palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96)
     }
 

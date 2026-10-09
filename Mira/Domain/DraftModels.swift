@@ -11,6 +11,7 @@ struct ManualEventDraft: Identifiable, Codable, Hashable, Sendable {
     var isImportant = false
     var marginKind: MarginKind = .rest
     var isMargin = false
+    var colorTag: EventColorTag?
 
     init(date: Date, isMargin: Bool = false) {
         self.date = date

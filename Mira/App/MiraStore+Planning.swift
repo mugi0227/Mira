@@ -85,7 +85,8 @@ extension MiraStore {
         startDate: Date,
         endDate: Date,
         isAllDay: Bool,
-        isImportant: Bool
+        isImportant: Bool,
+        colorTag: EventColorTag? = nil
     ) async -> CalendarItemSnapshot {
         await refreshDeviceCalendar(around: startDate, through: endDate)
         let semantic = await classifier.classify(
@@ -115,7 +116,8 @@ extension MiraStore {
             bufferBeforeMinutes: evaluation.bufferBeforeMinutes,
             bufferAfterMinutes: evaluation.bufferAfterMinutes,
             isImportantTime: isImportant,
-            sourceID: nil
+            sourceID: nil,
+            colorTag: colorTag
         )
     }
 
