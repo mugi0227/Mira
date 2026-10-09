@@ -2,7 +2,7 @@ name: Simulator Screenshots
 
 on:
   push:
-    branches: ["feature/advisory-event-entry"]
+    branches: ["feature/advisory-event-entry", "claude/uiux-review"]
   pull_request:
     branches: [main]
     paths:
