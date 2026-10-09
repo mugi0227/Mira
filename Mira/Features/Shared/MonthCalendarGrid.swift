@@ -211,9 +211,7 @@ struct MonthCalendarGrid: View {
     }
 
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日 EEEE"
+        let formatter = DateFormatter.mira("M月d日 EEEE")
         let suffix = items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、")
         return "\(formatter.string(from: date))、\(suffix)"
     }

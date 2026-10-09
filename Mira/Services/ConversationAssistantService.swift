@@ -471,10 +471,8 @@ private actor FoundationModelConversationInterpreter {
         guard Self.isAvailable else { return nil }
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
-        let dayFormatter = DateFormatter()
-        dayFormatter.calendar = .mira
-        dayFormatter.locale = Locale(identifier: "ja_JP")
-        dayFormatter.dateFormat = "yyyy-MM-dd EEEE"
+        dateFormatter.timeZone = Calendar.mira.timeZone
+        let dayFormatter = DateFormatter.mira("yyyy-MM-dd EEEE")
 
         let candidateText = candidates.enumerated().map { index, candidate in
             "\(index): \(candidate.title) / \(candidate.subtitle)"
@@ -584,19 +582,11 @@ private actor FoundationModelDeclineGenerator {
 @available(iOS 26.0, *)
 private struct FoundationModelDateParser {
     private let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = .mira
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
+        DateFormatter.mira("yyyy-MM-dd", locale: Locale(identifier: "en_US_POSIX"))
     }()
 
     private let dateTimeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = .mira
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        return formatter
+        DateFormatter.mira("yyyy-MM-dd'T'HH:mm", locale: Locale(identifier: "en_US_POSIX"))
     }()
 
     func day(_ text: String) -> Date? {

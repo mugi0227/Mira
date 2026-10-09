@@ -28,15 +28,34 @@ extension Date {
     }
 
     var japaneseMonthTitle: String {
-        formatted(.dateTime.year().month(.wide).locale(Locale(identifier: "ja_JP")))
+        formatted(Date.FormatStyle.mira.year().month(.wide))
     }
 
     var japaneseDayTitle: String {
-        formatted(.dateTime.month().day().weekday(.wide).locale(Locale(identifier: "ja_JP")))
+        formatted(Date.FormatStyle.mira.month().day().weekday(.wide))
     }
 
     var japaneseShortDate: String {
-        formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "ja_JP")))
+        formatted(Date.FormatStyle.mira.month().day().weekday(.abbreviated))
+    }
+}
+
+extension Date.FormatStyle {
+    /// All scheduling math runs on `Calendar.mira`, so display must use the
+    /// same time zone; otherwise a 9:00 plan reads 0:00 on a UTC device.
+    static var mira: Date.FormatStyle {
+        Date.FormatStyle(locale: Locale(identifier: "ja_JP"), calendar: .mira, timeZone: Calendar.mira.timeZone)
+    }
+}
+
+extension DateFormatter {
+    static func mira(_ format: String, locale: Locale = Locale(identifier: "ja_JP")) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = .mira
+        formatter.timeZone = Calendar.mira.timeZone
+        formatter.locale = locale
+        formatter.dateFormat = format
+        return formatter
     }
 }
 

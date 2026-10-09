@@ -93,7 +93,7 @@ struct DayTimelineView: View {
     private var dayHeader: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(date.formatted(.dateTime.year().month().day().weekday(.wide).locale(Locale(identifier: "ja_JP"))))
+                Text(date.formatted(Date.FormatStyle.mira.year().month().day().weekday(.wide)))
                     .font(.title2.bold())
                     .foregroundStyle(palette.primaryText)
                 Text(daySummary)

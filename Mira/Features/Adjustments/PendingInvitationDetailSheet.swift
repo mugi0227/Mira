@@ -334,9 +334,7 @@ struct PendingInvitationDetailSheet: View {
         if candidate.exactTimeKnown == false {
             return "\(candidate.displayTimeBand.title)・\(candidate.displayDuration.title)"
         }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "H:mm"
+        let formatter = DateFormatter.mira("H:mm")
         return "\(formatter.string(from: candidate.startDate))–\(formatter.string(from: candidate.endDate))"
     }
 }

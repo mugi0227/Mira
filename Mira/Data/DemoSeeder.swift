@@ -171,13 +171,9 @@ enum DemoSeeder {
     }
 
     static func message(title: String, candidates: [CandidateSlotSnapshot]) -> String {
-        let dayFormatter = DateFormatter()
-        dayFormatter.locale = Locale(identifier: "ja_JP")
-        dayFormatter.dateFormat = "M/d（E）"
+        let dayFormatter = DateFormatter.mira("M/d（E）")
 
-        let timeFormatter = DateFormatter()
-        timeFormatter.locale = Locale(identifier: "ja_JP")
-        timeFormatter.dateFormat = "H:mm"
+        let timeFormatter = DateFormatter.mira("H:mm")
 
         let lines = candidates
             .filter { $0.status != .released }

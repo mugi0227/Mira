@@ -20,6 +20,11 @@ struct MiraApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView()
+                // Pickers and system date text follow the same calendar the
+                // scheduling engines use, whatever the device region is.
+                .environment(\.locale, Locale(identifier: "ja_JP"))
+                .environment(\.timeZone, Calendar.mira.timeZone)
+                .environment(\.calendar, .mira)
                 .id(ObjectIdentifier(store))
                 .environment(store)
                 .modelContainer(modelContainer)

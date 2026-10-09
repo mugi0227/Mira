@@ -582,13 +582,9 @@ struct NewItemSheet: View {
     }
 
     private func candidateLabel(_ candidate: Date) -> String {
-        let dateText = candidate.formatted(
-            .dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "ja_JP"))
-        )
+        let dateText = candidate.japaneseShortDate
         if isAllDay { return dateText }
-        let timeText = candidate.formatted(
-            .dateTime.hour().minute().locale(Locale(identifier: "ja_JP"))
-        )
+        let timeText = candidate.formatted(Date.FormatStyle.mira.hour().minute())
         return "\(dateText) \(timeText)"
     }
 

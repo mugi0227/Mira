@@ -452,12 +452,12 @@ struct RebalanceProposalSheet: View {
         if move.isAllDay ?? existing?.isAllDay ?? false {
             return "\(date.japaneseShortDate) 終日"
         }
-        let format = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+        let format = Date.FormatStyle.mira.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
         let start = "\(date.japaneseShortDate) \(date.formatted(format))"
         guard let duration = move.durationSeconds ?? existing.map({ $0.endDate.timeIntervalSince($0.startDate) }),
               duration > 0 else { return start }
         let end = date.addingTimeInterval(duration)
-        let endDay = Calendar.current.isDate(date, inSameDayAs: end) ? "" : "\(end.japaneseShortDate) "
+        let endDay = Calendar.mira.isDate(date, inSameDayAs: end) ? "" : "\(end.japaneseShortDate) "
         return "\(start)–\(endDay)\(end.formatted(format))（\(Int(duration / 60))分）"
     }
 }

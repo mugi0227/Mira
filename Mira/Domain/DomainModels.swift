@@ -260,9 +260,7 @@ struct CalendarItemSnapshot: Identifiable, Codable, Hashable, Sendable {
             return "\(schedulingTimeBand.title)・時間未定\(duration)"
         }
         if isAllDay { return "終日" }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "H:mm"
+        let formatter = DateFormatter.mira("H:mm")
         return "\(formatter.string(from: startDate))–\(formatter.string(from: endDate))"
     }
 }

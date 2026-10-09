@@ -169,7 +169,7 @@ struct EventDetailSheet: View {
             if item.bufferBeforeMinutes > 0 && !item.isAllDay {
                 DetailRow(symbol: "figure.walk", title: "準備を始める目安",
                     value: item.startDate.addingTimeInterval(-Double(item.bufferBeforeMinutes) * 60)
-                        .formatted(date: .omitted, time: .shortened), palette: palette)
+                        .formatted(Date.FormatStyle.mira.hour().minute()), palette: palette)
             }
             if item.bufferBeforeMinutes > 0 || item.bufferAfterMinutes > 0 {
                 Divider().overlay(palette.primaryText.opacity(0.08))

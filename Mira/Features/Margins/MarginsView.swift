@@ -291,7 +291,7 @@ struct MarginsView: View {
             HStack {
                 ForEach(1...3, id: \.self) { offset in
                     let month = store.now.addingMonths(offset)
-                    Button(month.formatted(.dateTime.month(.abbreviated).locale(Locale(identifier: "ja_JP")))) {
+                    Button(month.formatted(Date.FormatStyle.mira.month(.abbreviated))) {
                         store.selectedMonth = month
                         store.selectedDate = MonthKey(date: month).firstDay
                         store.ensurePlan(for: month)

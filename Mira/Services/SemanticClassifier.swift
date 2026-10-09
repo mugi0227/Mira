@@ -99,9 +99,7 @@ private actor FoundationModelSemanticClassifier {
     ) async -> EventSemanticClassification? {
         guard Self.isAvailable else { return nil }
 
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "EEE HH:mm"
+        let formatter = DateFormatter.mira("EEE HH:mm")
 
         let session = LanguageModelSession(instructions: """
         You classify personal calendar events for a wellbeing calendar.
