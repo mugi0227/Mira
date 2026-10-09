@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var draftToResume: UUID?
     @State private var showCompanion = false
     @State private var isFriendView = false
+    @State private var friendShareImage: Image?
 
     var body: some View {
         ScrollView {
@@ -324,7 +325,32 @@ struct HomeView: View {
                 .foregroundStyle(palette.accent)
                 .frame(minWidth: 44, minHeight: 44)
         }
+        .padding(.bottom, friendShareImage == nil ? 0 : 52)
+        .overlay(alignment: .bottom) {
+            if let friendShareImage {
+                ShareLink(
+                    item: friendShareImage,
+                    preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
+                ) {
+                    Label("画像で送る", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(palette.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                }
+                .accessibilityIdentifier("friendShareImage")
+            }
+        }
         .miraCard(palette, padding: MiraSpacing.sm)
+        .task(id: "\(MonthKey(date: store.selectedMonth))-\(monthItems.count)") {
+            friendShareImage = FriendShareRenderer.image(for: FriendShareCard(
+                month: store.selectedMonth,
+                items: monthItems,
+                palette: palette,
+                weekStartDay: store.weekStartDay,
+                referenceDate: store.now
+            ))
+        }
     }
 
     private var addMenu: some View {

@@ -41,6 +41,12 @@ final class MiraScreenshotUITests: XCTestCase {
         if tap(app.buttons["friendViewToggle"], in: app) {
             settle(0.8)
             capture("08-friend-view")
+            if tap(app.buttons["friendShareImage"], in: app, timeout: 3) {
+                settle(1.5)
+                capture("08b-friend-share-sheet")
+                app.swipeDown(velocity: .fast)
+                settle(0.8)
+            }
             tap(app.buttons["friendViewToggle"], in: app)
         }
 
