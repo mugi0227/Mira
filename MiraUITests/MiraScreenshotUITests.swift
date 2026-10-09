@@ -42,10 +42,12 @@ final class MiraScreenshotUITests: XCTestCase {
             settle(0.8)
             capture("08-friend-view")
             if tap(app.buttons["friendShareImage"], in: app, timeout: 3) {
-                settle(1.5)
-                capture("08b-friend-share-sheet")
-                app.swipeDown(velocity: .fast)
-                settle(0.8)
+                let shareSheet = app.otherElements["ActivityListView"]
+                if shareSheet.waitForExistence(timeout: 6) {
+                    settle(0.8)
+                    capture("08b-friend-share-sheet")
+                }
+                dismissShareSheet(in: app)
             }
             tap(app.buttons["friendViewToggle"], in: app)
         }
@@ -182,6 +184,22 @@ final class MiraScreenshotUITests: XCTestCase {
             } else {
                 dismissSheet(in: app)
             }
+        }
+    }
+
+    /// The system share sheet labels its close button by locale.
+    private func dismissShareSheet(in app: XCUIApplication) {
+        for label in ["閉じる", "Close", "キャンセル", "Cancel"] {
+            let button = app.otherElements["ActivityListView"].buttons[label]
+            if button.exists {
+                button.tap()
+                settle(0.8)
+                return
+            }
+        }
+        if app.otherElements["ActivityListView"].exists {
+            app.otherElements["ActivityListView"].swipeDown(velocity: .fast)
+            settle(0.8)
         }
     }
 
