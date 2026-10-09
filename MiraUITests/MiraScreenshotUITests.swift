@@ -59,6 +59,11 @@ final class MiraScreenshotUITests: XCTestCase {
 
         guard tap(app.buttons["設定"], in: app) else { return }
         capture("13-settings")
+        app.swipeUp()
+        settle()
+        capture("13b-settings-calendar-display")
+        app.swipeDown()
+        settle()
 
         if tap(app.staticTexts["余白のおまかせ"], in: app),
            app.navigationBars["余白のおまかせ"].waitForExistence(timeout: 3) {

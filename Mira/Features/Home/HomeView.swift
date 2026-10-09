@@ -44,7 +44,7 @@ struct HomeView: View {
                     .padding(.horizontal, MiraSpacing.md)
             }
             .padding(.top, MiraSpacing.xs)
-            .padding(.bottom, 96)
+            .padding(.bottom, 96 + floatingTabBarClearance)
         }
         .miraScreenBackground(palette)
         .overlay(alignment: .bottomTrailing) {
@@ -53,7 +53,7 @@ struct HomeView: View {
                     showCompanion = true
                 }
                 .padding(.trailing, MiraSpacing.md)
-                .padding(.bottom, MiraSpacing.sm)
+                .padding(.bottom, MiraSpacing.sm + floatingTabBarClearance)
             }
         }
         .sheet(isPresented: $showCompanion) {
@@ -87,6 +87,12 @@ struct HomeView: View {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
             await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
+    }
+
+    /// The cat skin draws its own floating tab bar over the content instead
+    /// of insetting it, so corner controls must lift themselves above it.
+    private var floatingTabBarClearance: CGFloat {
+        palette.isCatSkin ? 92 : 0
     }
 
     private var monthItems: [CalendarItemSnapshot] {

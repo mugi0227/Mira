@@ -14,7 +14,7 @@ final class MiraUITests: XCTestCase {
             start.tap()
         }
 
-        XCTAssertTrue(app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["調整"].exists)
         XCTAssertTrue(app.buttons["マイ余白"].exists)
     }

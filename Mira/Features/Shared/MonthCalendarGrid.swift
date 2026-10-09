@@ -18,7 +18,7 @@ struct MonthCalendarGrid: View {
         value.firstWeekday = weekStartDay.calendarFirstWeekday
         return value
     }
-    private let cellHeight: CGFloat = 98
+    private let cellHeight: CGFloat = 90
 
     var body: some View {
         VStack(spacing: 0) {

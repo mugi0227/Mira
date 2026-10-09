@@ -12,6 +12,7 @@ final class GrillMeFlowUITests: XCTestCase {
     }
 
     func testUniversalInputOpensPreselectedSchedulingMode() throws {
+        openCompanion()
         let input = app.descendants(matching: .any)["miraQuickInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 12))
         input.tap()
@@ -33,6 +34,7 @@ final class GrillMeFlowUITests: XCTestCase {
     }
 
     func testManualContextPickerHasCategoryTabsAndPastOptIn() throws {
+        openCompanion()
         let contextButton = app.buttons["この話について予定を指定"]
         XCTAssertTrue(contextButton.waitForExistence(timeout: 10))
         contextButton.tap()
@@ -49,7 +51,7 @@ final class GrillMeFlowUITests: XCTestCase {
         let home = app.buttons["miraTab-home"]
         XCTAssertTrue(home.waitForExistence(timeout: 10))
         XCTAssertTrue(home.isHittable)
-        XCTAssertTrue(app.descendants(matching: .any)["miraQuickInput"].exists)
+        XCTAssertTrue(app.buttons["miraCompanionButton"].exists)
         capture("cat-skin-01-home")
 
         let destinations = [
@@ -89,6 +91,7 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(home.waitForExistence(timeout: 4))
         XCTAssertTrue(home.isHittable)
 
+        openCompanion()
         let contextPicker = app.buttons["contextPickerButton"]
         XCTAssertTrue(contextPicker.waitForExistence(timeout: 4))
         contextPicker.tap()
@@ -98,11 +101,15 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(app.switches["includePastToggle"].exists)
         capture("cat-skin-context-sheet")
         contextSheet.buttons["閉じる"].tap()
+        let companionSheet = app.navigationBars["Mira"]
+        XCTAssertTrue(companionSheet.waitForExistence(timeout: 4))
+        companionSheet.buttons["閉じる"].tap()
         XCTAssertTrue(home.waitForExistence(timeout: 4))
         XCTAssertTrue(home.isHittable)
     }
 
     func testPastedEventShowsHumanReviewedPreview() throws {
+        openCompanion()
         let input = app.descendants(matching: .any)["miraQuickInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         input.tap()
@@ -132,7 +139,24 @@ final class GrillMeFlowUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 12)
+        _ = app.buttons["miraCompanionButton"].waitForExistence(timeout: 12)
+    }
+
+    /// Talking to Mira starts from the companion in the home corner.
+    private func openCompanion() {
+        let companion = app.buttons["miraCompanionButton"]
+        XCTAssertTrue(companion.waitForExistence(timeout: 12))
+        companion.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 5))
+    }
+
+    /// Cards below the calendar may start off-screen behind the tab bar.
+    private func scrollUntilHittable(_ element: XCUIElement) {
+        var attempts = 0
+        while !element.isHittable, attempts < 4 {
+            app.swipeUp()
+            attempts += 1
+        }
     }
 
     func testInterruptedEntrySurvivesRelaunchAndResumesFromHome() throws {
@@ -150,6 +174,7 @@ final class GrillMeFlowUITests: XCTestCase {
         app.launch()
         let resume = app.buttons["resumeLatestDraft"]
         XCTAssertTrue(resume.waitForExistence(timeout: 12))
+        scrollUntilHittable(resume)
         resume.tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertEqual(title.value as? String, "途中で考えていた食事")
