@@ -38,6 +38,12 @@ final class MiraScreenshotUITests: XCTestCase {
         app.swipeDown()
         settle()
 
+        if tap(app.buttons["friendViewToggle"], in: app) {
+            settle(0.8)
+            capture("08-friend-view")
+            tap(app.buttons["friendViewToggle"], in: app)
+        }
+
         if tap(app.buttons["miraCompanionButton"], in: app) {
             settle(0.8)
             capture("07-mira-companion-sheet")

@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
     @State private var showCompanion = false
+    @State private var isFriendView = false
 
     var body: some View {
         ScrollView {
@@ -18,6 +19,12 @@ struct HomeView: View {
             VStack(spacing: MiraSpacing.sm) {
                 monthHeader
                     .padding(.horizontal, MiraSpacing.md)
+
+                if isFriendView {
+                    friendViewBanner
+                        .padding(.horizontal, MiraSpacing.md)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 MonthCalendarGrid(
                     month: store.selectedMonth,
@@ -30,25 +37,30 @@ struct HomeView: View {
                     weekStartDay: store.weekStartDay,
                     holidays: store.deviceHolidays,
                     referenceDate: store.now,
+                    allowsDragging: !isFriendView,
+                    privacyMode: isFriendView,
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                     onSelectDate: openDay,
-                    onSelectItem: { selectedItem = $0 }
+                    onSelectItem: { item in if !isFriendView { selectedItem = item } }
                 )
                 .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
 
-                nextStepCard
-                    .padding(.horizontal, MiraSpacing.md)
-                    .padding(.top, MiraSpacing.xs)
+                if !isFriendView {
+                    nextStepCard
+                        .padding(.horizontal, MiraSpacing.md)
+                        .padding(.top, MiraSpacing.xs)
 
-                progressSummary
-                    .padding(.horizontal, MiraSpacing.md)
+                    progressSummary
+                        .padding(.horizontal, MiraSpacing.md)
+                }
             }
+            .animation(MiraMotion.standard, value: isFriendView)
             .padding(.top, MiraSpacing.xs)
             .padding(.bottom, 96 + floatingTabBarClearance)
         }
         .miraScreenBackground(palette)
         .overlay(alignment: .bottomTrailing) {
-            if store.assistantEnabled {
+            if store.assistantEnabled && !isFriendView {
                 MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
                     showCompanion = true
                 }
@@ -64,6 +76,9 @@ struct HomeView: View {
         .toolbar(palette.isCatSkin ? .hidden : .visible, for: .navigationBar)
         .toolbar {
             if !palette.isCatSkin {
+                ToolbarItem(placement: .topBarLeading) {
+                    friendViewButton
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     addMenu
                 }
@@ -247,10 +262,7 @@ struct HomeView: View {
                     .foregroundStyle(palette.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Text("やさしい毎日を、つくろう")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
-                    .multilineTextAlignment(.center)
+                friendViewButton
             }
             .frame(maxWidth: .infinity)
 
@@ -271,6 +283,48 @@ struct HomeView: View {
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
         .padding(.vertical, 4)
+    }
+
+    private var friendViewButton: some View {
+        Button {
+            isFriendView.toggle()
+        } label: {
+            Label(isFriendView ? "見せる用" : "友だちに見せる", systemImage: isFriendView ? "eye.slash.fill" : "eye")
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 30)
+                .background(isFriendView ? palette.accentSoft : palette.surface.opacity(0.7), in: Capsule())
+                .contentShape(Rectangle())
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(MiraPressStyle())
+        .foregroundStyle(palette.accent)
+        .accessibilityLabel(isFriendView ? "見せる用モードを終える" : "友だちに見せる用の表示にする")
+        .accessibilityIdentifier("friendViewToggle")
+    }
+
+    private var friendViewBanner: some View {
+        HStack(spacing: MiraSpacing.sm) {
+            Image(systemName: "eye.slash.fill")
+                .foregroundStyle(palette.accent)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("見せる用モード")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(palette.primaryText)
+                Text("中身は隠して「予定あり」だけ表示中。空いている日がひと目でわかります。")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button("戻る") { isFriendView = false }
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(palette.accent)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .miraCard(palette, padding: MiraSpacing.sm)
     }
 
     private var addMenu: some View {
@@ -379,6 +433,8 @@ struct HomeView: View {
 
     private func openDay(_ date: Date) {
         store.selectedDate = date
+        // The day timeline shows titles, so friend view stays on the month.
+        guard !isFriendView else { return }
         if !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
             store.selectedMonth = MonthKey(date: date).firstDay
             store.ensurePlan(for: date)

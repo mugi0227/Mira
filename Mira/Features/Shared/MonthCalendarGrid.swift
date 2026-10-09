@@ -9,6 +9,8 @@ struct MonthCalendarGrid: View {
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
+    /// Friend view: every day with anything on it reads only "予定あり".
+    var privacyMode = false
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
@@ -139,27 +141,31 @@ struct MonthCalendarGrid: View {
                         .padding(.horizontal, 2)
                 }
 
-                ForEach(dayItems.prefix(visibleItemLimit)) { item in
-                    HStack(spacing: 0) {
-                        CalendarEventStrip(item: item, palette: palette)
-                        .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
-                        .onTapGesture { onSelectItem?(item) }
-                        .draggable(allowsDragging ? item.id.uuidString : "")
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(item.title)、\(item.timeDescription)")
-                        .accessibilityHint("予定の詳細を開く")
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction { onSelectItem?(item) }
-                        Spacer(minLength: 0)
+                if privacyMode {
+                    if !dayItems.isEmpty { BusyStrip(palette: palette) }
+                } else {
+                    ForEach(dayItems.prefix(visibleItemLimit)) { item in
+                        HStack(spacing: 0) {
+                            CalendarEventStrip(item: item, palette: palette)
+                            .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+                            .onTapGesture { onSelectItem?(item) }
+                            .draggable(allowsDragging ? item.id.uuidString : "")
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(item.title)、\(item.timeDescription)")
+                            .accessibilityHint("予定の詳細を開く")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { onSelectItem?(item) }
+                            Spacer(minLength: 0)
+                        }
                     }
-                }
 
-                if dayItems.count > visibleItemLimit {
-                    Text("ほか \(dayItems.count - visibleItemLimit)件")
-                        .font(.system(size: 8, weight: .semibold, design: .rounded))
-                        .foregroundStyle(palette.secondaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 2)
+                    if dayItems.count > visibleItemLimit {
+                        Text("ほか \(dayItems.count - visibleItemLimit)件")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundStyle(palette.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 2)
+                    }
                 }
             }
 
@@ -180,7 +186,7 @@ struct MonthCalendarGrid: View {
         }
         .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
         .dropDestination(for: String.self) { payloads, _ in
-            guard allowsDragging,
+            guard allowsDragging, !privacyMode,
                   let raw = payloads.first,
                   let id = UUID(uuidString: raw) else { return false }
             onMoveItem?(id, date)
@@ -212,8 +218,29 @@ struct MonthCalendarGrid: View {
 
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
-        let suffix = items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、")
+        let suffix = items.isEmpty ? "予定なし" : (privacyMode ? "予定あり" : items.map(\.title).joined(separator: "、"))
         return "\(formatter.string(from: date))、\(suffix)"
+    }
+}
+
+private struct BusyStrip: View {
+    let palette: MiraThemePalette
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 7, weight: .bold))
+                .accessibilityHidden(true)
+            Text("予定あり")
+                .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(palette.secondaryText)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
+        .background(palette.secondaryText.opacity(0.14), in: RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+        .accessibilityHidden(true)
     }
 }
 
