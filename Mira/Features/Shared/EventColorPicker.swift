@@ -7,16 +7,14 @@ struct EventColorPicker: View {
     var onPick: ((EventColorTag?) -> Void)?
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                noneButton
-                ForEach(EventColorTag.allCases) { tag in
-                    dot(for: tag)
-                }
+        // Two calm rows keep every color visible without sideways scrolling.
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 5), spacing: 0) {
+            noneButton
+            ForEach(EventColorTag.allCases) { tag in
+                dot(for: tag)
             }
-            .padding(.vertical, 2)
         }
-        .scrollClipDisabled()
+        .padding(.vertical, 2)
         .sensoryFeedback(.selection, trigger: selection)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("予定の色")
@@ -33,7 +31,7 @@ struct EventColorPicker: View {
                     .foregroundStyle(palette.secondaryText)
             }
             .overlay { selectionRing(isSelected: selection == nil) }
-            .frame(width: 44, height: 44)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(MiraPressStyle())
@@ -54,7 +52,7 @@ struct EventColorPicker: View {
                 }
             }
             .overlay { selectionRing(isSelected: selection == tag) }
-            .frame(width: 44, height: 44)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(MiraPressStyle())
