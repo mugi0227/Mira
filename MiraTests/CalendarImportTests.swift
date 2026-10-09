@@ -24,15 +24,13 @@ final class CalendarImportParsingTests: XCTestCase {
         XCTAssertEqual(Calendar.mira.component(.hour, from: timed.start), 1)
         XCTAssertEqual(timed.end.timeIntervalSince(timed.start), 3600)
         XCTAssertFalse(timed.isAllDay)
-        XCTAssertEqual(timed.colorTag, .other, "unknown titles default to その他")
+        XCTAssertNil(timed.colorTag, "the review screen colors plans with the person's profile")
 
         let trip = candidates[1]
         XCTAssertTrue(trip.isAllDay)
         XCTAssertEqual(trip.end.timeIntervalSince(trip.start), 2 * 86_400, "both days are covered")
-        XCTAssertEqual(trip.colorTag, .play)
 
         let race = candidates[2]
-        XCTAssertEqual(race.colorTag, .keiba)
         XCTAssertTrue(race.needsReview, "low confidence asks for a look")
         XCTAssertEqual(race.end.timeIntervalSince(race.start), 3600)
     }
@@ -85,11 +83,11 @@ final class CalendarImportCommitTests: XCTestCase {
             end: TestFixtures.date(day: 5, hour: 11), isAllDay: false, colorTag: nil, confidence: 0.9, sourceIndex: 0)
         skipped.isSelected = false
         let kept = ImportCandidate(title: "推しのライブ", start: TestFixtures.date(day: 6, hour: 18),
-            end: TestFixtures.date(day: 6, hour: 21), isAllDay: false, colorTag: .otaku, confidence: 0.9, sourceIndex: 0)
+            end: TestFixtures.date(day: 6, hour: 21), isAllDay: false, colorTag: .skyLight, confidence: 0.9, sourceIndex: 0)
 
         XCTAssertEqual(store.importCandidates([skipped, kept]), 1)
         XCTAssertEqual(store.items.map(\.title), ["推しのライブ"])
-        XCTAssertEqual(store.items.first?.colorTag, .otaku)
+        XCTAssertEqual(store.items.first?.colorTag, .skyLight)
         XCTAssertEqual(store.undoEntry?.title, "カレンダーの引っ越し")
 
         await store.undoLastCalendarMutation()

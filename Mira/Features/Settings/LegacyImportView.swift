@@ -192,10 +192,12 @@ struct LegacyImportView: View {
                 failures.append("\(index + 1)枚目：\(error.localizedDescription)")
             }
         }
-        candidates = ImportCandidateBuilder.markDuplicates(
-            found.sorted { $0.start < $1.start },
-            existing: store.items
-        )
+        let colored = found.sorted { $0.start < $1.start }.map { candidate -> ImportCandidate in
+            var value = candidate
+            value.colorTag = store.suggestedColor(forTitle: candidate.title) ?? store.colorProfile.fallbackColor
+            return value
+        }
+        candidates = ImportCandidateBuilder.markDuplicates(colored, existing: store.items)
         phase = candidates.isEmpty && !failures.isEmpty ? .choose : .review
         if candidates.isEmpty && failures.isEmpty { failures = ["予定が見つかりませんでした"] }
     }
@@ -300,6 +302,7 @@ struct LegacyImportView: View {
 }
 
 private struct ImportCandidateRow: View {
+    @Environment(MiraStore.self) private var store
     @Binding var candidate: ImportCandidate
     let palette: MiraThemePalette
 
@@ -336,7 +339,7 @@ private struct ImportCandidateRow: View {
 
             Menu {
                 ForEach(EventColorTag.allCases) { tag in
-                    Button("\(tag.meaning)（\(tag.title)）") { candidate.colorTag = tag }
+                    Button(store.label(for: tag).map { "\($0)（\(tag.title)）" } ?? tag.title) { candidate.colorTag = tag }
                 }
                 Button("色なし") { candidate.colorTag = nil }
             } label: {
@@ -346,7 +349,7 @@ private struct ImportCandidateRow: View {
                     .frame(width: 26, height: 26)
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel("色：\(candidate.colorTag?.meaning ?? "なし")")
+            .accessibilityLabel("色：\(candidate.colorTag.map(store.displayName(for:)) ?? "なし")")
         }
         .opacity(candidate.isSelected ? 1 : 0.55)
     }
@@ -373,6 +376,7 @@ private struct ImportCandidateRow: View {
 
 // PERSONAL BUILD ONLY — remove before submitting to the App Store.
 struct GeminiSettingsSheet: View {
+    @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let palette: MiraThemePalette
 
@@ -395,6 +399,14 @@ struct GeminiSettingsSheet: View {
                     Text("Gemini")
                 } footer: {
                     Text("キーはこのiPhoneのキーチェーンにだけ保存されます。モデルの初期値は \(GeminiSettingsStore.defaultModel) です。")
+                }
+                Section {
+                    Toggle("ミラ用の色ルール", isOn: Binding(
+                        get: { store.colorProfile == .mira },
+                        set: { store.setColorProfile($0 ? .mira : .standard) }
+                    ))
+                } footer: {
+                    Text("ふだんはアカウントで自動的に切り替わります。この端末で試すとき用です。")
                 }
                 if hasKey {
                     Section {

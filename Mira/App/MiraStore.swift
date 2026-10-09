@@ -39,6 +39,8 @@ final class MiraStore {
     private(set) var aiStatus = "確認中"
     var isInterpretingConversation = false
     var chatMessages: [ChatMessage] = []
+    var colorLabels: [EventColorTag: String] = [:]
+    var colorProfile: ColorProfile = .standard
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
     @ObservationIgnored var chatHistoryRestored = false
@@ -177,6 +179,7 @@ final class MiraStore {
             }
 
             applySettings()
+            loadColorPreferences()
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()
             selectedMonth = clock.now
             selectedDate = clock.now
@@ -265,6 +268,7 @@ final class MiraStore {
     private func resetPersistentTestState() throws {
         clearAllDrafts()
         resetChat()
+        resetColorPreferences()
         try context.delete(model: CalendarItemEntity.self)
         try context.delete(model: MarginGoalEntity.self)
         try context.delete(model: BaseRuleEntity.self)

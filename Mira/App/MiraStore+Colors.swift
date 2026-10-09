@@ -18,7 +18,59 @@ extension MiraStore {
         })?.colorTag {
             return similar
         }
-        return EventColorTag.suggested(forTitle: title)
+        return colorProfile.suggestedColor(forTitle: title)
+    }
+
+    // MARK: - Labels and profile
+
+    private static let labelsKey = "mira.colorLabels"
+    private static let profileKey = "mira.colorProfile"
+
+    /// The person's name for a color, if they gave it one.
+    func label(for tag: EventColorTag) -> String? {
+        colorLabels[tag].flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    func displayName(for tag: EventColorTag) -> String {
+        label(for: tag) ?? tag.title
+    }
+
+    func setLabel(_ raw: String, for tag: EventColorTag) {
+        let value = String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12))
+        if value.isEmpty { colorLabels[tag] = nil } else { colorLabels[tag] = value }
+        persistColorPreferences()
+    }
+
+    /// Turning a profile on fills in its labels where the person has none.
+    func setColorProfile(_ profile: ColorProfile) {
+        colorProfile = profile
+        for (tag, label) in profile.defaultLabels where self.label(for: tag) == nil {
+            colorLabels[tag] = label
+        }
+        persistColorPreferences()
+    }
+
+    func loadColorPreferences() {
+        let defaults = UserDefaults.standard
+        if let raw = defaults.dictionary(forKey: Self.labelsKey) as? [String: String] {
+            colorLabels = Dictionary(uniqueKeysWithValues: raw.compactMap { key, value in
+                EventColorTag(rawValue: key).map { ($0, value) }
+            })
+        }
+        colorProfile = defaults.string(forKey: Self.profileKey).flatMap(ColorProfile.init(rawValue:)) ?? .standard
+    }
+
+    func resetColorPreferences() {
+        colorLabels = [:]
+        colorProfile = .standard
+        UserDefaults.standard.removeObject(forKey: Self.labelsKey)
+        UserDefaults.standard.removeObject(forKey: Self.profileKey)
+    }
+
+    private func persistColorPreferences() {
+        let raw = Dictionary(uniqueKeysWithValues: colorLabels.map { ($0.key.rawValue, $0.value) })
+        UserDefaults.standard.set(raw, forKey: Self.labelsKey)
+        UserDefaults.standard.set(colorProfile.rawValue, forKey: Self.profileKey)
     }
 
     func setColor(itemID: UUID, to tag: EventColorTag?) {

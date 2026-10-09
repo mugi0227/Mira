@@ -66,7 +66,7 @@ enum ImportCandidateBuilder {
                 start: start,
                 end: end,
                 isAllDay: event.allDay || startTime == nil,
-                colorTag: EventColorTag.suggested(forTitle: title) ?? .other,
+                colorTag: nil,
                 confidence: min(max(event.confidence ?? 0.8, 0), 1),
                 sourceIndex: sourceIndex
             )

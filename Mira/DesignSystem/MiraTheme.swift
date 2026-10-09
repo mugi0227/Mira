@@ -143,38 +143,28 @@ struct MiraThemePalette {
         return surface
     }
 
-    /// Chip background in the calendar.
+    /// Chip background in the calendar: light tones as they are, medium
+    /// tones softened, deep tones and black solid with white text.
     func fill(for tag: EventColorTag) -> Color {
-        switch (tag, isDark) {
-        case (.play, false): Color(hex: 0xBFE6FA)
-        case (.otaku, false): Color(hex: 0xE6F5FC)
-        case (.work, false): Color(hex: 0xF8D3D3)
-        case (.care, false): Color(hex: 0xE7F3D2)
-        case (.other, false): Color(hex: 0xFBF2C6)
-        case (.info, false): Color(hex: 0xFBD9E8)
-        case (.deadline, false): Color(hex: 0xE2D8F4)
-        case (.lottery, _): Color(hex: 0x2E2E2E)
-        case (.keiba, false): Color(hex: 0xBFE3CC)
-        case (.birthday, false): Color(hex: 0xFFFFFF)
-        case (.play, true): Color(hex: 0x1F4F6B)
-        case (.otaku, true): Color(hex: 0x2A4A5A)
-        case (.work, true): Color(hex: 0x6A3434)
-        case (.care, true): Color(hex: 0x45542C)
-        case (.other, true): Color(hex: 0x5C5230)
-        case (.info, true): Color(hex: 0x6A3550)
-        case (.deadline, true): Color(hex: 0x47396A)
-        case (.keiba, true): Color(hex: 0x24513A)
-        case (.birthday, true): Color(hex: 0xEDEDED)
+        let base = Color(hex: tag.swatchHex)
+        switch tag.tone {
+        case .light: return isDark ? base.opacity(0.38) : base
+        case .medium: return base.opacity(isDark ? 0.6 : 0.5)
+        case .deep: return base
+        case .neutral:
+            switch tag {
+            case .white: return isDark ? Color(hex: 0xEDEDED) : .white
+            case .gray: return Color(hex: isDark ? 0x5A5A5A : 0xE0E0E0)
+            default: return base
+            }
         }
     }
 
-    /// Text that stays readable on the chip (black and white chips flip).
+    /// Text that stays readable on the chip.
     func chipText(for tag: EventColorTag) -> Color {
-        switch tag {
-        case .lottery: .white
-        case .birthday: Color(hex: 0x333333)
-        default: primaryText
-        }
+        if tag.prefersLightText { return .white }
+        if tag == .white { return Color(hex: 0x333333) }
+        return primaryText
     }
 
     func swatch(for tag: EventColorTag) -> Color {

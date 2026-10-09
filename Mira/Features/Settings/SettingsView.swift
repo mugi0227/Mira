@@ -56,6 +56,11 @@ struct SettingsView: View {
                 } label: {
                     SettingsRow(symbol: "paintpalette.fill", title: "スキン", value: store.theme.displayName, tint: palette.accent)
                 }
+                NavigationLink {
+                    ColorLabelSettingsView(palette: palette)
+                } label: {
+                    SettingsRow(symbol: "swatchpalette.fill", title: "色のラベル", value: "\(store.colorLabels.count)色", tint: palette.accent)
+                }
                 Toggle("案内役を表示", systemImage: "bubble.left.and.bubble.right.fill", isOn: Binding(
                     get: { store.assistantEnabled },
                     set: { store.setAssistantEnabled($0) }
