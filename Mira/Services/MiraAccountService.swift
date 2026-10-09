@@ -94,8 +94,7 @@ final class MiraAccountService: @unchecked Sendable {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
             if status == 401 { signOut(); throw MiraAccountError.notSignedIn }
-            struct Failure: Decodable { var error: String? }
-            let message = (try? JSONDecoder().decode(Failure.self, from: data))?.error ?? "不明なエラー"
+            let message = (try? JSONDecoder().decode(ServerFailure.self, from: data))?.error ?? "不明なエラー"
             throw MiraAccountError.server(status, message)
         }
         return try JSONDecoder().decode(Response.self, from: data)
@@ -127,6 +126,10 @@ final class MiraAccountService: @unchecked Sendable {
             status = SecItemAdd(item as CFDictionary, nil)
         }
     }
+}
+
+private struct ServerFailure: Decodable {
+    var error: String?
 }
 
 /// Reads calendar images through the Mira server (premium accounts).
