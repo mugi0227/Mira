@@ -52,7 +52,7 @@ extension MiraStore {
             try context.save()
             try refresh()
             currentMarginRecommendation = recommendation
-            autoPlaceMargins(for: selectedMonth)
+            autoPlaceMargins(for: selectedMonth, offerUndo: false)
             if useDeviceHolidays {
                 Task { await setDeviceHolidaysEnabled(true) }
             }

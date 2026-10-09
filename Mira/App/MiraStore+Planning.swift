@@ -20,7 +20,7 @@ extension MiraStore {
             }
             try context.save()
             try refresh()
-            autoPlaceMargins(for: selectedMonth)
+            autoPlaceMargins(for: selectedMonth, offerUndo: false)
         } catch {
             context.rollback()
             onboardingCompleted = false
@@ -47,7 +47,9 @@ extension MiraStore {
         }
     }
 
-    func autoPlaceMargins(for month: Date) {
+    /// `offerUndo` is false for placement the person did not ask for directly
+    /// (finishing onboarding), where an undo bar would only be noise.
+    func autoPlaceMargins(for month: Date, offerUndo: Bool = true) {
         ensurePlan(for: month, provisional: false)
         let key = MonthKey(date: month)
         let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
@@ -68,7 +70,7 @@ extension MiraStore {
             proposal.slots.forEach { context.insert(CalendarItemEntity(snapshot: $0)) }
             try context.save()
             try refresh()
-            finishCalendarMutation(undo)
+            if offerUndo { finishCalendarMutation(undo) }
             updateMarginRecommendation(for: month)
             recalculateBalance(for: month)
             toast = proposal.unmetGoals.isEmpty

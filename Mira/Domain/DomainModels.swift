@@ -78,6 +78,17 @@ enum MarginKind: String, Codable, CaseIterable, Identifiable {
         allCases.filter { !$0.isLegacyRestAlias }
     }
 
+    /// Fits a calendar chip; the full title stays for lists and details.
+    var shortTitle: String {
+        switch self {
+        case .rest, .freeEvening, .solo: "休息"
+        case .reading: "読書"
+        case .personalProject: "やりたい"
+        case .importantPeople: "大切な人"
+        case .custom: "余白"
+        }
+    }
+
     var title: String {
         switch self {
         case .rest: "何もしない・休息"

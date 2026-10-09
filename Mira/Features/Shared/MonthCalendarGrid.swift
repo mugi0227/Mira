@@ -20,7 +20,6 @@ struct MonthCalendarGrid: View {
         value.firstWeekday = weekStartDay.calendarFirstWeekday
         return value
     }
-    private let cellHeight: CGFloat = 90
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,8 +41,10 @@ struct MonthCalendarGrid: View {
             gridLine.frame(height: 0.5)
 
             LazyVGrid(columns: columns, spacing: 0) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { index, date in
-                    dayCell(date, index: index)
+                let days = cells
+                let cellHeight: CGFloat = days.count > 35 ? 88 : 104
+                ForEach(Array(days.enumerated()), id: \.offset) { index, date in
+                    dayCell(date, index: index, cellHeight: cellHeight)
                 }
             }
         }
@@ -64,14 +65,18 @@ struct MonthCalendarGrid: View {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
-    /// A stable six-week grid keeps the month view from jumping and also shows
-    /// the neighboring dates that users need when they are planning ahead.
+    /// Only the weeks the month actually spans, so the space a trailing row of
+    /// next-month dates used to take goes to larger cells instead. Leading and
+    /// trailing neighbor dates in those weeks still show for planning ahead.
     private var cells: [Date] {
-        let first = MonthKey(date: month, calendar: calendar).firstDay
+        let key = MonthKey(date: month, calendar: calendar)
+        let first = key.firstDay
         let weekday = calendar.component(.weekday, from: first)
         let leading = (weekday - calendar.firstWeekday + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -leading, to: first) ?? first
-        return (0..<42).compactMap { offset in
+        let daysInMonth = calendar.range(of: .day, in: .month, for: first)?.count ?? 30
+        let weeks = Int((Double(leading + daysInMonth) / 7).rounded(.up))
+        return (0..<(weeks * 7)).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: gridStart)
         }
     }
@@ -90,7 +95,7 @@ struct MonthCalendarGrid: View {
     }
 
     @ViewBuilder
-    private func dayCell(_ date: Date, index: Int) -> some View {
+    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = items
             .filter { calendar.isDate($0.startDate, inSameDayAs: date) }
             .sorted { lhs, rhs in
@@ -256,7 +261,7 @@ private struct CalendarEventStrip: View {
                     .accessibilityHidden(true)
             }
 
-            Text(item.title)
+            Text(chipTitle)
                 .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
@@ -279,6 +284,13 @@ private struct CalendarEventStrip: View {
                 )
         }
         .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+    }
+
+    /// Margins named after their kind read as a short word; a margin the
+    /// person named themselves keeps that name.
+    private var chipTitle: String {
+        guard item.kind == .margin, let kind = item.marginKind else { return item.title }
+        return item.title == kind.title || item.title == kind.canonicalKind.title ? kind.shortTitle : item.title
     }
 
     private var stripBackground: Color {
