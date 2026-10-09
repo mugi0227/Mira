@@ -175,29 +175,38 @@ extension MiraStore {
         }
     }
 
+    /// Moves a plan to another day, keeping its time of day.
     func moveItem(id: UUID, to date: Date) {
+        guard let item = items.first(where: { $0.id == id }) else { return }
+        guard !Calendar.mira.isDate(item.startDate, inSameDayAs: date) else { return }
+        let time = Calendar.mira.dateComponents([.hour, .minute], from: item.startDate)
+        rescheduleItem(id: id, toStart: date.setting(hour: time.hour ?? 9, minute: time.minute ?? 0))
+    }
+
+    /// Moves a plan to a new start, keeping its length. A move the person made
+    /// themselves is already an explicit choice, so it saves at once with undo
+    /// and only stops to ask when it would cost a margin or collide.
+    func rescheduleItem(id: UUID, toStart newStart: Date) {
         do {
             guard let entity = try entity(id: id) else { return }
             guard entity.snapshot.deviceEvent == nil else {
                 toast = "この予定の詳細から「カレンダーで編集」を選んでください"
                 return
             }
-            guard !Calendar.mira.isDate(entity.startDate, inSameDayAs: date) else { return }
-            let duration = entity.endDate.timeIntervalSince(entity.startDate)
-            let oldComponents = Calendar.mira.dateComponents([.hour, .minute], from: entity.startDate)
-            let newStart = date.setting(hour: oldComponents.hour ?? 9, minute: oldComponents.minute ?? 0)
+            guard newStart != entity.startDate else { return }
             var after = entity.snapshot
             after.startDate = newStart
-            after.endDate = newStart.addingTimeInterval(duration)
+            after.endDate = newStart.addingTimeInterval(entity.endDate.timeIntervalSince(entity.startDate))
             let impact = previewImpact(for: after, excludingItemID: id)
             let conflicts = eventEntryConflicts(for: after, excludingItemID: id)
             let preview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
                 before: entity.snapshot, after: after, conflicts: conflicts, impact: impact)
-            // A drag the person made themselves is already an explicit choice:
-            // only stop to ask when it would cost a margin or collide.
             if conflicts.isEmpty, impact.overlappingMargins.isEmpty, impact.protectionLevel == .flexible {
-                try commitChange(preview, to: entity, undoTitle: "予定の移動")
-                toast = "\(after.title)を\(newStart.japaneseShortDate)へ移したにゃ"
+                let sameDay = Calendar.mira.isDate(entity.startDate, inSameDayAs: newStart)
+                try commitChange(preview, to: entity, undoTitle: sameDay ? "時間の変更" : "予定の移動")
+                toast = sameDay
+                    ? "\(after.title)を\(newStart.formatted(Date.FormatStyle.mira.hour().minute()))からにしたにゃ"
+                    : "\(after.title)を\(newStart.japaneseShortDate)へ移したにゃ"
             } else {
                 pendingChangePreview = preview
             }

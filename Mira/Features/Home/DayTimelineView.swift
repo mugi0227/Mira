@@ -13,6 +13,9 @@ struct DayTimelineView: View {
     let palette: MiraThemePalette
 
     @State private var selectedItem: CalendarItemSnapshot?
+    @State private var draggingID: UUID?
+    @State private var dragOffset: CGFloat = 0
+    @State private var snappedMinutes = 0
 
     private let hourHeight: CGFloat = 64
     private let timeLabelWidth: CGFloat = 52
@@ -67,6 +70,8 @@ struct DayTimelineView: View {
         .sheet(item: $selectedItem) { item in
             EventDetailSheet(item: item, palette: palette)
         }
+        .sensoryFeedback(.selection, trigger: snappedMinutes)
+        .sensoryFeedback(.impact(weight: .medium), trigger: draggingID)
     }
 
     private var dayItems: [CalendarItemSnapshot] {
@@ -176,12 +181,28 @@ struct DayTimelineView: View {
                             (geometry.size.width - spacing * CGFloat(placement.laneCount - 1))
                                 / CGFloat(placement.laneCount)
                         )
+                        let isDragging = draggingID == placement.item.id
                         timelineEvent(placement.item, height: placement.height)
                             .frame(width: laneWidth, height: placement.height)
+                            .scaleEffect(isDragging ? 1.03 : 1)
+                            .shadow(color: isDragging ? palette.shadow : .clear, radius: 10, y: 4)
+                            .overlay(alignment: .topTrailing) {
+                                if isDragging {
+                                    Text(dragTimeLabel(for: placement.item))
+                                        .font(.caption.weight(.bold).monospacedDigit())
+                                        .foregroundStyle(palette.onAccent)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(palette.accent, in: Capsule())
+                                        .offset(y: -26)
+                                }
+                            }
                             .offset(
                                 x: CGFloat(placement.lane) * (laneWidth + spacing),
-                                y: placement.y
+                                y: placement.y + (isDragging ? dragOffset : 0)
                             )
+                            .zIndex(isDragging ? 1 : 0)
+                            .gesture(timeDragGesture(for: placement.item))
                     }
 
                     if let currentY {
@@ -234,7 +255,60 @@ struct DayTimelineView: View {
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel("\(item.title)、\(item.timeDescription)")
-        .accessibilityHint("詳細を開く")
+        .accessibilityHint("詳細を開く。長押ししてドラッグすると時間を変えられます")
+        .accessibilityAction(named: "15分早める") { shift(item, minutes: -15) }
+        .accessibilityAction(named: "15分遅らせる") { shift(item, minutes: 15) }
+    }
+
+    /// Long-press then drag, snapping to 15 minutes, so scrolling the day
+    /// never moves a plan by accident.
+    private func timeDragGesture(for item: CalendarItemSnapshot) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                guard item.deviceEvent == nil else { return }
+                switch value {
+                case .first(true):
+                    if draggingID != item.id {
+                        draggingID = item.id
+                        dragOffset = 0
+                        snappedMinutes = 0
+                    }
+                case .second(true, let drag?):
+                    draggingID = item.id
+                    dragOffset = drag.translation.height
+                    let minutes = Int((drag.translation.height / hourHeight * 60 / 15).rounded()) * 15
+                    snappedMinutes = clampedMinutes(minutes, for: item)
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                let minutes = snappedMinutes
+                draggingID = nil
+                dragOffset = 0
+                snappedMinutes = 0
+                if minutes != 0 { shift(item, minutes: minutes) }
+            }
+    }
+
+    /// Keeps the plan on this day.
+    private func clampedMinutes(_ minutes: Int, for item: CalendarItemSnapshot) -> Int {
+        let dayStart = Calendar.mira.startOfDay(for: date)
+        let startMinute = Int(item.startDate.timeIntervalSince(dayStart) / 60)
+        let length = Int(item.endDate.timeIntervalSince(item.startDate) / 60)
+        let lowest = -startMinute
+        let highest = max(lowest, 24 * 60 - length - startMinute)
+        return min(max(minutes, lowest), highest)
+    }
+
+    private func dragTimeLabel(for item: CalendarItemSnapshot) -> String {
+        let start = item.startDate.addingTimeInterval(TimeInterval(snappedMinutes * 60))
+        return start.formatted(Date.FormatStyle.mira.hour().minute())
+    }
+
+    private func shift(_ item: CalendarItemSnapshot, minutes: Int) {
+        store.rescheduleItem(id: item.id, toStart: item.startDate.addingTimeInterval(TimeInterval(minutes * 60)))
     }
 
     private var timelinePlacements: [TimelinePlacement] {

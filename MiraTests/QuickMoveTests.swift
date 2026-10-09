@@ -66,3 +66,31 @@ final class QuickMoveTests: XCTestCase {
             conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
     }
 }
+
+@MainActor
+final class RescheduleTimeTests: XCTestCase {
+    func testChangingTimeOnTheSameDaySavesWithUndo() async throws {
+        let schema = Schema([
+            AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
+            BaseRuleEntity.self, AdjustmentEntity.self, PendingInvitationEntity.self,
+            LoadRuleEntity.self, ImportantPersonEntity.self, ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
+        ])
+        let container = try ModelContainer(for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let store = MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
+        let event = TestFixtures.event(title: "カフェ", day: 10, hour: 14, duration: 2)
+        store.context.insert(CalendarItemEntity(snapshot: event))
+        try store.context.save()
+        try store.refresh()
+
+        store.rescheduleItem(id: event.id, toStart: event.startDate.addingTimeInterval(45 * 60))
+
+        let moved = try XCTUnwrap(store.items.first { $0.id == event.id })
+        XCTAssertEqual(Calendar.mira.component(.minute, from: moved.startDate), 45)
+        XCTAssertEqual(moved.endDate.timeIntervalSince(moved.startDate), 2 * 3600)
+        XCTAssertEqual(store.undoEntry?.title, "時間の変更")
+        XCTAssertNil(store.pendingChangePreview)
+    }
+}
