@@ -55,15 +55,15 @@ describe('sessions', () => {
     const { status, body } = await signIn('apple-mira');
     assert.equal(status, 200);
     assert.ok(body.sessionToken.length > 20);
-    assert.deepEqual(body.account, { premium: true, profile: 'mira' });
+    assert.deepEqual(body.account, { userId: 'mira-sub', premium: true, profile: 'mira' });
 
     const account = await fetch(`${base}/v1/account`, { headers: { Authorization: `Bearer ${body.sessionToken}` } });
-    assert.deepEqual((await account.json()).account, { premium: true, profile: 'mira' });
+    assert.deepEqual((await account.json()).account, { userId: 'mira-sub', premium: true, profile: 'mira' });
   });
 
   it('treats unknown people as standard, non-premium accounts', async () => {
     const { body } = await signIn('apple-other');
-    assert.deepEqual(body.account, { premium: false, profile: 'standard' });
+    assert.deepEqual(body.account, { userId: 'other-sub', premium: false, profile: 'standard' });
   });
 });
 

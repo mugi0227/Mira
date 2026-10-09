@@ -94,3 +94,35 @@ final class CalendarImportCommitTests: XCTestCase {
         XCTAssertTrue(store.items.isEmpty)
     }
 }
+
+@MainActor
+final class AccountProfileTests: XCTestCase {
+    func testAccountWithItsOwnColorCodeSwitchesTheProfile() throws {
+        let schema = Schema([
+            AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
+            BaseRuleEntity.self, AdjustmentEntity.self, PendingInvitationEntity.self,
+            LoadRuleEntity.self, ImportantPersonEntity.self, ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
+        ])
+        let container = try ModelContainer(for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let store = MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
+        store.resetColorPreferences()
+        defer { store.resetColorPreferences() }
+
+        store.applyAccount(MiraAccount(userId: "a", premium: false, profile: "standard"))
+        XCTAssertEqual(store.colorProfile, .standard)
+
+        store.applyAccount(MiraAccount(userId: "mira", premium: true, profile: "mira"))
+        XCTAssertEqual(store.colorProfile, .mira)
+        XCTAssertEqual(store.label(for: .black), "宝くじ")
+        XCTAssertTrue(store.canReadCalendarImages)
+    }
+
+    func testAccountDecodesTheServerShape() throws {
+        let json = #"{"userId":"001.abc","premium":true,"profile":"mira"}"#
+        let account = try JSONDecoder().decode(MiraAccount.self, from: Data(json.utf8))
+        XCTAssertEqual(account.colorProfile, .mira)
+    }
+}

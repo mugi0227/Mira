@@ -22,7 +22,7 @@ struct LegacyImportView: View {
     @State private var showGeminiSettings = false
     @State private var candidates: [ImportCandidate] = []
     @State private var failures: [String] = []
-    @State private var hasKey = GeminiSettingsStore.shared.hasKey
+    @State private var hasKey = false
 
     var body: some View {
         content
@@ -36,7 +36,8 @@ struct LegacyImportView: View {
                         .accessibilityLabel("Geminiの設定")
                 }
             }
-            .sheet(isPresented: $showGeminiSettings, onDismiss: { hasKey = GeminiSettingsStore.shared.hasKey }) {
+            .onAppear { hasKey = store.canReadCalendarImages }
+            .sheet(isPresented: $showGeminiSettings, onDismiss: { hasKey = store.canReadCalendarImages }) {
                 GeminiSettingsSheet(palette: palette)
             }
             .onChange(of: pickedPhotos) { _, items in
@@ -82,7 +83,7 @@ struct LegacyImportView: View {
 
                 if !hasKey {
                     Button { showGeminiSettings = true } label: {
-                        Label("先にGeminiのAPIキーを設定してね", systemImage: "key.fill")
+                        Label("設定の「アカウント」でサインインしてね（または右上🔑で自分のキー）", systemImage: "person.crop.circle.badge.questionmark")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .background(palette.warning.opacity(0.15), in: RoundedRectangle(cornerRadius: MiraRadius.small))
@@ -109,7 +110,9 @@ struct LegacyImportView: View {
                 .foregroundStyle(palette.accent)
                 .disabled(!hasKey)
 
-                Text("画像はGoogleのGeminiに送られて読み取られます。読み取りが終わると、予定はこのiPhoneの中だけに保存されます。")
+                Text(store.account?.premium == true
+                     ? "プレミアム：画像はMiraのサーバー経由でGeminiに読み取られます。予定はこのiPhoneの中だけに保存されます。"
+                     : "画像はGoogleのGeminiに送られて読み取られます。予定はこのiPhoneの中だけに保存されます。")
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
             }
@@ -183,11 +186,10 @@ struct LegacyImportView: View {
         }
         failures = []
         var found: [ImportCandidate] = []
-        let extractor = GeminiCalendarExtractor()
         for (index, image) in images.enumerated() {
             phase = .reading(done: index, total: images.count)
             do {
-                found += try await extractor.extract(image: image, sourceIndex: index, today: store.now)
+                found += try await store.readCalendarImage(image, sourceIndex: index)
             } catch {
                 failures.append("\(index + 1)枚目：\(error.localizedDescription)")
             }

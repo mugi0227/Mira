@@ -41,6 +41,7 @@ final class MiraStore {
     var chatMessages: [ChatMessage] = []
     var colorLabels: [EventColorTag: String] = [:]
     var colorProfile: ColorProfile = .standard
+    var account: MiraAccount?
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
     @ObservationIgnored var chatHistoryRestored = false
@@ -180,6 +181,7 @@ final class MiraStore {
 
             applySettings()
             loadColorPreferences()
+            Task { await refreshMiraAccount() }
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()
             selectedMonth = clock.now
             selectedDate = clock.now

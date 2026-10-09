@@ -36,7 +36,7 @@ export function createApp({
 
   const accountFor = (sub) => {
     const entry = accounts[sub] ?? {};
-    return { premium: entry.premium === true, profile: entry.profile ?? 'standard' };
+    return { userId: sub, premium: entry.premium === true, profile: entry.profile ?? 'standard' };
   };
 
   // Per-instance daily count; Cloud Run with max-instances=1 makes it exact.
