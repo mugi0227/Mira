@@ -108,7 +108,7 @@ final class RuleBasedChatAgent: MiraChatAgent {
     }
 
     /// Turns a request like "来週、友達とご飯に行ける日を探して" into "友達とご飯".
-    static func planTitle(from raw: String) -> String {
+    nonisolated static func planTitle(from raw: String) -> String {
         var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let leadingWords = ["再来週", "来週", "今週", "来月", "今月", "週末", "明日", "明後日", "今日", "今度"]
         var trimmed = true
@@ -133,11 +133,11 @@ final class RuleBasedChatAgent: MiraChatAgent {
         return value.isEmpty ? "予定" : value
     }
 
-    static func isBalanceQuestion(_ text: String) -> Bool {
+    nonisolated static func isBalanceQuestion(_ text: String) -> Bool {
         ["休め", "休息", "余白", "疲れ", "バランス", "詰め込み", "忙しすぎ"].contains { text.contains($0) }
     }
 
-    static func isScheduleQuestion(_ text: String) -> Bool {
+    nonisolated static func isScheduleQuestion(_ text: String) -> Bool {
         ["予定", "今日", "明日", "今週", "来週", "週末", "空いて", "何がある"].contains { text.contains($0) }
     }
 }
