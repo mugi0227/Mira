@@ -152,12 +152,12 @@ struct SettingsView: View {
                 NavigationLink {
                     LegacyImportView(palette: palette)
                 } label: {
-                    SettingsRow(symbol: "arrow.down.doc.fill", title: "古いカレンダーから移行", value: "PDF・画像", tint: palette.success)
+                    SettingsRow(symbol: "arrow.down.doc.fill", title: "古いカレンダーから移行", value: "写真・PDF", tint: palette.success)
                 }
             } header: {
                 Text("カレンダーの引っ越し")
             } footer: {
-                Text("PDF・画像からの抽出は現在デモです。iPhoneにある予定は「iPhoneカレンダーと接続」から読み込めます。")
+                Text("カレンダー画面の写真やPDFから予定を読み取ります（Gemini使用）。iPhoneにある予定は「iPhoneカレンダーと接続」から読み込めます。")
             }
             .listRowBackground(palette.surface)
 
