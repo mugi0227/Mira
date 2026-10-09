@@ -32,11 +32,46 @@ extension MiraStore {
             sink.setText(sink.hasCards ? "こんな感じでどうかにゃ？" : "うまく読み取れなかったにゃ。日付や相手を入れてもう一度教えてね。")
         }
         updateChatMessage(reply.id) { $0.isStreaming = false }
+        persistChat()
     }
 
     func resetChat() {
         chatMessages = []
         chatAgent = nil
+        persistChat()
+    }
+
+    // MARK: - History
+
+    /// Restores the last conversation once per launch so Mira can be picked up
+    /// where it was left. Only finished turns are stored.
+    func restoreChatIfNeeded() {
+        guard !chatHistoryRestored else { return }
+        chatHistoryRestored = true
+        guard chatMessages.isEmpty, let url = Self.chatHistoryURL,
+              let data = try? Data(contentsOf: url),
+              let saved = try? JSONDecoder().decode([ChatMessage].self, from: data) else { return }
+        chatMessages = saved.filter { !$0.isStreaming }
+    }
+
+    func persistChat() {
+        guard let url = Self.chatHistoryURL else { return }
+        let finished = chatMessages.filter { !$0.isStreaming }.suffix(Self.chatHistoryLimit)
+        if finished.isEmpty {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(Array(finished)) else { return }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: [.atomic, .completeFileProtection])
+    }
+
+    static let chatHistoryLimit = 100
+
+    static var chatHistoryURL: URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Mira", isDirectory: true)
+            .appendingPathComponent("chat-history.json")
     }
 
     func currentChatAgent() -> any MiraChatAgent {
@@ -66,6 +101,7 @@ extension MiraStore {
             guard saved else { return false }
             proposal.state = .applied
             replaceChatCard(messageID: messageID, with: .eventProposal(proposal))
+            persistChat()
             return true
         case .moveProposal(var proposal):
             guard proposal.state == .pending else { return false }
@@ -80,6 +116,7 @@ extension MiraStore {
                 try commitChange(preview, to: entity, undoTitle: "予定の移動")
                 proposal.state = .applied
                 replaceChatCard(messageID: messageID, with: .moveProposal(proposal))
+                persistChat()
                 toast = "\(preview.title)を動かしたにゃ"
                 return true
             } catch {
@@ -105,6 +142,7 @@ extension MiraStore {
         default:
             break
         }
+        persistChat()
     }
 
     private func replaceChatCard(messageID: UUID, with card: ChatCard) {

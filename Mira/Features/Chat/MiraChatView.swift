@@ -41,7 +41,10 @@ struct MiraChatView: View {
                         proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }
                 }
-                .onAppear { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                .onAppear {
+                    store.restoreChatIfNeeded()
+                    proxy.scrollTo("chat-bottom", anchor: .bottom)
+                }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { composer }
             .miraScreenBackground(palette)

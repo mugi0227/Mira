@@ -2,10 +2,10 @@ import Foundation
 
 /// One bubble in the Mira chat. Assistant messages can carry cards that the
 /// person acts on; nothing in the calendar changes until a card is approved.
-struct ChatMessage: Identifiable, Hashable, Sendable {
-    enum Role: String, Sendable { case user, assistant }
+struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
+    enum Role: String, Codable, Sendable { case user, assistant }
 
-    let id: UUID
+    var id: UUID
     var role: Role
     var text: String
     var activities: [ChatActivity]
@@ -33,13 +33,13 @@ struct ChatMessage: Identifiable, Hashable, Sendable {
 }
 
 /// A visible trace of what the agent looked at, so its answer is checkable.
-struct ChatActivity: Identifiable, Hashable, Sendable {
-    let id = UUID()
+struct ChatActivity: Identifiable, Codable, Hashable, Sendable {
+    var id = UUID()
     var symbol: String
     var text: String
 }
 
-enum ChatCard: Identifiable, Hashable, Sendable {
+enum ChatCard: Identifiable, Codable, Hashable, Sendable {
     case schedule(ChatScheduleSummary)
     case openSlots(ChatOpenSlots)
     case eventProposal(ChatEventProposal)
@@ -59,34 +59,34 @@ enum ChatCard: Identifiable, Hashable, Sendable {
     }
 }
 
-struct ChatScheduleSummary: Hashable, Sendable {
-    let id = UUID()
+struct ChatScheduleSummary: Codable, Hashable, Sendable {
+    var id = UUID()
     var title: String
     var items: [CalendarItemSnapshot]
 }
 
-struct ChatOpenSlot: Identifiable, Hashable, Sendable {
-    let id = UUID()
+struct ChatOpenSlot: Identifiable, Codable, Hashable, Sendable {
+    var id = UUID()
     var start: Date
     var end: Date
     var band: SchedulingTimeBand
     var note: String?
 }
 
-struct ChatOpenSlots: Hashable, Sendable {
-    let id = UUID()
+struct ChatOpenSlots: Codable, Hashable, Sendable {
+    var id = UUID()
     var purpose: String
     var slots: [ChatOpenSlot]
 }
 
-enum ChatProposalState: Hashable, Sendable {
+enum ChatProposalState: String, Codable, Hashable, Sendable {
     case pending
     case applied
     case dismissed
 }
 
-struct ChatEventProposal: Hashable, Sendable {
-    let id = UUID()
+struct ChatEventProposal: Codable, Hashable, Sendable {
+    var id = UUID()
     var event: CalendarItemSnapshot
     var impact: ScheduleImpact
     var conflicts: [String]
@@ -97,8 +97,8 @@ struct ChatEventProposal: Hashable, Sendable {
     }
 }
 
-struct ChatMoveProposal: Hashable, Sendable {
-    let id = UUID()
+struct ChatMoveProposal: Codable, Hashable, Sendable {
+    var id = UUID()
     var preview: ChangePreview
     var state: ChatProposalState = .pending
 
@@ -107,19 +107,19 @@ struct ChatMoveProposal: Hashable, Sendable {
     }
 }
 
-struct ChatMessageDraft: Hashable, Sendable {
-    let id = UUID()
+struct ChatMessageDraft: Codable, Hashable, Sendable {
+    var id = UUID()
     var purpose: String
     var text: String
 }
 
-struct ChatBalanceSummary: Hashable, Sendable {
-    let id = UUID()
+struct ChatBalanceSummary: Codable, Hashable, Sendable {
+    var id = UUID()
     var month: Date
     var lines: [ChatBalanceLine]
 }
 
-struct ChatBalanceLine: Hashable, Sendable {
+struct ChatBalanceLine: Codable, Hashable, Sendable {
     var kind: MarginKind
     var current: Int
     var target: Int

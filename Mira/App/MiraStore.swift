@@ -41,6 +41,7 @@ final class MiraStore {
     var chatMessages: [ChatMessage] = []
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
+    @ObservationIgnored var chatHistoryRestored = false
 
     var selectedMonth: Date
     var selectedDate: Date
@@ -261,6 +262,7 @@ final class MiraStore {
 
     private func resetPersistentTestState() throws {
         clearAllDrafts()
+        resetChat()
         try context.delete(model: CalendarItemEntity.self)
         try context.delete(model: MarginGoalEntity.self)
         try context.delete(model: BaseRuleEntity.self)

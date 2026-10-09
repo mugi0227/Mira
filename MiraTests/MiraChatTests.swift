@@ -102,3 +102,50 @@ final class ChatTitleTests: XCTestCase {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: ""), "予定")
     }
 }
+
+@MainActor
+final class ChatHistoryTests: XCTestCase {
+    override func tearDown() {
+        if let url = MiraStore.chatHistoryURL { try? FileManager.default.removeItem(at: url) }
+        super.tearDown()
+    }
+
+    func testChatHistoryRoundTripsWithCards() throws {
+        let start = TestFixtures.date(day: 10, hour: 19)
+        let proposal = ChatEventProposal(event: TestFixtures.event(title: "映画", day: 10, hour: 19), impact: .none, conflicts: [])
+        let messages = [
+            ChatMessage(role: .user, text: "映画いける？"),
+            ChatMessage(role: .assistant, text: "いけるにゃ",
+                activities: [ChatActivity(symbol: "calendar", text: "確認")],
+                cards: [.eventProposal(proposal), .openSlots(ChatOpenSlots(purpose: "映画", slots: [
+                    ChatOpenSlot(start: start, end: start.addingTimeInterval(7200), band: .evening)
+                ]))])
+        ]
+        let data = try JSONEncoder().encode(messages)
+        let decoded = try JSONDecoder().decode([ChatMessage].self, from: data)
+        XCTAssertEqual(decoded, messages)
+    }
+
+    func testStoreRestoresOnlyFinishedTurns() throws {
+        let schema = Schema([
+            AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
+            BaseRuleEntity.self, AdjustmentEntity.self, PendingInvitationEntity.self,
+            LoadRuleEntity.self, ImportantPersonEntity.self, ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
+        ])
+        let container = try ModelContainer(for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let first = MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
+        first.chatMessages = [
+            ChatMessage(role: .user, text: "こんにちは"),
+            ChatMessage(role: .assistant, text: "途中", isStreaming: true)
+        ]
+        first.persistChat()
+
+        let second = MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
+        second.restoreChatIfNeeded()
+        XCTAssertEqual(second.chatMessages.map(\.text), ["こんにちは"])
+    }
+}

@@ -125,6 +125,7 @@ extension MiraStore {
     }
 
     func resetDemo() async {
+        resetChat()
         await resetLocalCalendar(demo: true)
     }
 
