@@ -50,20 +50,6 @@ struct SettingsView: View {
             }
             .listRowBackground(palette.surface)
 
-            Section {
-                NavigationLink {
-                    AccountSettingsView(palette: palette)
-                } label: {
-                    SettingsRow(
-                        symbol: store.account?.premium == true ? "crown.fill" : "person.crop.circle",
-                        title: "アカウント",
-                        value: store.account == nil ? "未サインイン" : (store.account?.premium == true ? "プレミアム" : "サインイン中"),
-                        tint: palette.accent
-                    )
-                }
-            }
-            .listRowBackground(palette.surface)
-
             Section("着せ替え") {
                 NavigationLink {
                     ThemePickerView(palette: palette)
@@ -83,6 +69,20 @@ struct SettingsView: View {
                     get: { store.characterNotificationsEnabled },
                     set: { store.setCharacterNotificationsEnabled($0) }
                 ))
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
+                NavigationLink {
+                    AccountSettingsView(palette: palette)
+                } label: {
+                    SettingsRow(
+                        symbol: store.account?.premium == true ? "crown.fill" : "person.crop.circle",
+                        title: "アカウント",
+                        value: store.account == nil ? "未サインイン" : (store.account?.premium == true ? "プレミアム" : "サインイン中"),
+                        tint: palette.accent
+                    )
+                }
             }
             .listRowBackground(palette.surface)
 
