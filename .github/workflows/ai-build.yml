@@ -1,0 +1,44 @@
+name: AI Build Check
+
+# The main CI pins an older Xcode, where FoundationModels code is compiled
+# out. This job builds with the newest Xcode so the on-device agent is
+# type-checked too.
+on:
+  push:
+    branches: [main, "feature/**", "claude/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-ai-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-latest-sdk:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          echo "Selecting $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i ios
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build for generic iOS device
+        run: |
+          set -o pipefail
+          xcodebuild -project Mira.xcodeproj -scheme Mira \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/ai-build.log | grep -E 'error:|warning: .*FoundationModels|BUILD (SUCCEEDED|FAILED)' || true
+          grep -q 'BUILD SUCCEEDED' /tmp/ai-build.log
