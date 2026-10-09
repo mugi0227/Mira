@@ -28,6 +28,9 @@ struct EventDetailSheet: View {
                     if item.kind != .margin {
                         colorCard
                     }
+                    if item.kind == .confirmed && item.deviceEvent == nil {
+                        quickMoveCard
+                    }
                     DeviceCalendarActionView(item: item, palette: palette)
                     if item.kind != .margin && item.kind != .birthday {
                         loadCard
@@ -101,6 +104,45 @@ struct EventDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .miraCard(palette)
+    }
+
+    private var quickMoveCard: some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+            Text("日にちを動かす")
+                .font(.headline)
+                .foregroundStyle(palette.primaryText)
+            HStack(spacing: MiraSpacing.xs) {
+                quickMoveButton(title: "前の日へ", symbol: "chevron.left", days: -1)
+                quickMoveButton(title: "次の日へ", symbol: "chevron.right", days: 1)
+                quickMoveButton(title: "1週間後へ", symbol: "chevron.forward.2", days: 7)
+            }
+            Text("カレンダー上で予定を長押しして、別の日へドラッグすることもできます。")
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .miraCard(palette)
+    }
+
+    private func quickMoveButton(title: String, symbol: String, days: Int) -> some View {
+        Button {
+            let target = Calendar.mira.date(byAdding: .day, value: days, to: item.startDate) ?? item.startDate
+            dismiss()
+            // Let the sheet close first so a follow-up review sheet can present.
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                store.moveItem(id: item.id, to: target)
+            }
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+        }
+        .buttonStyle(MiraPressStyle())
+        .accessibilityIdentifier("quickMove\(days)")
     }
 
     private var detailCard: some View {

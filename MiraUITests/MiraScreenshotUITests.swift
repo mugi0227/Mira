@@ -104,7 +104,12 @@ final class MiraScreenshotUITests: XCTestCase {
                     settle()
                     capture("\(prefix)b-event-detail-lower")
                 }
-                dismissSheet(in: app)
+                if tap(app.buttons["quickMove1"], in: app, timeout: 1) {
+                    settle(1.2)
+                    capture("\(prefix)b2-after-quick-move")
+                } else {
+                    dismissSheet(in: app)
+                }
             }
 
             if tap(busyDay, in: app) {

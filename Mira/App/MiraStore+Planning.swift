@@ -180,6 +180,7 @@ extension MiraStore {
                 toast = "この予定の詳細から「カレンダーで編集」を選んでください"
                 return
             }
+            guard !Calendar.mira.isDate(entity.startDate, inSameDayAs: date) else { return }
             let duration = entity.endDate.timeIntervalSince(entity.startDate)
             let oldComponents = Calendar.mira.dateComponents([.hour, .minute], from: entity.startDate)
             let newStart = date.setting(hour: oldComponents.hour ?? 9, minute: oldComponents.minute ?? 0)
@@ -188,9 +189,18 @@ extension MiraStore {
             after.endDate = newStart.addingTimeInterval(duration)
             let impact = previewImpact(for: after, excludingItemID: id)
             let conflicts = eventEntryConflicts(for: after, excludingItemID: id)
-            pendingChangePreview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
+            let preview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
                 before: entity.snapshot, after: after, conflicts: conflicts, impact: impact)
+            // A drag the person made themselves is already an explicit choice:
+            // only stop to ask when it would cost a margin or collide.
+            if conflicts.isEmpty, impact.overlappingMargins.isEmpty, impact.protectionLevel == .flexible {
+                try commitChange(preview, to: entity, undoTitle: "予定の移動")
+                toast = "\(after.title)を\(newStart.japaneseShortDate)へ移したにゃ"
+            } else {
+                pendingChangePreview = preview
+            }
         } catch {
+            context.rollback()
             toast = "移動できませんでした"
         }
     }

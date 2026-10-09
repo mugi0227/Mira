@@ -482,40 +482,45 @@ extension MiraStore {
                 toast = "予定の状況が変わりました。更新した影響を確認してください"
                 return false
             }
-            let undo = captureCalendarUndo(title: "予定の変更")
-            let previousDate = preview.before.startDate
-            if preview.after.kind == .confirmed {
-                for margin in currentImpact.overlappingMargins {
-                    if let overlapped = try self.entity(id: margin.id) { context.delete(overlapped) }
-                }
-            }
-            entity.apply(preview.after)
-            if let caseEntity = conversationCase(id: preview.caseID) {
-                caseEntity.appendTurn(role: .assistant, text: "変更を保存したにゃ", at: now)
-                var state = caseEntity.state
-                state.dateRangeStart = preview.after.startDate
-                state.dateRangeEnd = preview.after.endDate
-                state.durationBucket = preview.after.durationBucket
-                state.allowedTimeBands = preview.after.schedulingTimeBand.map { [$0] } ?? []
-                caseEntity.state = state
-            }
-            try context.save()
-            try refresh()
-            finishCalendarMutation(undo)
+            try commitChange(preview, to: entity, undoTitle: "予定の変更")
             completeSavedDraft(id: preview.id)
             pendingChangePreview = nil
-            updateMarginRecommendation(for: previousDate)
-            updateMarginRecommendation(for: preview.after.startDate)
-            recalculateBalance(for: previousDate)
-            if !Calendar.mira.isDate(previousDate, equalTo: preview.after.startDate, toGranularity: .month) {
-                recalculateBalance(for: preview.after.startDate)
-            }
             toast = "変更を保存したにゃ"
             return true
         } catch {
             context.rollback()
             toast = "変更を保存できませんでした"
             return false
+        }
+    }
+
+    /// Writes a change. Margins the change overlaps are released.
+    func commitChange(_ preview: ChangePreview, to entity: CalendarItemEntity, undoTitle: String) throws {
+        let undo = captureCalendarUndo(title: undoTitle)
+        let previousDate = preview.before.startDate
+        if preview.after.kind == .confirmed {
+            for margin in preview.impact.overlappingMargins {
+                if let overlapped = try self.entity(id: margin.id) { context.delete(overlapped) }
+            }
+        }
+        entity.apply(preview.after)
+        if let caseEntity = conversationCase(id: preview.caseID) {
+            caseEntity.appendTurn(role: .assistant, text: "変更を保存したにゃ", at: now)
+            var state = caseEntity.state
+            state.dateRangeStart = preview.after.startDate
+            state.dateRangeEnd = preview.after.endDate
+            state.durationBucket = preview.after.durationBucket
+            state.allowedTimeBands = preview.after.schedulingTimeBand.map { [$0] } ?? []
+            caseEntity.state = state
+        }
+        try context.save()
+        try refresh()
+        finishCalendarMutation(undo)
+        updateMarginRecommendation(for: previousDate)
+        updateMarginRecommendation(for: preview.after.startDate)
+        recalculateBalance(for: previousDate)
+        if !Calendar.mira.isDate(previousDate, equalTo: preview.after.startDate, toGranularity: .month) {
+            recalculateBalance(for: preview.after.startDate)
         }
     }
 
