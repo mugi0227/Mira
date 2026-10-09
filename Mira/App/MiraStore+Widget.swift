@@ -44,7 +44,7 @@ extension MiraStore {
     }
 
     nonisolated private static func widgetTint(for item: CalendarItemSnapshot) -> UInt32 {
-        if let tag = item.colorTag, item.kind != .margin { return tag.swatchHex }
+        if let tag = item.colorTag, item.kind != .margin { return tag.barHex }
         switch item.kind {
         case .margin:
             return item.marginKind == .reading ? 0xD9A441 : 0x62BE98

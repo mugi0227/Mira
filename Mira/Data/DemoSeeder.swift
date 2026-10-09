@@ -35,12 +35,12 @@ enum DemoSeeder {
         ]
 
         let demoColors: [String: EventColorTag] = [
-            "仕事": .gray, "会社の飲み会": .gray, "会社の歓迎会": .gray,
-            "みんなでご飯": .sakura, "友達と一日おでかけ": .sakura, "親友とランチ": .sakura, "友達と遊ぶ": .sakura,
-            "恋人とデート": .peach, "家族と外食": .peach,
-            "映画とカフェ": .lavender, "映画": .lavender, "ライブ": .lavender,
-            "週末旅行": .sky, "秋の旅行": .sky,
-            "美容院": .mint, "歯医者": .mint
+            "仕事": .work, "会社の飲み会": .work, "会社の歓迎会": .work,
+            "みんなでご飯": .play, "友達と一日おでかけ": .play, "親友とランチ": .play, "友達と遊ぶ": .play,
+            "恋人とデート": .play, "家族と外食": .other,
+            "映画とカフェ": .play, "映画": .play, "ライブ": .otaku,
+            "週末旅行": .play, "秋の旅行": .play,
+            "美容院": .care, "歯医者": .care, "読書会": .other
         ]
 
         for spec in specifications {

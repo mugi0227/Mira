@@ -143,31 +143,46 @@ struct MiraThemePalette {
         return surface
     }
 
-    /// Soft background for an event chip; text stays primaryText on top of it.
+    /// Chip background in the calendar.
     func fill(for tag: EventColorTag) -> Color {
         switch (tag, isDark) {
-        case (.sakura, false): Color(hex: 0xF9D5DF)
-        case (.peach, false): Color(hex: 0xFCDCC7)
-        case (.lemon, false): Color(hex: 0xF7EAB2)
-        case (.mint, false): Color(hex: 0xCDEBDD)
-        case (.sky, false): Color(hex: 0xD0E4F7)
-        case (.lavender, false): Color(hex: 0xE3D9F4)
-        case (.cocoa, false): Color(hex: 0xE8D9CB)
-        case (.gray, false): Color(hex: 0xE4E5E8)
-        case (.sakura, true): Color(hex: 0x6A3A49)
-        case (.peach, true): Color(hex: 0x6B4633)
-        case (.lemon, true): Color(hex: 0x5C5230)
-        case (.mint, true): Color(hex: 0x2F5446)
-        case (.sky, true): Color(hex: 0x2F4A66)
-        case (.lavender, true): Color(hex: 0x4A3D66)
-        case (.cocoa, true): Color(hex: 0x52433A)
-        case (.gray, true): Color(hex: 0x45474C)
+        case (.play, false): Color(hex: 0xBFE6FA)
+        case (.otaku, false): Color(hex: 0xE6F5FC)
+        case (.work, false): Color(hex: 0xF8D3D3)
+        case (.care, false): Color(hex: 0xE7F3D2)
+        case (.other, false): Color(hex: 0xFBF2C6)
+        case (.info, false): Color(hex: 0xFBD9E8)
+        case (.deadline, false): Color(hex: 0xE2D8F4)
+        case (.lottery, _): Color(hex: 0x2E2E2E)
+        case (.keiba, false): Color(hex: 0xBFE3CC)
+        case (.birthday, false): Color(hex: 0xFFFFFF)
+        case (.play, true): Color(hex: 0x1F4F6B)
+        case (.otaku, true): Color(hex: 0x2A4A5A)
+        case (.work, true): Color(hex: 0x6A3434)
+        case (.care, true): Color(hex: 0x45542C)
+        case (.other, true): Color(hex: 0x5C5230)
+        case (.info, true): Color(hex: 0x6A3550)
+        case (.deadline, true): Color(hex: 0x47396A)
+        case (.keiba, true): Color(hex: 0x24513A)
+        case (.birthday, true): Color(hex: 0xEDEDED)
         }
     }
 
-    /// Saturated version used for the picker dot and the chip's leading bar.
+    /// Text that stays readable on the chip (black and white chips flip).
+    func chipText(for tag: EventColorTag) -> Color {
+        switch tag {
+        case .lottery: .white
+        case .birthday: Color(hex: 0x333333)
+        default: primaryText
+        }
+    }
+
     func swatch(for tag: EventColorTag) -> Color {
         Color(hex: tag.swatchHex)
+    }
+
+    func bar(for tag: EventColorTag) -> Color {
+        Color(hex: tag.barHex)
     }
 }
 

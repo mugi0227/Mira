@@ -13,9 +13,12 @@ extension MiraStore {
         if let exact = colored.first(where: { $0.title == title }) {
             return exact.colorTag
         }
-        return colored.first {
+        if let similar = colored.first(where: {
             $0.title.count >= 2 && ($0.title.contains(title) || title.contains($0.title))
-        }?.colorTag
+        })?.colorTag {
+            return similar
+        }
+        return EventColorTag.suggested(forTitle: title)
     }
 
     func setColor(itemID: UUID, to tag: EventColorTag?) {

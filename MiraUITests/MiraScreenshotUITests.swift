@@ -145,7 +145,7 @@ final class MiraScreenshotUITests: XCTestCase {
             if strip.exists, tap(strip, in: app) {
                 if app.navigationBars["詳細"].waitForExistence(timeout: 3) {
                     capture("\(prefix)a-event-detail")
-                    if tap(app.buttons["eventColor-mint"], in: app, timeout: 1) {
+                    if tap(app.buttons["eventColor-care"], in: app, timeout: 1) {
                         capture("\(prefix)a2-event-detail-color-picked")
                     }
                     app.swipeUp()

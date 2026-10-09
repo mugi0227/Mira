@@ -266,20 +266,21 @@ private struct CalendarEventStrip: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
-        .foregroundStyle(palette.primaryText)
+        .foregroundStyle(chipTag.map(palette.chipText(for:)) ?? palette.primaryText)
         .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
         .padding(.trailing, 3)
         .frame(minHeight: 18, alignment: .leading)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {
-                palette.swatch(for: tag).frame(width: 2.5)
+                palette.bar(for: tag).frame(width: 2.5)
             }
         }
         .overlay {
             RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
                 .stroke(
-                    item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28) : Color.clear,
+                    item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28)
+                        : (chipTag?.needsOutline == true ? palette.primaryText.opacity(0.22) : Color.clear),
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
@@ -288,6 +289,10 @@ private struct CalendarEventStrip: View {
 
     /// Margins named after their kind read as a short word; a margin the
     /// person named themselves keeps that name.
+    private var chipTag: EventColorTag? {
+        item.kind == .margin ? nil : item.colorTag
+    }
+
     private var chipTitle: String {
         guard item.kind == .margin, let kind = item.marginKind else { return item.title }
         return item.title == kind.title || item.title == kind.canonicalKind.title ? kind.shortTitle : item.title

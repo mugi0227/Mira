@@ -306,7 +306,7 @@ private struct ChatCardView: View {
             ForEach(summary.items) { item in
                 HStack(spacing: MiraSpacing.xs) {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(item.colorTag.map(palette.swatch(for:)) ?? palette.color(for: item))
+                        .fill(item.colorTag.map(palette.bar(for:)) ?? palette.color(for: item))
                         .frame(width: 4, height: 30)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.title)
@@ -382,7 +382,7 @@ private struct ChatCardView: View {
                 .foregroundStyle(palette.secondaryText)
             HStack(spacing: MiraSpacing.xs) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(proposal.event.colorTag.map(palette.swatch(for:)) ?? palette.accent)
+                    .fill(proposal.event.colorTag.map(palette.bar(for:)) ?? palette.accent)
                     .frame(width: 4, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(proposal.event.title)
