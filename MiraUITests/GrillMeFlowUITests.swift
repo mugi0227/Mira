@@ -11,40 +11,33 @@ final class GrillMeFlowUITests: XCTestCase {
         completeOnboardingIfNeeded()
     }
 
-    func testUniversalInputOpensPreselectedSchedulingMode() throws {
+    func testChatFindsSlotsAndAddsOnlyAfterApproval() throws {
         openCompanion()
-        let input = app.descendants(matching: .any)["miraQuickInput"]
-        XCTAssertTrue(input.waitForExistence(timeout: 12))
-        input.tap()
-        input.typeText("来月友達と焼肉行きたい")
-        app.buttons["Miraへ送る"].tap()
+        sendChat("来週友達と焼肉行きたい")
+        XCTAssertTrue(waitForAssistantReply(), "Mira should answer in the chat")
+        capture("01-chat-open-slots")
 
-        if app.staticTexts["どのくらいの予定になりそう？"].waitForExistence(timeout: 4) {
-            app.buttons["1〜2時間"].tap()
+        let slotsHeader = app.staticTexts["余白を守れる候補"]
+        if slotsHeader.waitForExistence(timeout: 3) {
+            let slot = app.buttons.matching(NSPredicate(format: "label CONTAINS '月' AND label CONTAINS '–'")).firstMatch
+            if slot.waitForExistence(timeout: 3) {
+                slot.tap()
+                let apply = app.buttons["chatApplyCard"].firstMatch
+                XCTAssertTrue(apply.waitForExistence(timeout: 8))
+                capture("02-chat-event-proposal")
+                apply.tap()
+                XCTAssertTrue(app.staticTexts["追加しました"].waitForExistence(timeout: 5))
+            }
         }
-
-        XCTAssertTrue(app.navigationBars["日程を探す"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Miraの案を添削するだけ"].exists)
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'おすすめ' OR value CONTAINS '選択済み'")).count > 0)
-        capture("01-grill-scheduling-mode")
-
-        let clear = app.buttons["おすすめをすべて外す"]
-        if clear.exists { clear.tap() }
-        capture("02-grill-recommendations-cleared")
     }
 
-    func testManualContextPickerHasCategoryTabsAndPastOptIn() throws {
+    func testChatSuggestionAnswersFromTheCalendar() throws {
         openCompanion()
-        let contextButton = app.buttons["この話について予定を指定"]
-        XCTAssertTrue(contextButton.waitForExistence(timeout: 10))
-        contextButton.tap()
-
-        XCTAssertTrue(app.navigationBars["この話について"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["進行中"].exists)
-        XCTAssertTrue(app.buttons["検討中"].exists)
-        XCTAssertTrue(app.buttons["確定予定"].exists)
-        XCTAssertTrue(app.switches["過去も検索"].exists)
-        capture("03-grill-context-picker")
+        let suggestion = app.buttons["chatSuggestion"].firstMatch
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        suggestion.tap()
+        XCTAssertTrue(waitForAssistantReply())
+        capture("03-chat-schedule-answer")
     }
 
     func testCatSkinKeepsNavigationAndSheetsUsable() throws {
@@ -92,15 +85,7 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(home.isHittable)
 
         openCompanion()
-        let contextPicker = app.buttons["contextPickerButton"]
-        XCTAssertTrue(contextPicker.waitForExistence(timeout: 4))
-        contextPicker.tap()
-        let contextSheet = app.navigationBars["この話について"]
-        XCTAssertTrue(contextSheet.waitForExistence(timeout: 4))
-        XCTAssertTrue(app.segmentedControls.buttons["進行中"].exists)
-        XCTAssertTrue(app.switches["includePastToggle"].exists)
-        capture("cat-skin-context-sheet")
-        contextSheet.buttons["閉じる"].tap()
+        capture("cat-skin-chat")
         let companionSheet = app.navigationBars["Mira"]
         XCTAssertTrue(companionSheet.waitForExistence(timeout: 4))
         companionSheet.buttons["閉じる"].tap()
@@ -108,26 +93,14 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(home.isHittable)
     }
 
-    func testPastedEventShowsHumanReviewedPreview() throws {
+    func testPastedEventBecomesAProposalNotASavedEvent() throws {
         openCompanion()
-        let input = app.descendants(matching: .any)["miraQuickInput"]
-        XCTAssertTrue(input.waitForExistence(timeout: 10))
-        input.tap()
-        input.typeText("9/12 カフェを予定に追加して")
-        app.buttons["Miraへ送る"].tap()
-
-        if app.staticTexts["どのくらいの予定になりそう？"].waitForExistence(timeout: 4) {
-            app.buttons["1〜2時間"].tap()
+        sendChat("9/12 18時から友達とカフェを予定に追加して")
+        XCTAssertTrue(waitForAssistantReply())
+        if app.staticTexts["予定の案"].waitForExistence(timeout: 3) {
+            XCTAssertTrue(app.buttons["chatApplyCard"].firstMatch.exists)
         }
-
-        let preview = app.navigationBars["予定の確認"]
-        if preview.waitForExistence(timeout: 15) {
-            XCTAssertTrue(app.staticTexts["決めるのはあなた。影響と別案を先に見るにゃ。"].exists)
-            capture("04-grill-event-preview")
-        } else {
-            XCTAssertTrue(app.navigationBars["日程を探す"].exists)
-            capture("04-grill-event-scheduling-fallback")
-        }
+        capture("04-chat-pasted-event")
     }
 
     private func completeOnboardingIfNeeded() {
@@ -147,7 +120,19 @@ final class GrillMeFlowUITests: XCTestCase {
         let companion = app.buttons["miraCompanionButton"]
         XCTAssertTrue(companion.waitForExistence(timeout: 12))
         companion.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["miraQuickInput"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
+    }
+
+    private func sendChat(_ text: String) {
+        let input = app.descendants(matching: .any)["miraChatInput"]
+        input.tap()
+        input.typeText(text)
+        app.buttons["miraChatSend"].tap()
+    }
+
+    /// A finished assistant bubble, whichever agent answered.
+    private func waitForAssistantReply(timeout: TimeInterval = 20) -> Bool {
+        app.staticTexts["chatAssistantText"].firstMatch.waitForExistence(timeout: timeout)
     }
 
     /// Cards below the calendar may start off-screen behind the tab bar.

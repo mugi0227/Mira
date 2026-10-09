@@ -69,7 +69,7 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $showCompanion) {
-            MiraCompanionSheet(palette: palette)
+            MiraChatView(palette: palette)
         }
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)

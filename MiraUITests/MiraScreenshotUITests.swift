@@ -46,7 +46,19 @@ final class MiraScreenshotUITests: XCTestCase {
 
         if tap(app.buttons["miraCompanionButton"], in: app) {
             settle(0.8)
-            capture("07-mira-companion-sheet")
+            capture("07a-chat-welcome")
+            let suggestions = app.buttons.matching(identifier: "chatSuggestion")
+            if suggestions.count > 1 {
+                tap(suggestions.element(boundBy: 1), in: app)
+                _ = app.staticTexts["chatAssistantText"].firstMatch.waitForExistence(timeout: 20)
+                settle(1.0)
+                capture("07b-chat-open-slots")
+                let slot = app.buttons.matching(NSPredicate(format: "label CONTAINS '–'")).firstMatch
+                if tap(slot, in: app, timeout: 2) {
+                    settle(2.0)
+                    capture("07c-chat-event-proposal")
+                }
+            }
             tap(app.buttons["閉じる"], in: app)
         }
 

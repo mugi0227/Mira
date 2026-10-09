@@ -38,6 +38,9 @@ final class MiraStore {
     private(set) var deviceHolidays: [DeviceHolidaySnapshot] = []
     private(set) var aiStatus = "確認中"
     var isInterpretingConversation = false
+    var chatMessages: [ChatMessage] = []
+    var isChatResponding = false
+    @ObservationIgnored var chatAgent: (any MiraChatAgent)?
 
     var selectedMonth: Date
     var selectedDate: Date
