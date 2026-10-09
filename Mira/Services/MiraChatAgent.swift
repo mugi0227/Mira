@@ -27,13 +27,14 @@ final class RuleBasedChatAgent: MiraChatAgent {
     let displayName = "Mira（ルール）"
 
     func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
-        let interpretation = await store.conversationInterpreter.interpret(
+        var interpretation = await store.conversationInterpreter.interpret(
             text: text,
             now: store.now,
             pinnedContext: nil,
             searchCandidates: [],
             recentTurns: []
         )
+        interpretation.title = Self.planTitle(from: interpretation.title)
         let calendar = Calendar.mira
         let today = calendar.startOfDay(for: store.now)
         let rangeStart = interpretation.dateRangeStart ?? interpretation.candidateDates.min() ?? today
@@ -104,6 +105,32 @@ final class RuleBasedChatAgent: MiraChatAgent {
         default:
             return result.summary
         }
+    }
+
+    /// Turns a request like "来週、友達とご飯に行ける日を探して" into "友達とご飯".
+    static func planTitle(from raw: String) -> String {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let leadingWords = ["再来週", "来週", "今週", "来月", "今月", "週末", "明日", "明後日", "今日", "今度", "土曜", "日曜", "の", "に", "は"]
+        var trimmed = true
+        while trimmed {
+            trimmed = false
+            value = value.trimmingCharacters(in: CharacterSet(charactersIn: "、。,. 　"))
+            for word in leadingWords where value.hasPrefix(word) && value.count > word.count {
+                value.removeFirst(word.count)
+                trimmed = true
+            }
+        }
+        let requestEndings = [
+            "に行ける日を探して", "に行ける日ある？", "の日を探して", "できる日を探して", "の日程を探して",
+            "を予定に追加して", "を予定に入れて", "を入れて", "を追加して", "に行きたい", "行きたい",
+            "したい", "を探して", "探して", "の誘いを断りたい", "を断りたい", "を断る文を作って", "断りたい"
+        ]
+        for ending in requestEndings where value.hasSuffix(ending) && value.count > ending.count {
+            value.removeLast(ending.count)
+            break
+        }
+        value = value.trimmingCharacters(in: CharacterSet(charactersIn: "、。,. 　"))
+        return value.isEmpty ? "予定" : value
     }
 
     static func isBalanceQuestion(_ text: String) -> Bool {

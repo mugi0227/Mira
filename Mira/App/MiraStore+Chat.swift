@@ -157,10 +157,12 @@ extension MiraStore {
             baseRules: fetchBaseRules(),
             notBefore: now
         )
+        // Best five by score, then shown in date order so the list reads like a calendar.
         let clean = candidates
             .filter { $0.conflicts.isEmpty }
             .sorted { $0.score > $1.score }
             .prefix(5)
+            .sorted { $0.day == $1.day ? $0.timeBand.rawValue < $1.timeBand.rawValue : $0.day < $1.day }
         let slots = clean.map { candidate in
             let interval = candidate.timeBand.representativeInterval(on: candidate.day, duration: candidate.durationBucket, calendar: .mira)
             return ChatOpenSlot(start: interval.start, end: interval.end, band: candidate.timeBand, note: candidate.reasons.first)
