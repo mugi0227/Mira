@@ -92,7 +92,7 @@ struct HomeView: View {
     /// The cat skin draws its own floating tab bar over the content instead
     /// of insetting it, so corner controls must lift themselves above it.
     private var floatingTabBarClearance: CGFloat {
-        palette.isCatSkin ? 92 : 0
+        palette.isCatSkin ? 124 : 0
     }
 
     private var monthItems: [CalendarItemSnapshot] {
