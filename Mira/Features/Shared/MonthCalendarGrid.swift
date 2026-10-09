@@ -18,7 +18,7 @@ struct MonthCalendarGrid: View {
         value.firstWeekday = weekStartDay.calendarFirstWeekday
         return value
     }
-    private let cellHeight: CGFloat = 86
+    private let cellHeight: CGFloat = 98
 
     var body: some View {
         VStack(spacing: 0) {
@@ -230,14 +230,14 @@ private struct CalendarEventStrip: View {
             }
 
             Text(item.title)
-                .font(.system(size: palette.isCatSkin ? 9.5 : 8.5, weight: .semibold, design: .rounded))
+                .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .foregroundStyle(palette.primaryText)
         .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
         .padding(.trailing, 3)
-        .frame(minHeight: palette.isCatSkin ? 16 : 15, alignment: .leading)
+        .frame(minHeight: 18, alignment: .leading)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {

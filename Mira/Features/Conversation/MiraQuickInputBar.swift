@@ -4,6 +4,8 @@ struct MiraQuickInputBar: View {
     @Environment(MiraStore.self) private var store
     let palette: MiraThemePalette
     var isFocused: FocusState<Bool>.Binding
+    /// Runs before the message is handled, e.g. to close a hosting sheet.
+    var beforeSend: (() async -> Void)? = nil
 
     @State private var isSending = false
     @State private var showContextPicker = false
@@ -134,6 +136,7 @@ struct MiraQuickInputBar: View {
         isSending = true
         isFocused.wrappedValue = false
         Task {
+            if let beforeSend { await beforeSend() }
             let saved = await store.handleConversationInput(value)
             // Do not discard a newer thought typed while the assistant was working.
             if saved, store.quickInputText == original, store.persistenceIssue == nil, store.draftPersistenceIssue == nil {

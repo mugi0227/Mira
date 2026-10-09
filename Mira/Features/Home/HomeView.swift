@@ -9,33 +9,15 @@ struct HomeView: View {
     @State private var selectedDayDestination: DayTimelineDestination?
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
-    @FocusState private var isQuickInputFocused: Bool
+    @State private var showCompanion = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: palette.isCatSkin ? MiraSpacing.sm : MiraSpacing.lg) {
+            // The calendar leads; everything else is secondary and sits below
+            // it, while talking to Mira lives behind the corner companion.
+            VStack(spacing: MiraSpacing.sm) {
                 monthHeader
                     .padding(.horizontal, MiraSpacing.md)
-
-                progressSummary
-                    .padding(.horizontal, MiraSpacing.md)
-
-                MiraQuickInputBar(palette: palette, isFocused: $isQuickInputFocused)
-                    .padding(.horizontal, MiraSpacing.md)
-
-                nextStepCard
-                    .padding(.horizontal, MiraSpacing.md)
-
-                if store.assistantEnabled {
-                    AssistantCard(message: store.currentAssistantMessage, palette: palette) {
-                        if store.activeRebalanceProposal != nil {
-                            store.isRebalanceProposalPresented = true
-                        } else {
-                            store.autoPlaceMargins(for: store.selectedMonth)
-                        }
-                    }
-                    .padding(.horizontal, MiraSpacing.md)
-                }
 
                 MonthCalendarGrid(
                     month: store.selectedMonth,
@@ -53,16 +35,30 @@ struct HomeView: View {
                     onSelectItem: { selectedItem = $0 }
                 )
                 .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
+
+                nextStepCard
+                    .padding(.horizontal, MiraSpacing.md)
+                    .padding(.top, MiraSpacing.xs)
+
+                progressSummary
+                    .padding(.horizontal, MiraSpacing.md)
             }
-            .padding(.top, MiraSpacing.sm)
-            .padding(.bottom, palette.isCatSkin ? MiraSpacing.md : 104)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                isQuickInputFocused = false
+            .padding(.top, MiraSpacing.xs)
+            .padding(.bottom, 96)
+        }
+        .miraScreenBackground(palette)
+        .overlay(alignment: .bottomTrailing) {
+            if store.assistantEnabled {
+                MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
+                    showCompanion = true
+                }
+                .padding(.trailing, MiraSpacing.md)
+                .padding(.bottom, MiraSpacing.sm)
             }
         }
-        .scrollDismissesKeyboard(.interactively)
-        .miraScreenBackground(palette)
+        .sheet(isPresented: $showCompanion) {
+            MiraCompanionSheet(palette: palette)
+        }
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(palette.isCatSkin ? .hidden : .visible, for: .navigationBar)
@@ -117,7 +113,6 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
                 Button {
-                    isQuickInputFocused = false
                     store.resumeSavedDraft(id: draft.id)
                 } label: {
                     Label("この続きから", systemImage: "arrow.right")
@@ -153,7 +148,7 @@ struct HomeView: View {
                         .foregroundStyle(palette.secondaryText)
                 }
             } else {
-                Label("誘いや思いつきは、上の入力欄へ", systemImage: "leaf")
+                Label("誘いや思いつきは、右下のMiraへ", systemImage: "leaf")
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
             }
@@ -377,7 +372,6 @@ struct HomeView: View {
     }
 
     private func openDay(_ date: Date) {
-        isQuickInputFocused = false
         store.selectedDate = date
         if !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
             store.selectedMonth = MonthKey(date: date).firstDay
@@ -398,7 +392,7 @@ struct HomeView: View {
     }
 }
 
-private struct AssistantCard: View {
+struct AssistantCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(MiraStore.self) private var store
     let message: AssistantMessage
