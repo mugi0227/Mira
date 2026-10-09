@@ -167,16 +167,7 @@ struct MiraThemePalette {
 
     /// Saturated version used for the picker dot and the chip's leading bar.
     func swatch(for tag: EventColorTag) -> Color {
-        switch tag {
-        case .sakura: Color(hex: 0xE8879F)
-        case .peach: Color(hex: 0xF0A072)
-        case .lemon: Color(hex: 0xE2C044)
-        case .mint: Color(hex: 0x62BE98)
-        case .sky: Color(hex: 0x68A4DA)
-        case .lavender: Color(hex: 0xA28CD6)
-        case .cocoa: Color(hex: 0xAE8868)
-        case .gray: Color(hex: 0x9C9FA6)
-        }
+        Color(hex: tag.swatchHex)
     }
 }
 

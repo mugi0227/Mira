@@ -24,6 +24,14 @@ targets:
         excludes:
           - Features/Shared/MainTabView.swift
       - path: MiraOverrides
+      - path: Shared
+    dependencies:
+      - target: MiraWidget
+    entitlements:
+      path: Mira/Mira.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.jp.mugi.mira
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: jp.mugi.mira
@@ -41,6 +49,29 @@ targets:
       testTargets:
         - MiraTests
         - MiraUITests
+  MiraWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: MiraWidget
+      - path: Shared
+    info:
+      path: MiraWidget/Info.plist
+      properties:
+        CFBundleDisplayName: 余白
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: MiraWidget/MiraWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.jp.mugi.mira
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.mugi.mira.widget
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
   MiraTests:
     type: bundle.unit-test
     platform: iOS

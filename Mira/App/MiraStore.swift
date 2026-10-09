@@ -42,6 +42,7 @@ final class MiraStore {
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
     @ObservationIgnored var chatHistoryRestored = false
+    @ObservationIgnored var lastWidgetSignature: Int?
 
     var selectedMonth: Date
     var selectedDate: Date
@@ -209,6 +210,7 @@ final class MiraStore {
         conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
         rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
+        publishWidgetSnapshot()
     }
 
     func replaceDeviceHolidays(with holidays: [DeviceHolidaySnapshot]) {
