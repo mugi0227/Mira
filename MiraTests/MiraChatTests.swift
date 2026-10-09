@@ -97,6 +97,7 @@ final class ChatTitleTests: XCTestCase {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "、友達とご飯に行ける日を探して"), "友達とご飯")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "来週友達と焼肉行きたい"), "友達と焼肉")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "カフェを予定に追加して"), "カフェ")
+        XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "はなび大会"), "はなび大会")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "探して"), "探して")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: ""), "予定")
     }

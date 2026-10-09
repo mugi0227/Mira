@@ -110,7 +110,7 @@ final class RuleBasedChatAgent: MiraChatAgent {
     /// Turns a request like "来週、友達とご飯に行ける日を探して" into "友達とご飯".
     static func planTitle(from raw: String) -> String {
         var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        let leadingWords = ["再来週", "来週", "今週", "来月", "今月", "週末", "明日", "明後日", "今日", "今度", "土曜", "日曜", "の", "に", "は"]
+        let leadingWords = ["再来週", "来週", "今週", "来月", "今月", "週末", "明日", "明後日", "今日", "今度"]
         var trimmed = true
         while trimmed {
             trimmed = false
