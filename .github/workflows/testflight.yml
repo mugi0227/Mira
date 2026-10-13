@@ -86,13 +86,15 @@ jobs:
         run: |
           APP="$RUNNER_TEMP/Mira.xcarchive/Products/Applications/Mira.app"
           test -d "$APP"
+          marketing_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
           for plist in "$APP/Info.plist" "$APP/PlugIns/"*.appex/Info.plist; do
             /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
             version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")
             test "$version" = "$BUILD_NUMBER"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" = "$marketing_version"
           done
           /usr/bin/codesign --verify --deep --strict "$APP"
-          echo "Source: $GITHUB_SHA; version 0.2.0 ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: $GITHUB_SHA; version $marketing_version ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Export and upload to TestFlight
         run: |

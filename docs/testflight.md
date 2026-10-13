@@ -6,6 +6,7 @@
 署名はApp Store Connect APIキーを使ったXcodeの自動署名（クラウド署名）で行い、
 Bundle ID・証明書・プロビジョニングプロファイルはXcodeが必要に応じて自動作成します。
 ビルド番号はワークフローの実行番号（`github.run_number`）で自動採番されます。
+ウィジェットのバージョンとビルド番号も本体と揃え、アーカイブ後に一致を検査します。
 
 ## 初回だけ必要な手作業
 
@@ -64,7 +65,7 @@ iPhoneに [TestFlight](https://apps.apple.com/jp/app/testflight/id899247664) を
 ## 2回目以降
 
 `main` または `codex/testflight-release` にアプリのコードが入れば自動でアップロードされます。処理完了と内部テストグループへの配信をTestFlightで確認してください。
-手動で出したいときは **Actions → TestFlight → Run workflow**。
+現在は配信ブランチへのPushで起動します。`workflow_dispatch` による手動起動はワークフローを既定の `main` へ反映した後に利用できます。
 
 暗号化の輸出コンプライアンスは `ITSAppUsesNonExemptEncryption = NO` を設定済みなので、毎回の質問は出ません。
 
@@ -78,6 +79,13 @@ iPhoneに [TestFlight](https://apps.apple.com/jp/app/testflight/id899247664) を
 Apple Developerで両方のApp IDにこのグループを関連付けます。アプリにはSign in with Appleも有効にします。
 配信ブランチは `claude/uiux-review` のUI改善と、別ブランチにあったTestFlight設定を統合しています。
 
+## 設定済みの配信先
+
+- App Store Connect: Mira - 余白カレンダー（Apple ID `6822208886`、SKU `mira`、日本語）
+- 内部テストグループ: `Mira Internal`（自動配信、本人のアカウントを追加済み）
+- App Group: `group.jp.mugi.mira` をアプリとウィジェットの両方へ登録済み
+- GitHub Actions: https://github.com/mugi0227/Mira/actions/workflows/testflight.yml
+
 ## うまくいかないとき
 
 | 症状 | 対処 |
@@ -86,4 +94,4 @@ Apple Developerで両方のApp IDにこのグループを関連付けます。�
 | 証明書・プロファイル作成で失敗 | APIキーのアクセスが **Admin** か確認 |
 | `No suitable application records were found` | 手順3のアプリ作成がまだ、またはバンドルIDが違う |
 | `jp.mugi.mira` が他チームで使用済み | `project.yml` の `PRODUCT_BUNDLE_IDENTIFIER` を変更 |
-| ビルド番号の重複 | ワークフローを再実行（実行番号が進みます） |
+| ビルド番号の重複 | 新しいworkflow runを起動する。既存runの再実行は同じ番号になるため、アップロード済みのrunは使わない |
