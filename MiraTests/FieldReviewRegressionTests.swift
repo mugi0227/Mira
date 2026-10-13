@@ -56,6 +56,18 @@ final class FieldReviewRegressionTests: XCTestCase {
         XCTAssertTrue(rest.allSatisfy { $0.endDate.timeIntervalSince($0.startDate) == 5400 && !$0.isAllDay })
     }
 
+    func testMultipleCustomGoalDeficitsAreSummedAndAConsumedGoalIsReported() throws {
+        let store = try makeStore()
+        XCTAssertTrue(store.addCustomGoal(title: "ギター", target: 1, durationMinutes: 30, month: TestFixtures.september))
+        XCTAssertTrue(store.addCustomGoal(title: "運動", target: 1, durationMinutes: 90, month: TestFixtures.september))
+        let guitar = try XCTUnwrap(store.goals.first { $0.title == "ギター" })
+        XCTAssertTrue(store.addMargin(kind: .custom, on: TestFixtures.date(day: 15), goalID: guitar.id))
+        let event = TestFixtures.event(day: 15, hour: 13)
+        XCTAssertEqual(store.currentGoalDeficits(in: TestFixtures.september)[.custom], 1)
+        XCTAssertEqual(store.projectedGoalDeficits(afterAdding: event)[.custom], 2)
+        XCTAssertEqual(store.worsenedGoalDeficits(afterAdding: event)[.custom], 1)
+    }
+
     func testManuallyChosenCustomGoalKeepsItsOwnTitleDurationAndProtection() throws {
         let store = try makeStore()
         XCTAssertTrue(store.addCustomGoal(title: "ギター", target: 1, durationMinutes: 30, month: TestFixtures.september))

@@ -210,7 +210,7 @@ extension MiraStore {
 
             let deficit = max(0, goal.targetCount - current)
             if deficit > 0 {
-                deficits[goal.kind] = deficit
+                deficits[goal.kind, default: 0] += deficit
             }
         }
         return deficits

@@ -267,7 +267,7 @@ struct RebalanceEngine: Sendable {
                 current = items.filter { goal.matches($0) }.count
             }
             let missing = max(0, goal.targetCount - current)
-            if missing > 0 { result[goal.kind] = missing }
+            if missing > 0 { result[goal.kind, default: 0] += missing }
         }
         return result
     }

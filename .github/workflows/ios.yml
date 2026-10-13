@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_ui_tests:
+        description: Run the UI suite (disable only for changes with unchanged UI)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -79,6 +84,7 @@ jobs:
             test | tee unit-tests.log
 
       - name: Run Grill-Me UI tests
+        if: github.event_name != 'workflow_dispatch' || inputs.run_ui_tests != false
         run: |
           set -o pipefail
           xcodebuild \
