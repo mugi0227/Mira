@@ -1,6 +1,6 @@
 # TestFlight配信
 
-`main` に `Mira/`・`project.yml` の変更が入るたびに、GitHub Actions（`.github/workflows/testflight.yml`）が
+`main` または配信用の `codex/testflight-release` にアプリ・ウィジェット・共有コード・配信設定の変更が入るたびに、GitHub Actions（`.github/workflows/testflight.yml`）が
 アーカイブ → 署名 → App Store Connectへのアップロードまで自動で行います。Macも証明書の手作業も不要です。
 
 署名はApp Store Connect APIキーを使ったXcodeの自動署名（クラウド署名）で行い、
@@ -63,15 +63,20 @@ iPhoneに [TestFlight](https://apps.apple.com/jp/app/testflight/id899247664) を
 
 ## 2回目以降
 
-`main` にアプリのコードが入れば自動でアップロードされ、iPhoneのTestFlightに新ビルドが届きます。
+`main` または `codex/testflight-release` にアプリのコードが入れば自動でアップロードされます。処理完了と内部テストグループへの配信をTestFlightで確認してください。
 手動で出したいときは **Actions → TestFlight → Run workflow**。
 
 暗号化の輸出コンプライアンスは `ITSAppUsesNonExemptEncryption = NO` を設定済みなので、毎回の質問は出ません。
 
 ## アプリアイコン
 
-`Mira/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png` は `scripts/generate_app_icon.py` で生成した仮アイコンです。
-1024×1024・透過なしのPNGで差し替えればそのまま使えます。
+`Mira/Assets.xcassets/AppIcon.appiconset/app_icon.png` の既存アイコンを使います。1024×1024・透過なしのPNGです。
+
+## ウィジェットとサインイン
+
+アプリ `jp.mugi.mira` とウィジェット `jp.mugi.mira.widget` は、App Group `group.jp.mugi.mira` を共有します。
+Apple Developerで両方のApp IDにこのグループを関連付けます。アプリにはSign in with Appleも有効にします。
+配信ブランチは `claude/uiux-review` のUI改善と、別ブランチにあったTestFlight設定を統合しています。
 
 ## うまくいかないとき
 

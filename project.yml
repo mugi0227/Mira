@@ -32,6 +32,8 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.jp.mugi.mira
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: jp.mugi.mira

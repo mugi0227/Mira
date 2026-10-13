@@ -2,9 +2,12 @@ name: TestFlight
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/testflight-release]
     paths:
       - "Mira/**"
+      - "MiraOverrides/**"
+      - "MiraWidget/**"
+      - "Shared/**"
       - "project.yml"
       - "ci/**"
       - ".github/workflows/testflight.yml"
@@ -20,9 +23,10 @@ concurrency:
 jobs:
   upload:
     runs-on: macos-26
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       APPLE_TEAM_ID: 572NVCGLGQ
+      BUILD_NUMBER: ${{ github.run_number }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -40,8 +44,12 @@ jobs:
           done
           exit $missing
 
-      - name: Select Xcode 26.6
-        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - name: Select newest stable Xcode
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -52,6 +60,7 @@ jobs:
       - name: Write App Store Connect API key
         run: |
           KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          umask 077
           printf '%s\n' "$ASC_KEY_P8" > "$KEY_PATH"
           echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
@@ -70,8 +79,20 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            | xcbeautify
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            2>&1 | tee "$RUNNER_TEMP/archive.log" | xcbeautify
+
+      - name: Verify app and widget archive
+        run: |
+          APP="$RUNNER_TEMP/Mira.xcarchive/Products/Applications/Mira.app"
+          test -d "$APP"
+          for plist in "$APP/Info.plist" "$APP/PlugIns/"*.appex/Info.plist; do
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
+            version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")
+            test "$version" = "$BUILD_NUMBER"
+          done
+          /usr/bin/codesign --verify --deep --strict "$APP"
+          echo "Source: $GITHUB_SHA; version 0.2.0 ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Export and upload to TestFlight
         run: |
@@ -84,9 +105,21 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            | xcbeautify
-          echo "✅ Build ${{ github.run_number }} uploaded. It appears in TestFlight after Apple finishes processing (usually 5-15 min)." >> "$GITHUB_STEP_SUMMARY"
+            2>&1 | tee "$RUNNER_TEMP/export.log" | xcbeautify
+          echo "Build $BUILD_NUMBER uploaded to App Store Connect. Processing status must be checked in TestFlight." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove API key
         if: always()
-        run: rm -f "$ASC_KEY_PATH"
+        run: |
+          if [ -n "${ASC_KEY_PATH:-}" ]; then rm -f "$ASC_KEY_PATH"; fi
+
+      - name: Save distribution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-testflight-logs-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/archive.log
+            ${{ runner.temp }}/export.log
+          if-no-files-found: ignore
+          retention-days: 7
