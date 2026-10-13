@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 40
     env:
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_TEAM_ID: 572NVCGLGQ
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -32,7 +32,7 @@ jobs:
       - name: Check secrets
         run: |
           missing=0
-          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
             if [ -z "${!name}" ]; then
               echo "::error::GitHub secret $name is not set (see docs/testflight.md)"
               missing=1
