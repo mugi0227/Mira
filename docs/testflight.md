@@ -10,9 +10,9 @@ CIごとに開発用証明書を作成すると枚数上限に達するため、
 ビルド番号はワークフローの実行番号（`github.run_number`）で自動採番されます。
 ウィジェットのバージョンとビルド番号も本体と揃え、アーカイブ後に一致を検査します。
 
-2026/10/13に **0.2.0 (2)** の配信を確認しました。アプリ・ウィジェットの署名と番号一致の検査、Appleの処理が成功し、`Mira Internal` でテスト中です。
+2026/10/13に **0.2.1 (5)** の配信を確認しました。アプリ・ウィジェットの署名、共有グループ、Sign in with Apple、番号一致の検査とAppleの処理が成功し、`Mira Internal` でテスト中です。
 Appleのアップロード検査は警告・エラーともに0件でした。
-[配信ビルド](https://github.com/mugi0227/Mira/actions/runs/38371133321) · [TestFlight](https://appstoreconnect.apple.com/apps/6822208886/testflight)
+[配信ビルド](https://github.com/mugi0227/Mira/actions/runs/38382840951) · [TestFlight](https://appstoreconnect.apple.com/apps/6822208886/testflight) · [修正内容と検証](release/field-review-20261013.md)
 
 ## 初回セットアップ（Miraは設定済み）
 
