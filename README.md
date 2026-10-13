@@ -58,6 +58,8 @@ make test
 
 Developer Programへの登録は、Simulatorでのビルド・動作確認には不要です。
 
+実機向けのTestFlight配信はGitHub Actionsで自動化しています。初回設定は [`docs/testflight.md`](docs/testflight.md) を参照してください。
+
 ## デモ
 
 アプリ内のデモ時計は `2026-09-01 10:00 Asia/Tokyo` に固定されています。設定からサンプル状態へ戻せます。
@@ -116,3 +118,4 @@ Developer Programへの登録は、Simulatorでのビルド・動作確認には
 - [`docs/design-system/MASTER.md`](docs/design-system/MASTER.md)
 - [`docs/implementation-status.md`](docs/implementation-status.md)
 - [`docs/demo-script.md`](docs/demo-script.md)
+- [`docs/testflight.md`](docs/testflight.md)
