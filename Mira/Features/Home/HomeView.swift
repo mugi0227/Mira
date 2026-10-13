@@ -40,6 +40,7 @@ struct HomeView: View {
                     referenceDate: store.now,
                     allowsDragging: !isFriendView,
                     privacyMode: isFriendView,
+                    baseRules: store.fetchBaseRules(),
                     onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                     onSelectDate: openDay,
                     onSelectItem: { item in if !isFriendView { selectedItem = item } }
@@ -113,7 +114,7 @@ struct HomeView: View {
 
     private var monthItems: [CalendarItemSnapshot] {
         let interval = MonthKey(date: store.selectedMonth).interval
-        return store.items.filter { interval.contains($0.startDate) }
+        return store.items.filter { $0.startDate < interval.end && $0.endDate > interval.start }
     }
 
     private var nextStepCard: some View {
@@ -314,7 +315,7 @@ struct HomeView: View {
                 Text("見せる用モード")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.primaryText)
-                Text("中身は隠して「予定あり」だけ表示中。空いている日がひと目でわかります。")
+                Text("予定の中身を隠して、朝・昼・夜の空きを表示中。朝8–12時、昼12–18時、夜18–24時。")
                     .font(.caption)
                     .foregroundStyle(palette.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -342,15 +343,30 @@ struct HomeView: View {
             }
         }
         .miraCard(palette, padding: MiraSpacing.sm)
-        .task(id: "\(MonthKey(date: store.selectedMonth))-\(monthItems.count)") {
+        .task(id: friendShareSignature) {
             friendShareImage = FriendShareRenderer.image(for: FriendShareCard(
                 month: store.selectedMonth,
                 items: monthItems,
                 palette: palette,
                 weekStartDay: store.weekStartDay,
-                referenceDate: store.now
+                referenceDate: store.now,
+                baseRules: store.fetchBaseRules()
             ))
         }
+    }
+
+    private var friendShareSignature: Int {
+        var hasher = Hasher()
+        hasher.combine(MonthKey(date: store.selectedMonth))
+        hasher.combine(monthItems)
+        hasher.combine(store.weekStartDay)
+        hasher.combine(store.theme)
+        for rule in store.fetchBaseRules() {
+            hasher.combine(rule.weekday)
+            hasher.combine(rule.startMinute)
+            hasher.combine(rule.endMinute)
+        }
+        return hasher.finalize()
     }
 
     private var addMenu: some View {

@@ -511,12 +511,12 @@ private struct ChatCardView: View {
             Label("\(balance.month.japaneseMonthTitle)の余白", systemImage: "leaf")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
-            ForEach(balance.lines, id: \.kind) { line in
+            ForEach(Array(balance.lines.enumerated()), id: \.offset) { _, line in
                 HStack(spacing: MiraSpacing.xs) {
                     Image(systemName: line.kind.symbolName)
                         .foregroundStyle(palette.accent)
                         .frame(width: 20)
-                    Text(line.kind.title)
+                    Text(line.title)
                         .font(.subheadline)
                         .foregroundStyle(palette.primaryText)
                     Spacer()

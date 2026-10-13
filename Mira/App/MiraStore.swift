@@ -47,7 +47,12 @@ final class MiraStore {
     @ObservationIgnored var chatHistoryRestored = false
     @ObservationIgnored var lastWidgetSignature: Int?
 
-    var selectedMonth: Date
+    var selectedMonth: Date {
+        didSet {
+            selectRebalanceProposalForDisplayedMonth()
+            if isReady { updateMarginRecommendation(for: selectedMonth) }
+        }
+    }
     var selectedDate: Date
     var theme: AppThemeKind = .pixelCat
     var onboardingCompleted = false
@@ -137,7 +142,7 @@ final class MiraStore {
     }
 
     var selectedDayItems: [CalendarItemSnapshot] {
-        items.filter { Calendar.mira.isDate($0.startDate, inSameDayAs: selectedDate) }
+        items.filter { $0.overlapsDay(selectedDate) }
             .sorted { $0.startDate < $1.startDate }
     }
 
@@ -188,6 +193,12 @@ final class MiraStore {
             if demoModeEnabled { try DemoSeeder.seedBaseline(in: context, clock: clock) }
             try normalizeLegacyMarginKinds()
             try refresh()
+            // Previous versions allowed a connected calendar to remain on the demo clock.
+            if deviceCalendarService.enabled && deviceCalendarService.hasAccess,
+               !UserDefaults.standard.bool(forKey: "mira.calendar.everydayClockMigrated") {
+                if demoModeEnabled { await setDemoModeEnabled(false) }
+                UserDefaults.standard.set(true, forKey: "mira.calendar.everydayClockMigrated")
+            }
             if deviceHolidaysEnabled {
                 await refreshDeviceHolidays(for: selectedMonth)
             }
@@ -214,8 +225,14 @@ final class MiraStore {
         importantPeople = try context.fetch(FetchDescriptor<ImportantPersonEntity>())
         conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
         rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
-        activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
+        selectRebalanceProposalForDisplayedMonth()
         publishWidgetSnapshot()
+    }
+
+    func selectRebalanceProposalForDisplayedMonth() {
+        activeRebalanceProposal = rebalanceProposalEntities.first {
+            !$0.isDismissed && Calendar.mira.isDate($0.month, equalTo: selectedMonth, toGranularity: .month)
+        }?.proposal
     }
 
     func replaceDeviceHolidays(with holidays: [DeviceHolidaySnapshot]) {

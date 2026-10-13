@@ -16,6 +16,7 @@ struct NewItemSheet: View {
     @State private var isAllDay = false
     @State private var isImportant = false
     @State private var marginKind: MarginKind = .rest
+    @State private var marginGoalID: UUID?
     @State private var colorTag: EventColorTag?
     @State private var colorChosenByUser = false
     @State private var isPreparing = false
@@ -46,6 +47,7 @@ struct NewItemSheet: View {
         _isAllDay = State(initialValue: value.isAllDay)
         _isImportant = State(initialValue: value.isImportant)
         _marginKind = State(initialValue: value.marginKind)
+        _marginGoalID = State(initialValue: value.marginGoalID)
         _colorTag = State(initialValue: value.colorTag)
         _colorChosenByUser = State(initialValue: value.colorTag != nil)
     }
@@ -342,6 +344,14 @@ struct NewItemSheet: View {
                     }
                 }
                 DatePicker("日付", selection: $date, displayedComponents: .date)
+                if marginKind == .custom && !customGoals.isEmpty {
+                    Picker("目標", selection: $marginGoalID) {
+                        Text("選んでください").tag(Optional<UUID>.none)
+                        ForEach(customGoals) { goal in
+                            Text(goal.title).tag(Optional(goal.id))
+                        }
+                    }
+                }
             }
             .listRowBackground(palette.surface)
 
@@ -352,9 +362,9 @@ struct NewItemSheet: View {
                         .foregroundStyle(palette.accent)
                         .frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(marginKind.title)
+                        Text(selectedMarginGoal?.title ?? marginKind.title)
                             .font(.headline)
-                        Text("最初は大きめに確保し、必要なときだけ動かします。")
+                        Text("所要時間：\(selectedMarginGoal?.durationDescription ?? "\(marginKind.defaultDurationHours)時間")。マイ余白から変更できます。")
                             .font(.caption)
                             .foregroundStyle(palette.secondaryText)
                     }
@@ -362,6 +372,17 @@ struct NewItemSheet: View {
             }
             .listRowBackground(palette.surface)
         }
+    }
+
+    private var customGoals: [MarginGoalSnapshot] {
+        let key = MonthKey(date: date)
+        return store.goals.filter { $0.year == key.year && $0.month == key.month && $0.kind == .custom && $0.isEnabled }
+    }
+
+    private var selectedMarginGoal: MarginGoalSnapshot? {
+        let key = MonthKey(date: date)
+        let matches = store.goals.filter { $0.year == key.year && $0.month == key.month && $0.kind == marginKind && $0.isEnabled }
+        return matches.first { $0.id == marginGoalID } ?? matches.first
     }
 
     private var canSave: Bool {
@@ -512,7 +533,7 @@ struct NewItemSheet: View {
     @MainActor
     private func save() async {
         if mode == .margin {
-            if store.addMargin(kind: marginKind, on: date) { finishAndDismiss() }
+            if store.addMargin(kind: marginKind, on: date, goalID: selectedMarginGoal?.id) { finishAndDismiss() }
             return
         }
 
@@ -628,6 +649,7 @@ struct NewItemSheet: View {
         value.isAllDay = isAllDay
         value.isImportant = isImportant
         value.marginKind = marginKind
+        value.marginGoalID = marginGoalID
         value.isMargin = mode == .margin
         value.colorTag = colorTag
         return value
@@ -655,7 +677,7 @@ private struct EventGoalReviewSheet: View {
                 }
                 Section("\(month.japaneseMonthTitle)に守る時間") {
                     ForEach(monthGoals) { goal in
-                        Stepper("\(goal.kind.title) \(goal.targetCount)回", value: Binding(
+                        Stepper("\(goal.title) \(goal.targetCount)回", value: Binding(
                             get: { monthGoals.first(where: { $0.id == goal.id })?.targetCount ?? goal.targetCount },
                             set: { store.updateGoal(goal, target: $0) }
                         ), in: 0...20)

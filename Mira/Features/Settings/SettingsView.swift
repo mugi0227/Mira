@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var showImportantPeople = false
     @State private var showEverydayConfirmation = false
+    @State private var showBaseRulesEditor = false
 
     var body: some View {
         List {
@@ -40,6 +41,10 @@ struct SettingsView: View {
                 NavigationLink { DeviceCalendarSettingsView(palette: palette) } label: {
                     Label("iPhoneカレンダーと接続", systemImage: "calendar.badge.plus")
                 }
+                Button { showBaseRulesEditor = true } label: {
+                    Label("仕事・学校の時間", systemImage: "briefcase")
+                }
+                .foregroundStyle(palette.primaryText)
                 if store.demoModeEnabled {
                     Button("サンプルを片付けて日常用に始める") { showEverydayConfirmation = true }
                 }
@@ -195,6 +200,7 @@ struct SettingsView: View {
                         .foregroundStyle(palette.secondaryText)
                 }
                 .padding(.vertical, 4)
+                .accessibilityIdentifier("settingsFooter")
             }
             .listRowBackground(palette.surface)
         }
@@ -204,6 +210,9 @@ struct SettingsView: View {
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showImportantPeople) { ImportantPeopleSheet(palette: palette) }
+        .sheet(isPresented: $showBaseRulesEditor) {
+            BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
+        }
         .confirmationDialog("Mira内のデータを片付けて始めますか？", isPresented: $showEverydayConfirmation) {
             Button("空のカレンダーで始める", role: .destructive) { Task { await store.startEverydayCalendar() } }
             Button("やめる", role: .cancel) {}

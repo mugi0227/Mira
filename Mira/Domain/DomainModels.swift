@@ -285,6 +285,20 @@ struct MarginGoalSnapshot: Identifiable, Hashable, Sendable {
     var durationHours: Int
     var priority: Int
     var isEnabled: Bool
+    var customTitle: String? = nil
+    var durationMinutes: Int? = nil
+
+    var title: String { kind == .custom ? (customTitle ?? kind.title) : kind.title }
+    var effectiveDurationMinutes: Int { max(30, durationMinutes ?? durationHours * 60) }
+    var durationDescription: String {
+        let minutes = effectiveDurationMinutes
+        let hours = minutes / 60
+        return minutes % 60 == 0 ? "\(hours)時間" : (hours == 0 ? "\(minutes)分" : "\(hours)時間\(minutes % 60)分")
+    }
+    func matches(_ item: CalendarItemSnapshot) -> Bool {
+        item.kind == .margin && item.marginKind == kind
+            && (kind != .custom || item.sourceID == id)
+    }
 }
 
 struct CandidateSlotSnapshot: Identifiable, Codable, Hashable, Sendable {

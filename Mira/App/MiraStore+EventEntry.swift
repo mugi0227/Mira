@@ -204,7 +204,7 @@ extension MiraStore {
                 }.rounded(.down))
             default:
                 current = sourceItems.filter {
-                    $0.kind == .margin && $0.marginKind == goal.kind && key.interval.contains($0.startDate)
+                    goal.matches($0) && key.interval.contains($0.startDate)
                 }.count
             }
 

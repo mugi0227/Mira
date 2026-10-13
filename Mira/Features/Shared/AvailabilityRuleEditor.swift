@@ -43,6 +43,14 @@ struct AvailabilityRuleDraft: Identifiable, Hashable {
         }
     }
 
+    static func applyingWeekdays(_ template: AvailabilityRuleDraft, to rules: [AvailabilityRuleDraft]) -> [AvailabilityRuleDraft] {
+        rules.map { rule in
+            guard (2...6).contains(rule.weekday) else { return rule }
+            return AvailabilityRuleDraft(weekday: rule.weekday, isEnabled: template.isEnabled,
+                                         startMinute: template.startMinute, endMinute: template.endMinute)
+        }
+    }
+
     var domainRule: BaseAvailabilityRule? {
         guard isEnabled else { return nil }
         let start = min(max(0, startMinute), 23 * 60)
@@ -71,9 +79,21 @@ struct AvailabilityRuleDraft: Identifiable, Hashable {
 struct AvailabilityRuleEditor: View {
     @Binding var rules: [AvailabilityRuleDraft]
     let palette: MiraThemePalette
+    @State private var showWeekdayEditor = false
+    @State private var weekdayTemplate = AvailabilityRuleDraft.standardWeekdays[0]
 
     var body: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.md) {
+            Button {
+                weekdayTemplate = rules.first { (2...6).contains($0.weekday) && $0.isEnabled }
+                    ?? AvailabilityRuleDraft.standardWeekdays[0]
+                showWeekdayEditor = true
+            } label: {
+                Label("平日まとめて変更", systemImage: "clock.arrow.2.circlepath")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.accent)
             HStack(spacing: MiraSpacing.sm) {
                 Button {
                     withAnimation(MiraMotion.standard) {
@@ -117,26 +137,57 @@ struct AvailabilityRuleEditor: View {
         }
         .environment(\.locale, Locale(identifier: "ja_JP"))
         .environment(\.timeZone, Calendar.mira.timeZone)
+        .sheet(isPresented: $showWeekdayEditor) {
+            NavigationStack {
+                Form {
+                    Section("月〜金の時間") {
+                        AvailabilityRuleRow(rule: $weekdayTemplate, palette: palette, displayTitle: "平日")
+                    }
+                    Section {
+                        Text("適用すると月〜金を同じ時間に変更します。曜日ごとの調整も続けてできます。")
+                            .font(.footnote)
+                    }
+                }
+                .navigationTitle("平日まとめて変更")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("キャンセル") { showWeekdayEditor = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("適用") {
+                            rules = AvailabilityRuleDraft.applyingWeekdays(weekdayTemplate, to: rules)
+                            showWeekdayEditor = false
+                        }
+                    }
+                }
+                .environment(\.locale, Locale(identifier: "ja_JP"))
+                .environment(\.timeZone, Calendar.mira.timeZone)
+            }
+            .tint(palette.accent)
+            .presentationDetents([.medium, .large])
+        }
     }
 }
 
 private struct AvailabilityRuleRow: View {
     @Binding var rule: AvailabilityRuleDraft
     let palette: MiraThemePalette
+    var displayTitle: String? = nil
 
     var body: some View {
         HStack(spacing: MiraSpacing.sm) {
-            Text(rule.shortWeekdayTitle)
+            Text(displayTitle ?? rule.shortWeekdayTitle)
                 .font(.headline)
                 .foregroundStyle(palette.primaryText)
                 .frame(width: 28, height: 28)
                 .background(dayBackground, in: Circle())
                 .accessibilityHidden(true)
 
-            Toggle(rule.longWeekdayTitle, isOn: $rule.isEnabled)
+            Toggle(displayTitle ?? rule.longWeekdayTitle, isOn: $rule.isEnabled)
                 .labelsHidden()
                 .tint(palette.accent)
-                .accessibilityLabel(rule.longWeekdayTitle)
+                .accessibilityLabel(displayTitle ?? rule.longWeekdayTitle)
 
             Spacer(minLength: MiraSpacing.xs)
 
@@ -150,7 +201,7 @@ private struct AvailabilityRuleRow: View {
                 .datePickerStyle(.compact)
                 .controlSize(.small)
                 .fixedSize()
-                .accessibilityLabel("\(rule.longWeekdayTitle)の開始時刻")
+                .accessibilityLabel("\(displayTitle ?? rule.longWeekdayTitle)の開始時刻")
 
                 Text("–")
                     .font(.caption.weight(.semibold))
@@ -166,7 +217,7 @@ private struct AvailabilityRuleRow: View {
                 .datePickerStyle(.compact)
                 .controlSize(.small)
                 .fixedSize()
-                .accessibilityLabel("\(rule.longWeekdayTitle)の終了時刻")
+                .accessibilityLabel("\(displayTitle ?? rule.longWeekdayTitle)の終了時刻")
             } else {
                 Text("設定なし")
                     .font(.subheadline)

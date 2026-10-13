@@ -76,7 +76,7 @@ struct DayTimelineView: View {
 
     private var dayItems: [CalendarItemSnapshot] {
         store.items
-            .filter { Calendar.mira.isDate($0.startDate, inSameDayAs: date) }
+            .filter { $0.overlapsDay(date) }
             .sorted {
                 if $0.isAllDay != $1.isAllDay { return $0.isAllDay }
                 return $0.startDate < $1.startDate

@@ -151,6 +151,10 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
 
     func defaultSearchRange(text: String, now: Date) -> DateInterval {
         let startOfToday = calendar.startOfDay(for: now)
+        if text.contains("今週") {
+            let start = startOfWeek(containing: now)
+            return DateInterval(start: start, end: start.addingDays(7, calendar: calendar))
+        }
         if text.contains("来月") {
             let start = MonthKey(date: now.addingMonths(1), calendar: calendar).firstDay
             let end = calendar.date(byAdding: .month, value: 1, to: start)?.addingTimeInterval(-1) ?? start

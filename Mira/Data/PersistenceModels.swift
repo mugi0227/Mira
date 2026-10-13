@@ -148,6 +148,8 @@ final class MarginGoalEntity {
     var durationHours: Int
     var priority: Int
     var isEnabled: Bool
+    var customTitle: String? = nil
+    var durationMinutes: Int? = nil
 
     init(snapshot: MarginGoalSnapshot) {
         id = snapshot.id
@@ -158,6 +160,8 @@ final class MarginGoalEntity {
         durationHours = snapshot.durationHours
         priority = snapshot.priority
         isEnabled = snapshot.isEnabled
+        customTitle = snapshot.customTitle
+        durationMinutes = snapshot.durationMinutes
     }
 
     var snapshot: MarginGoalSnapshot {
@@ -169,7 +173,9 @@ final class MarginGoalEntity {
             targetCount: targetCount,
             durationHours: durationHours,
             priority: priority,
-            isEnabled: isEnabled
+            isEnabled: isEnabled,
+            customTitle: customTitle,
+            durationMinutes: durationMinutes
         )
     }
 }
