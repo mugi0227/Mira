@@ -64,6 +64,8 @@ make test
 
 Developer Programへの登録は、Simulatorでのビルド・動作確認には不要です。
 
+実機向けのTestFlight配信はGitHub Actionsで自動化しています。初回設定は [`docs/testflight.md`](docs/testflight.md) を参照してください。
+
 ## デモ
 
 新規起動は現在日時を使い、サンプル予定は追加しません。設定のデモリセットを使うと、`2026-09-01 10:00 Asia/Tokyo` の固定時計とサンプル予定で試せます。既存のデモ利用者は、設定からローカルのサンプルを片付けて日常用へ移れます。
@@ -128,3 +130,4 @@ Jevは `backend/README.md` のバックエンドを配置し、設定画面で�
 - [`docs/design-system/MASTER.md`](docs/design-system/MASTER.md)
 - [`docs/implementation-status.md`](docs/implementation-status.md)
 - [`docs/demo-script.md`](docs/demo-script.md)
+- [`docs/testflight.md`](docs/testflight.md)
