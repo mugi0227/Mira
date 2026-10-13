@@ -3,8 +3,10 @@
 `main` または配信用の `codex/testflight-release` にアプリ・ウィジェット・共有コード・配信設定の変更が入るたびに、GitHub Actions（`.github/workflows/testflight.yml`）が
 アーカイブ → 署名 → App Store Connectへのアップロードまで自動で行います。Macも証明書の手作業も不要です。
 
-署名はApp Store Connect APIキーを使ったXcodeの自動署名（クラウド署名）で行い、
-Bundle ID・証明書・プロビジョニングプロファイルはXcodeが必要に応じて自動作成します。
+署名は、GitHub Secretsに保存した配布用の署名と、登録済みのApp Store用プロファイルを再利用します。
+`ci/install_signing.py` が一時キーチェーンに署名を読み込み、APIキーでプロファイルを取得します。
+CIごとに開発用証明書を作成すると枚数上限に達するため、アーカイブと書き出しを配布用署名へ統一しています。
+署名の設定はRunnerのチェックアウトだけに適用し、終了時に秘密鍵ファイルと一時キーチェーンを削除します。
 ビルド番号はワークフローの実行番号（`github.run_number`）で自動採番されます。
 ウィジェットのバージョンとビルド番号も本体と揃え、アーカイブ後に一致を検査します。
 
@@ -12,20 +14,22 @@ Bundle ID・証明書・プロビジョニングプロファイルはXcodeが必
 Appleのアップロード検査は警告・エラーともに0件でした。
 [配信ビルド](https://github.com/mugi0227/Mira/actions/runs/38371133321) · [TestFlight](https://appstoreconnect.apple.com/apps/6822208886/testflight)
 
-## 初回だけ必要な手作業
+## 初回セットアップ（Miraは設定済み）
 
 ### 1. GitHubにSecretsを登録
 
 thirtyと**同じ値**をそのまま使えます（APIキーはチーム共通なので、新しく作る必要はありません）。
 Team ID（`572NVCGLGQ`）はワークフローに直書き済みです。
 
-リポジトリの **Settings → Secrets and variables → Actions → New repository secret** で3つ登録します。
+リポジトリの **Settings → Secrets and variables → Actions → New repository secret** に以下を登録します。APIキーの3つはthirtyと共通で、配布用署名の2つも登録済みです。
 
 | Name | 値 |
 | --- | --- |
 | `ASC_KEY_ID` | App Store Connect APIキーのキーID |
 | `ASC_ISSUER_ID` | Issuer ID（キー一覧の上に表示） |
 | `ASC_KEY_P8` | `AuthKey_XXXX.p8` の中身をまるごと（`-----BEGIN PRIVATE KEY-----` 行から `-----END PRIVATE KEY-----` 行まで） |
+| `MIRA_SIGNING_P12` | 配布用の証明書と秘密鍵を含む、暗号化したPKCS#12のBase64 |
+| `MIRA_SIGNING_PASSWORD` | PKCS#12のパスワード |
 
 GitHub CLIが使えるPCなら、次のコマンドで一発です。
 
@@ -37,7 +41,11 @@ gh secret set ASC_KEY_P8    -R "$REPO" < ~/path/to/AuthKey_XXXX.p8
 ```
 
 APIキーを新しく作る場合は、App Store Connect → **ユーザとアクセス** → **統合** → **App Store Connect API** →
-チームキーの「+」で、アクセスを **Admin** にしてください（Adminでないと署名証明書を自動作成できません）。
+チームキーの「+」で、アクセスを **Admin** にしてください（初期設定で証明書・プロファイルを発行・取得するために使います）。
+
+配布用の証明書・プロファイルの公開情報は `ci/signing.json` にあります。有効期限は2027/10/13です。
+更新時は新しい配布用署名をSecretsに登録し、プロファイルIDと署名の指紋を更新します。
+PKCS#12とパスワードはGitへ入れません。
 
 ### 2. Apple Developerの識別子を登録
 
@@ -95,7 +103,8 @@ Apple Developerで両方のApp IDにこのグループを関連付けます。�
 | 症状 | 対処 |
 | --- | --- |
 | `GitHub secret ... is not set` | 手順1のSecrets名を確認 |
-| 証明書・プロファイル作成で失敗 | APIキーのアクセスが **Admin** か確認 |
+| 配布用署名を取得できない | PKCS#12のSecretsと `ci/signing.json` の指紋・有効期限を確認 |
+| プロファイル取得で失敗 | APIキーの権限と、登録済みのApp Storeプロファイルの状態を確認 |
 | `No suitable application records were found` | 手順3のアプリ作成がまだ、またはバンドルIDが違う |
 | `jp.mugi.mira` が他チームで使用済み | `project.yml` の `PRODUCT_BUNDLE_IDENTIFIER` を変更 |
 | ビルド番号の重複 | 新しいworkflow runを起動する。既存runの再実行は同じ番号になるため、アップロード済みのrunは使わない |
