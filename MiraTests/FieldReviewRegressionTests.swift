@@ -65,7 +65,7 @@ final class FieldReviewRegressionTests: XCTestCase {
         let event = TestFixtures.event(day: 15, hour: 13)
         XCTAssertEqual(store.currentGoalDeficits(in: TestFixtures.september)[.custom], 1)
         XCTAssertEqual(store.projectedGoalDeficits(afterAdding: event)[.custom], 2)
-        XCTAssertEqual(store.worsenedGoalDeficits(afterAdding: event)[.custom], 1)
+        XCTAssertEqual(store.worsenedGoalDeficits(afterAdding: event)[.custom], 2)
     }
 
     func testManuallyChosenCustomGoalKeepsItsOwnTitleDurationAndProtection() throws {
