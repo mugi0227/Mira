@@ -8,6 +8,10 @@ Bundle ID・証明書・プロビジョニングプロファイルはXcodeが必
 ビルド番号はワークフローの実行番号（`github.run_number`）で自動採番されます。
 ウィジェットのバージョンとビルド番号も本体と揃え、アーカイブ後に一致を検査します。
 
+2026/10/13に **0.2.0 (2)** の配信を確認しました。アプリ・ウィジェットの署名と番号一致の検査、Appleの処理が成功し、`Mira Internal` でテスト中です。
+Appleのアップロード検査は警告・エラーともに0件でした。
+[配信ビルド](https://github.com/mugi0227/Mira/actions/runs/38371133321) · [TestFlight](https://appstoreconnect.apple.com/apps/6822208886/testflight)
+
 ## 初回だけ必要な手作業
 
 ### 1. GitHubにSecretsを登録
@@ -35,12 +39,11 @@ gh secret set ASC_KEY_P8    -R "$REPO" < ~/path/to/AuthKey_XXXX.p8
 APIキーを新しく作る場合は、App Store Connect → **ユーザとアクセス** → **統合** → **App Store Connect API** →
 チームキーの「+」で、アクセスを **Admin** にしてください（Adminでないと署名証明書を自動作成できません）。
 
-### 2. 1回目のワークフローを実行（Bundle IDの自動登録）
+### 2. Apple Developerの識別子を登録
 
-GitHubの **Actions → TestFlight → Run workflow**。
-このときXcodeが Bundle ID `jp.mugi.mira` を自動登録します。
-App Store Connect側にまだアプリが無いので、最後のアップロード段階で
-`No suitable application records were found` のように失敗するのは想定どおりです。
+Apple Developerの **Certificates, Identifiers & Profiles → Identifiers** で、アプリ `jp.mugi.mira` とウィジェット `jp.mugi.mira.widget` を登録します。
+App Group `group.jp.mugi.mira` を登録し、両方のApp IDのApp Groups設定で割り当てます。
+アプリにはSign in with AppleをプライマリApp IDとして有効にします。Miraではすべて設定済みです。
 
 ### 3. App Store Connectにアプリを作る
 
@@ -52,9 +55,10 @@ App Store Connect → **アプリ** → 「+」→ **新規App**
 - バンドルID: `jp.mugi.mira`（手順2で登録されたものを選択）
 - SKU: 任意（例: `mira`）
 
-### 4. もう一度ワークフローを実行
+### 4. ワークフローを実行
 
-**Actions → TestFlight → Run workflow**。成功すると、5〜15分ほどの処理後にTestFlightへ出てきます。
+配信ブランチにアプリまたは配信設定の変更をPushします。アップロード後、TestFlightでAppleの処理完了を確認します。
+ワークフローが既定の `main` に反映済みなら **Actions → TestFlight → Run workflow** でも起動できます。
 
 ### 5. 自分をテスターに追加
 
