@@ -28,13 +28,16 @@ struct SchedulerEngine: Sendable {
         let activeGoals = goals
             .filter { $0.isEnabled && $0.kind != .importantPeople }
             .sorted {
-                if $0.priority == $1.priority { return $0.kind.rawValue < $1.kind.rawValue }
+                if $0.priority == $1.priority {
+                    if $0.kind == $1.kind { return $0.id.uuidString < $1.id.uuidString }
+                    return $0.kind.rawValue < $1.kind.rawValue
+                }
                 return $0.priority > $1.priority
             }
 
         for goal in activeGoals {
             let existingCount = existingMargins.filter {
-                $0.marginKind == goal.kind && monthKey.interval.contains($0.startDate)
+                goal.matches($0) && monthKey.interval.contains($0.startDate)
             }.count
             let remaining = max(0, goal.targetCount - existingCount)
             guard remaining > 0 else { continue }
@@ -69,7 +72,7 @@ struct SchedulerEngine: Sendable {
 
                 let item = CalendarItemSnapshot(
                     id: UUID(),
-                    title: goal.kind.title,
+                    title: goal.title,
                     startDate: best.0.start,
                     endDate: best.0.end,
                     isAllDay: goal.kind == .rest && best.0.duration >= 10 * 60 * 60,
@@ -153,10 +156,11 @@ struct SchedulerEngine: Sendable {
         guard let range = calendar.range(of: .day, in: .month, for: month.firstDay) else { return [] }
         return range.flatMap { day -> [DateInterval] in
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) else { return [] }
-            let preferred = interval(for: goal.kind, on: date, durationHours: goal.durationHours)
+            let start = interval(for: goal.kind, on: date, durationHours: 1).start
+            let preferred = DateInterval(start: start, duration: Double(goal.effectiveDurationMinutes) * 60)
             var intervals = isBlockedByBaseRule(preferred, rules: baseRules) ? [] : [preferred]
 
-            if goal.kind == .rest {
+            if goal.kind == .rest && goal.durationMinutes == nil {
                 let eveningStart = date.setting(hour: 18, calendar: calendar)
                 let eveningEnd = calendar.date(byAdding: .hour, value: 4, to: eveningStart) ?? eveningStart
                 let evening = DateInterval(start: eveningStart, end: eveningEnd)
@@ -164,7 +168,7 @@ struct SchedulerEngine: Sendable {
                     intervals.append(evening)
                 }
             }
-            return intervals
+            return intervals.filter { $0.end <= month.interval.end }
         }
     }
 

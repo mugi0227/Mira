@@ -23,6 +23,7 @@ extension MiraStore {
         chatMessages.append(reply)
         let sink = ChatTurnSink(store: self, messageID: reply.id)
 
+        await refreshDeviceCalendar(around: now)
         do {
             try await currentChatAgent().respond(to: text, store: self, sink: sink)
         } catch {
@@ -157,7 +158,7 @@ extension MiraStore {
     func toolListSchedule(from start: Date, to end: Date) -> MiraToolResult {
         let range = DateInterval(start: start, end: max(end, start))
         let found = items
-            .filter { range.intersects(DateInterval(start: $0.startDate, end: max($0.endDate, $0.startDate))) }
+            .filter { $0.startDate < range.end && $0.endDate > range.start }
             .sorted { $0.startDate < $1.startDate }
         let label = rangeLabel(start, end)
         let lines = found.prefix(24).map { item in
@@ -278,12 +279,12 @@ extension MiraStore {
             .sorted { $0.priority > $1.priority }
         let lines = monthGoals.map { goal -> ChatBalanceLine in
             let value = progress(for: goal)
-            return ChatBalanceLine(kind: goal.kind, current: value.current, target: value.target)
+            return ChatBalanceLine(kind: goal.kind, current: value.current, target: value.target, customTitle: goal.customTitle)
         }
         let busy = items.filter { $0.kind == .confirmed && key.interval.contains($0.startDate) }
         let heavy = busy.filter { $0.loadClass >= .heavy }.count
         let summary = "\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
-            + lines.map { "\($0.kind.title) \($0.current)/\($0.target)" }.joined(separator: "、")
+            + lines.map { "\($0.title) \($0.current)/\($0.target)" }.joined(separator: "、")
         return MiraToolResult(
             summary: summary,
             activity: ChatActivity(symbol: "leaf", text: "\(month.japaneseMonthTitle)の余白バランスを確認"),

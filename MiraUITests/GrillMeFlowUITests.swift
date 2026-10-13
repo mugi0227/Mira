@@ -166,9 +166,59 @@ final class GrillMeFlowUITests: XCTestCase {
     }
 
     private func capture(_ name: String) {
+        let folder = URL(fileURLWithPath: "/tmp/mira-field-review", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: folder.appendingPathComponent(name + ".png"))
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testSettingsFooterScrollsAboveTabsAndWorkHoursAreEditable() throws {
+        let tab = app.buttons["設定"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 5))
+        tab.tap()
+        let work = app.buttons["仕事・学校の時間"].firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 5))
+        scrollUntilHittable(work)
+        work.tap()
+        let bulk = app.buttons["平日まとめて変更"]
+        XCTAssertTrue(bulk.waitForExistence(timeout: 5))
+        bulk.tap()
+        XCTAssertTrue(app.buttons["適用"].waitForExistence(timeout: 5))
+        capture("field-01-weekday-editor")
+        app.buttons["適用"].tap()
+        app.buttons["保存"].tap()
+        let footer = app.descendants(matching: .any)["settingsFooter"].firstMatch
+        for _ in 0..<6 { app.swipeUp() }
+        XCTAssertTrue(footer.exists)
+        XCTAssertLessThan(footer.frame.maxY, tab.frame.minY, "Last settings content must sit above the tab controls")
+        capture("field-02-settings-bottom")
+    }
+
+    func testOriginalGoalCanBeAddedAndSurvivesRelaunch() throws {
+        app.buttons["マイ余白"].firstMatch.tap()
+        let add = app.buttons["オリジナルの目標を追加"]
+        scrollUntilHittable(add)
+        XCTAssertTrue(add.isHittable)
+        add.tap()
+        let title = app.textFields["customGoalTitle"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("ギターの練習")
+        app.buttons["保存"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        app.launch()
+        XCTAssertTrue(app.buttons["マイ余白"].firstMatch.waitForExistence(timeout: 12))
+        app.buttons["マイ余白"].firstMatch.tap()
+        let goal = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "ギターの練習")).firstMatch
+        scrollUntilHittable(goal)
+        XCTAssertTrue(goal.isHittable)
+        goal.tap()
+        XCTAssertEqual(app.textFields["customGoalTitle"].value as? String, "ギターの練習")
+        XCTAssertTrue(app.staticTexts["1時間"].exists)
+        capture("field-03-original-goal")
     }
 }

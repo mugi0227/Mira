@@ -24,6 +24,20 @@ struct ProtectionEngine: Sendable {
         var worst: ProtectionLevel = .flexible
 
         for kind in Set(overlapping.compactMap(\.marginKind)) {
+            if kind == .custom {
+                for goal in goals where goal.kind == .custom && goal.isEnabled
+                    && goal.year == monthKey.year && goal.month == monthKey.month {
+                    let consumed = overlapping.filter { goal.matches($0) && monthKey.interval.contains($0.startDate) }.count
+                    guard consumed > 0 else { continue }
+                    let current = items.filter { goal.matches($0) && monthKey.interval.contains($0.startDate) }.count
+                    let after = max(0, current - consumed)
+                    deficits[kind, default: 0] += max(0, goal.targetCount - after)
+                    let level: ProtectionLevel = after == 0 && goal.targetCount > 0 ? .finalDefense
+                        : (after < goal.targetCount ? .strong : (after == goal.targetCount ? .caution : .flexible))
+                    worst = maxLevel(worst, level)
+                }
+                continue
+            }
             let target = goals.first(where: { $0.kind == kind })?.targetCount ?? 0
             let current = items.filter {
                 $0.kind == .margin && $0.marginKind == kind && monthKey.interval.contains($0.startDate)
@@ -48,7 +62,7 @@ struct ProtectionEngine: Sendable {
             worst = maxLevel(worst, level)
         }
 
-        let firstKind = overlapping.first?.marginKind?.title ?? "余白"
+        let firstKind = overlapping.first?.title ?? "余白"
         let message: String
         switch worst {
         case .flexible:

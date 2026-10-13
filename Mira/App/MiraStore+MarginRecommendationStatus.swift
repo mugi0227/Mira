@@ -16,7 +16,7 @@ extension MiraStore {
               Calendar.mira.isDate(recommendation.month, equalTo: selectedMonth, toGranularity: .month) else {
             return []
         }
-        let currentByKind = Dictionary(uniqueKeysWithValues: currentMonthGoals.map { ($0.kind, $0.targetCount) })
+        let currentByKind = Dictionary(currentMonthGoals.filter { $0.kind != .custom }.map { ($0.kind, $0.targetCount) }, uniquingKeysWith: { first, _ in first })
         return recommendation.targets.compactMap { kind, recommended in
             guard kind != .importantPeople else { return nil }
             let current = currentByKind[kind] ?? 0

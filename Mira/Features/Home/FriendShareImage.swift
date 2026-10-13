@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// The friend view as a picture: a month where busy days read only
-/// "予定あり", ready to drop into a chat so friends can pick a free day.
+/// Shares morning, afternoon and evening availability without event titles.
 struct FriendShareCard: View {
     let month: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
     let weekStartDay: WeekStartDay
     let referenceDate: Date
+    var baseRules: [BaseAvailabilityRule] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -28,10 +28,11 @@ struct FriendShareCard: View {
                 weekStartDay: weekStartDay,
                 referenceDate: referenceDate,
                 allowsDragging: false,
-                privacyMode: true
+                privacyMode: true,
+                baseRules: baseRules
             )
             .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-            Text("「予定あり」の日以外なら空いてるよ")
+            Text("朝 8–12時・昼 12–18時・夜 18–24時\n「予定」はその時間帯に予定や仕事が入っています。")
                 .font(.footnote)
                 .foregroundStyle(palette.secondaryText)
         }

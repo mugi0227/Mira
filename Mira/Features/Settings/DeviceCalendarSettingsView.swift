@@ -31,7 +31,7 @@ struct DeviceCalendarSettingsView: View {
                 Text("選んだカレンダーを読み込み、余白や重複の確認に使います。クラウドの入力補助へカレンダー全体を送ることはありません。")
             }
             if store.demoModeEnabled {
-                Text("デモ中は実際の予定を読み込みません。設定で「日常の日時を使う」に切り替えてください。")
+                Text("接続すると、日常の日時に切り替えてiPhoneの予定を読み込みます。")
             }
             if authorizationStatus == .denied || authorizationStatus == .restricted || authorizationStatus == .writeOnly {
                 Section {

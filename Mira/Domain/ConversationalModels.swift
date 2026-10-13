@@ -19,7 +19,7 @@ enum MarginComfortLevel: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var subtitle: String {
         switch self {
-        case .low: "最低限の回復時間を確保"
+        case .low: "各目標を月1回ずつ確保"
         case .standard: "予定負荷に合わせた標準量"
         case .high: "予定を詰めやすい人向けに余裕を多めに"
         }
@@ -462,9 +462,10 @@ struct RebalanceMove: Identifiable, Codable, Hashable, Sendable {
     var durationSeconds: TimeInterval?
     var marginKind: MarginKind?
     var isAllDay: Bool?
+    var goalID: UUID?
 
     init(id: UUID = UUID(), marginItemID: UUID, title: String, from: Date, to: Date, benefit: String,
-         durationSeconds: TimeInterval? = nil, marginKind: MarginKind? = nil, isAllDay: Bool? = nil) {
+         durationSeconds: TimeInterval? = nil, marginKind: MarginKind? = nil, isAllDay: Bool? = nil, goalID: UUID? = nil) {
         self.id = id
         self.marginItemID = marginItemID
         self.title = title
@@ -474,6 +475,7 @@ struct RebalanceMove: Identifiable, Codable, Hashable, Sendable {
         self.durationSeconds = durationSeconds
         self.marginKind = marginKind
         self.isAllDay = isAllDay
+        self.goalID = goalID
     }
 }
 

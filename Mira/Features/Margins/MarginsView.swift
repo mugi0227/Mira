@@ -7,6 +7,7 @@ struct MarginsView: View {
     @State private var selectedGoal: MarginGoalSnapshot?
     @State private var showBaseRulesEditor = false
     @State private var showRebalanceSheet = false
+    @State private var showCustomGoalEditor = false
 
     var body: some View {
         ScrollView {
@@ -45,6 +46,9 @@ struct MarginsView: View {
         }
         .sheet(item: $selectedGoal) { goal in
             GoalEditorSheet(goal: goal, palette: palette)
+        }
+        .sheet(isPresented: $showCustomGoalEditor) {
+            GoalEditorSheet(month: store.selectedMonth, palette: palette)
         }
         .sheet(isPresented: $showBaseRulesEditor) {
             BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
@@ -237,6 +241,12 @@ struct MarginsView: View {
                 }
                 .buttonStyle(MiraPressStyle())
             }
+            Button { showCustomGoalEditor = true } label: {
+                Label("オリジナルの目標を追加", systemImage: "plus.circle")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(palette.accent)
         }
     }
 
@@ -403,9 +413,12 @@ private struct GoalRow: View {
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(goal.kind.title)
+                Text(goal.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
+                Text("1回 \(goal.durationDescription)")
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
                 HStack(spacing: 6) {
                     ProgressView(value: Double(min(progress.current, progress.target)), total: Double(max(progress.target, 1)))
                         .tint(palette.accent)
@@ -422,7 +435,7 @@ private struct GoalRow: View {
         }
         .miraCard(palette, padding: MiraSpacing.sm)
         .accessibilityElement(children: .combine)
-        .accessibilityHint("目標回数を編集")
+        .accessibilityHint("目標回数と所要時間を編集")
     }
 
     private var goalColor: Color {
@@ -438,15 +451,30 @@ private struct GoalRow: View {
 private struct GoalEditorSheet: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    let goal: MarginGoalSnapshot
+    let goal: MarginGoalSnapshot?
+    let month: Date
     let palette: MiraThemePalette
 
     @State private var target: Int
+    @State private var title: String
+    @State private var minutes: Int
 
     init(goal: MarginGoalSnapshot, palette: MiraThemePalette) {
         self.goal = goal
+        self.month = MonthKey(year: goal.year, month: goal.month).firstDay
         self.palette = palette
         _target = State(initialValue: goal.targetCount)
+        _title = State(initialValue: goal.title)
+        _minutes = State(initialValue: goal.effectiveDurationMinutes)
+    }
+
+    init(month: Date, palette: MiraThemePalette) {
+        self.goal = nil
+        self.month = month
+        self.palette = palette
+        _target = State(initialValue: 1)
+        _title = State(initialValue: "")
+        _minutes = State(initialValue: 60)
     }
 
     var body: some View {
@@ -454,19 +482,40 @@ private struct GoalEditorSheet: View {
             Form {
                 Section {
                     HStack(spacing: MiraSpacing.md) {
-                        Image(systemName: goal.kind.symbolName)
+                        Image(systemName: (goal?.kind ?? .custom).symbolName)
                             .font(.system(size: 30))
                             .foregroundStyle(palette.accent)
                             .frame(width: 52, height: 52)
                             .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(goal.kind.title)
+                            Text(goal?.title ?? "自分のための目標")
                                 .font(.headline)
                             Text("最初は大きめに確保し、必要なときだけ動かします。")
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
                     }
+                }
+                .listRowBackground(palette.surface)
+
+                if goal == nil || goal?.kind == .custom {
+                    Section("目標の名前") {
+                        TextField("例：ギターの練習", text: $title)
+                            .accessibilityIdentifier("customGoalTitle")
+                    }
+                    .listRowBackground(palette.surface)
+                }
+
+                Section("1回の所要時間") {
+                    Picker("時間", selection: $minutes) {
+                        ForEach(Array(stride(from: 30, through: 24 * 60, by: 30)), id: \.self) { value in
+                            Text(value % 60 == 0 ? "\(value / 60)時間" : (value < 60 ? "30分" : "\(value / 60)時間30分")).tag(value)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    Text("これから置く余白に使います。配置済みの枠は、カレンダーの詳細から1枠ずつ変更できます。")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
                 }
                 .listRowBackground(palette.surface)
 
@@ -485,15 +534,20 @@ private struct GoalEditorSheet: View {
             .scrollContentBackground(.hidden)
             .miraFormStyle(palette)
             .miraScreenBackground(palette)
-            .navigationTitle("余白目標")
+            .navigationTitle(goal == nil ? "目標を追加" : "余白目標")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("キャンセル") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        store.updateGoal(goal, target: target)
-                        dismiss()
+                        if let goal {
+                            store.updateGoal(goal, target: target, durationMinutes: minutes, title: title)
+                            dismiss()
+                        } else if store.addCustomGoal(title: title, target: target, durationMinutes: minutes, month: month) {
+                            dismiss()
+                        }
                     }
+                    .disabled((goal == nil || goal?.kind == .custom) && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

@@ -42,6 +42,7 @@ final class RuleBasedChatAgent: MiraChatAgent {
             ?? interpretation.candidateDates.max().map { calendar.date(byAdding: .day, value: 1, to: $0) ?? $0 }
             ?? calendar.date(byAdding: .day, value: 14, to: rangeStart) ?? rangeStart
 
+        await store.refreshDeviceCalendar(around: rangeStart, through: rangeEnd)
         switch interpretation.intent {
         case .addEvent where interpretation.exactStartDate != nil:
             let start = interpretation.exactStartDate ?? rangeStart
@@ -262,7 +263,10 @@ struct ListScheduleTool: Tool {
     func call(arguments: Arguments) async throws -> String {
         guard let start = ToolDates.parseDay(arguments.startDate) else { return "開始日を yyyy-MM-dd で指定してください。" }
         let end = ToolDates.dayAfter(ToolDates.parseDay(arguments.endDate) ?? start)
-        return await context.run { $0.toolListSchedule(from: start, to: end) }
+        return await context.run {
+            await $0.refreshDeviceCalendar(around: start, through: end)
+            return $0.toolListSchedule(from: start, to: end)
+        }
     }
 }
 
@@ -293,7 +297,8 @@ struct FindOpenSlotsTool: Tool {
         let bands = arguments.timeBands.compactMap(SchedulingTimeBand.init(rawValue:))
         let purpose = arguments.purpose
         return await context.run {
-            $0.toolFindOpenSlots(purpose: purpose, from: start, to: end, duration: duration, bands: bands)
+            await $0.refreshDeviceCalendar(around: start, through: end)
+            return $0.toolFindOpenSlots(purpose: purpose, from: start, to: end, duration: duration, bands: bands)
         }
     }
 }
@@ -360,7 +365,11 @@ struct MonthBalanceTool: Tool {
 
     func call(arguments: Arguments) async throws -> String {
         let date = ToolDates.parseDay(arguments.date)
-        return await context.run { $0.toolMonthBalance(month: date ?? $0.selectedMonth) }
+        return await context.run {
+            let month = date ?? $0.selectedMonth
+            await $0.refreshDeviceCalendar(around: month)
+            return $0.toolMonthBalance(month: month)
+        }
     }
 }
 

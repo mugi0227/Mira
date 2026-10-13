@@ -28,7 +28,7 @@ struct MarginRecommendationEngine: Sendable {
             8
         )
         let standardReading = clamp(2 + (busyWeekendCount >= 3 ? 1 : 0), 1, 4)
-        let standardProject = clamp(events.count <= 10 ? 2 : 1, 1, 3)
+        let standardProject = 2
 
         let base: [MarginKind: Int] = [
             .rest: standardRest,
@@ -37,7 +37,11 @@ struct MarginRecommendationEngine: Sendable {
             .importantPeople: 2
         ]
         let adjusted = base.mapValues { value in
-            max(1, Int((Double(value) * comfort.multiplier).rounded()))
+            switch comfort {
+            case .low: return 1
+            case .standard: return value
+            case .high: return max(value + 1, Int(ceil(Double(value) * comfort.multiplier)))
+            }
         }
 
         var reasons: [String] = []
@@ -160,16 +164,18 @@ struct RebalanceEngine: Sendable {
             if $0.kind != $1.kind { return $0.kind.rawValue < $1.kind.rawValue }
             return $0.id.uuidString < $1.id.uuidString
         }
-        var proposedKinds: Set<MarginKind> = []
         for goal in orderedGoals {
             let kind = goal.kind
-            guard moves.count < 4, let missing = deficits[kind], missing > 0,
+            let missing = kind == .custom
+                ? max(0, goal.targetCount - workingMargins.filter { goal.matches($0) }.count)
+                : (deficits[kind] ?? 0)
+            guard moves.count < 4, missing > 0,
                   kind != .importantPeople, kind != .freeEvening,
-                  goal.durationHours > 0, proposedKinds.insert(kind).inserted else { continue }
-            let duration = Double(goal.durationHours) * 60 * 60
+                  goal.effectiveDurationMinutes > 0 else { continue }
+            let duration = Double(goal.effectiveDurationMinutes) * 60
             let temporary = CalendarItemSnapshot(
                 id: UUID(),
-                title: kind.title,
+                title: goal.title,
                 startDate: key.firstDay,
                 endDate: key.firstDay.addingTimeInterval(duration),
                 isAllDay: kind == .rest && duration >= 10 * 60 * 60,
@@ -195,18 +201,19 @@ struct RebalanceEngine: Sendable {
                 let newID = UUID()
                 moves.append(RebalanceMove(
                     marginItemID: newID,
-                    title: kind.title,
+                    title: goal.title,
                     from: key.firstDay,
                     to: candidate,
                     benefit: "不足している\(kind.title)を1枠戻します",
                     durationSeconds: duration,
                     marginKind: kind,
-                    isAllDay: temporary.isAllDay
+                    isAllDay: temporary.isAllDay,
+                    goalID: goal.id
                 ))
                 // The placeholder ID must differ for each addition so that the
                 // next relocation search does not exclude an earlier new slot.
                 workingMargins.append(CalendarItemSnapshot(
-                    id: newID, title: kind.title,
+                    id: newID, title: goal.title,
                     startDate: candidate, endDate: candidate.addingTimeInterval(duration),
                     isAllDay: temporary.isAllDay, kind: .margin, marginKind: kind,
                     loadClass: .light, loadReason: temporary.loadReason,
@@ -257,10 +264,10 @@ struct RebalanceEngine: Sendable {
                     )
                 }.rounded(.down))
             default:
-                current = items.filter { $0.kind == .margin && $0.marginKind == goal.kind }.count
+                current = items.filter { goal.matches($0) }.count
             }
             let missing = max(0, goal.targetCount - current)
-            if missing > 0 { result[goal.kind] = missing }
+            if missing > 0 { result[goal.kind, default: 0] += missing }
         }
         return result
     }
@@ -278,6 +285,7 @@ struct RebalanceEngine: Sendable {
         var durationSeconds: TimeInterval?
         var marginKind: MarginKind?
         var isAllDay: Bool?
+        var goalID: UUID?
     }
 
     private struct GoalSignature: Codable {
@@ -289,6 +297,8 @@ struct RebalanceEngine: Sendable {
         var durationHours: Int
         var priority: Int
         var isEnabled: Bool
+        var customTitle: String?
+        var durationMinutes: Int?
     }
 
     private struct StateSignature: Codable {
@@ -305,7 +315,7 @@ struct RebalanceEngine: Sendable {
             MoveSignature(
                 existingMarginID: existingIDs.contains($0.marginItemID) ? $0.marginItemID : nil,
                 title: $0.title, from: $0.from, to: $0.to,
-                durationSeconds: $0.durationSeconds, marginKind: $0.marginKind, isAllDay: $0.isAllDay
+                durationSeconds: $0.durationSeconds, marginKind: $0.marginKind, isAllDay: $0.isAllDay, goalID: $0.goalID
             )
         }
     }
@@ -320,7 +330,8 @@ struct RebalanceEngine: Sendable {
             goals: goals.sorted { $0.id.uuidString < $1.id.uuidString }.map {
                 GoalSignature(id: $0.id, year: $0.year, month: $0.month, kind: $0.kind,
                               targetCount: $0.targetCount, durationHours: $0.durationHours,
-                              priority: $0.priority, isEnabled: $0.isEnabled)
+                              priority: $0.priority, isEnabled: $0.isEnabled,
+                              customTitle: $0.customTitle, durationMinutes: $0.durationMinutes)
             },
             baseRules: baseRules.map { [$0.weekday, $0.startMinute, $0.endMinute] }.sorted {
                 $0.lexicographicallyPrecedes($1)

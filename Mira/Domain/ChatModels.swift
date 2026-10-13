@@ -123,4 +123,6 @@ struct ChatBalanceLine: Codable, Hashable, Sendable {
     var kind: MarginKind
     var current: Int
     var target: Int
+    var customTitle: String? = nil
+    var title: String { customTitle ?? kind.title }
 }

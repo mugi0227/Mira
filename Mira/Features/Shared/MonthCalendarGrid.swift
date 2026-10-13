@@ -9,8 +9,9 @@ struct MonthCalendarGrid: View {
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
-    /// Friend view: every day with anything on it reads only "予定あり".
+    /// Friend view shows coarse availability without titles.
     var privacyMode = false
+    var baseRules: [BaseAvailabilityRule] = []
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
@@ -97,7 +98,7 @@ struct MonthCalendarGrid: View {
     @ViewBuilder
     private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = items
-            .filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+            .filter { $0.overlapsDay(date, calendar: calendar) }
             .sorted { lhs, rhs in
                 if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
                 return lhs.startDate < rhs.startDate
@@ -147,7 +148,18 @@ struct MonthCalendarGrid: View {
                 }
 
                 if privacyMode {
-                    if !dayItems.isEmpty { BusyStrip(palette: palette) }
+                    let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
+                    if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
+                        Text(availability.summary)
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
+                    } else {
+                        ForEach(availability.bands) { band in
+                            Text(band.label)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                        }
+                    }
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
                         HStack(spacing: 0) {
@@ -223,7 +235,9 @@ struct MonthCalendarGrid: View {
 
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
-        let suffix = items.isEmpty ? "予定なし" : (privacyMode ? "予定あり" : items.map(\.title).joined(separator: "、"))
+        let suffix = privacyMode
+            ? FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar).summary
+            : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
         return "\(formatter.string(from: date))、\(suffix)"
     }
 }

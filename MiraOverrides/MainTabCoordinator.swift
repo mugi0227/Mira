@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import EventKit
 
 struct MainTabView: View {
     @Environment(MiraStore.self) private var store
@@ -13,40 +14,44 @@ struct MainTabView: View {
     @AppStorage("mira.ui.pendingReminderDestination") private var pendingReminderRawValue = ""
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                HomeView(palette: palette)
-            }
-            .tabItem { Label("ホーム", systemImage: "calendar") }
-            .tag(MiraTab.home)
-            .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
+        VStack(spacing: 0) {
+            TabView(selection: $selectedTab) {
+                NavigationStack {
+                    HomeView(palette: palette)
+                }
+                .tabItem { Label("ホーム", systemImage: "calendar") }
+                .tag(MiraTab.home)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
-            NavigationStack {
-                AdjustmentsView(palette: palette)
-            }
-            .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
-            .tag(MiraTab.adjustments)
-            .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
+                NavigationStack {
+                    AdjustmentsView(palette: palette)
+                }
+                .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
+                .tag(MiraTab.adjustments)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
-            NavigationStack {
-                MarginsView(palette: palette)
-            }
-            .tabItem { Label("マイ余白", systemImage: "leaf") }
-            .tag(MiraTab.margins)
-            .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
+                NavigationStack {
+                    MarginsView(palette: palette)
+                }
+                .tabItem { Label("マイ余白", systemImage: "leaf") }
+                .tag(MiraTab.margins)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
-            NavigationStack {
-                SettingsView(palette: palette)
+                NavigationStack {
+                    SettingsView(palette: palette)
+                }
+                .tabItem { Label("設定", systemImage: "gearshape") }
+                .tag(MiraTab.settings)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
             }
-            .tabItem { Label("設定", systemImage: "gearshape") }
-            .tag(MiraTab.settings)
-            .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
-        }
-        .tint(palette.accent)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .tint(palette.accent)
             if palette.isCatSkin && !keyboardIsVisible {
                 floatingTabBar
             }
+        }
+        .background(palette.background)
+        .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
+            Task { await store.refreshDeviceCalendar() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardIsVisible = true
@@ -61,7 +66,12 @@ struct MainTabView: View {
             if store.isReady { await receivePendingReminder() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await receivePendingReminder() } }
+            if phase == .active {
+                Task {
+                    await store.refreshDeviceCalendar()
+                    await receivePendingReminder()
+                }
+            }
         }
         .task(id: "\(pendingReminderRawValue):\(scenePhase == .active):\(store.isReady)") {
             await openPendingReminderWhenAvailable()

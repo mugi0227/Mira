@@ -10,6 +10,7 @@ struct ManualEventDraft: Identifiable, Codable, Hashable, Sendable {
     var isAllDay = false
     var isImportant = false
     var marginKind: MarginKind = .rest
+    var marginGoalID: UUID? = nil
     var isMargin = false
     var colorTag: EventColorTag?
 
