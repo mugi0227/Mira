@@ -50,38 +50,38 @@ extension MiraStore {
         var byKey: [String: CalendarItemEntity] = [:]
         for entity in imported {
             if let key = entity.snapshot.deviceEvent?.key { byKey[key] = entity }
-    }
-    let incomingKeys = Set(events.map { $0.reference.key })
-    for event in events {
-        let existing = byKey[event.reference.key] ?? entities.first { $0.id == event.localID }
-        let load = loadEngine.evaluate(title: event.title, startDate: event.start, endDate: event.end,
-            isAllDay: event.allDay, explicitRules: fetchLoadRules())
-        var value = existing?.snapshot ?? CalendarItemSnapshot(id: event.localID ?? UUID(), title: event.title,
-            startDate: event.start, endDate: event.end, isAllDay: event.allDay, kind: .confirmed, marginKind: nil,
-            loadClass: load.loadClass, loadReason: load.reason, bufferBeforeMinutes: load.bufferBeforeMinutes,
-            bufferAfterMinutes: load.bufferAfterMinutes, isImportantTime: false, sourceID: nil)
-        value.title = event.title
-        value.startDate = event.start
-        value.endDate = event.end
-        value.isAllDay = event.allDay
-        value.deviceEvent = event.reference
-        if existing?.loadReason != "あなたが明示的に変更した負荷" {
-            value.loadClass = load.loadClass
-            value.loadReason = load.reason
-            value.bufferBeforeMinutes = load.bufferBeforeMinutes
-            value.bufferAfterMinutes = load.bufferAfterMinutes
         }
-        if let existing { existing.apply(value) } else { context.insert(CalendarItemEntity(snapshot: value)) }
-    }
-    for entity in imported {
-        guard let reference = entity.snapshot.deviceEvent else { continue }
-        let wasInRange = entity.startDate < interval.end && entity.endDate > interval.start
-        if !selectedIDs.contains(reference.calendarID) || (wasInRange && !incomingKeys.contains(reference.key)) {
-            context.delete(entity)
+        let incomingKeys = Set(events.map { $0.reference.key })
+        for event in events {
+            let existing = byKey[event.reference.key] ?? entities.first { $0.id == event.localID }
+            let load = loadEngine.evaluate(title: event.title, startDate: event.start, endDate: event.end,
+                isAllDay: event.allDay, explicitRules: fetchLoadRules())
+            var value = existing?.snapshot ?? CalendarItemSnapshot(id: event.localID ?? UUID(), title: event.title,
+                startDate: event.start, endDate: event.end, isAllDay: event.allDay, kind: .confirmed, marginKind: nil,
+                loadClass: load.loadClass, loadReason: load.reason, bufferBeforeMinutes: load.bufferBeforeMinutes,
+                bufferAfterMinutes: load.bufferAfterMinutes, isImportantTime: false, sourceID: nil)
+            value.title = event.title
+            value.startDate = event.start
+            value.endDate = event.end
+            value.isAllDay = event.allDay
+            value.deviceEvent = event.reference
+            if existing?.loadReason != "あなたが明示的に変更した負荷" {
+                value.loadClass = load.loadClass
+                value.loadReason = load.reason
+                value.bufferBeforeMinutes = load.bufferBeforeMinutes
+                value.bufferAfterMinutes = load.bufferAfterMinutes
+            }
+            if let existing { existing.apply(value) } else { context.insert(CalendarItemEntity(snapshot: value)) }
         }
-    }
-    try context.save()
-    try refresh()
+        for entity in imported {
+            guard let reference = entity.snapshot.deviceEvent else { continue }
+            let wasInRange = entity.startDate < interval.end && entity.endDate > interval.start
+            if !selectedIDs.contains(reference.calendarID) || (wasInRange && !incomingKeys.contains(reference.key)) {
+                context.delete(entity)
+            }
+        }
+        try context.save()
+        try refresh()
     }
 
     @discardableResult

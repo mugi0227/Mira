@@ -11,12 +11,14 @@ struct EventDetailSheet: View {
     @State private var rememberSimilar = false
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
+    @State private var marginMinutes: Int
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
         self.item = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
         _colorTag = State(initialValue: item.colorTag)
+        _marginMinutes = State(initialValue: max(30, Int(item.endDate.timeIntervalSince(item.startDate) / 60)))
     }
 
     var body: some View {
@@ -37,6 +39,7 @@ struct EventDetailSheet: View {
                     }
                     if item.kind == .margin {
                         marginCard
+                        marginDurationCard
                     }
                     if item.deviceEvent == nil { deleteButton }
                 }
@@ -245,6 +248,31 @@ struct EventDetailSheet: View {
         }
         .buttonStyle(.bordered)
         .tint(palette.critical)
+    }
+
+    private var marginDurationCard: some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+            Text("この枠の所要時間")
+                .font(.headline)
+                .foregroundStyle(palette.primaryText)
+            Picker("所要時間", selection: $marginMinutes) {
+                ForEach(Array(stride(from: 30, through: 24 * 60, by: 30)), id: \.self) { minutes in
+                    Text(minutes % 60 == 0 ? "\(minutes / 60)時間" : (minutes < 60 ? "30分" : "\(minutes / 60)時間30分")).tag(minutes)
+                }
+            }
+            .pickerStyle(.menu)
+            Text("この1枠の時間を変更します。これから置く余白の時間は、マイ余白の目標から設定できます。")
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+            PrimaryButton(title: "所要時間を変更", symbol: "clock", palette: palette) {
+                Task {
+                    await store.refreshDeviceCalendar(around: item.startDate, through: item.endDate)
+                    store.rescheduleItem(id: item.id, toStart: item.startDate, durationSeconds: Double(marginMinutes) * 60)
+                    dismiss()
+                }
+            }
+        }
+        .miraCard(palette)
     }
 
     private var symbol: String {

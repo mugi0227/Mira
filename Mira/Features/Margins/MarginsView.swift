@@ -512,6 +512,10 @@ private struct GoalEditorSheet: View {
                             Text(value % 60 == 0 ? "\(value / 60)時間" : (value < 60 ? "30分" : "\(value / 60)時間30分")).tag(value)
                         }
                     }
+                    .pickerStyle(.menu)
+                    Text("これから置く余白に使います。配置済みの枠は、カレンダーの詳細から1枠ずつ変更できます。")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
                 }
                 .listRowBackground(palette.surface)
 

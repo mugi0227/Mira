@@ -94,6 +94,39 @@ final class FieldReviewRegressionTests: XCTestCase {
         XCTAssertEqual(store.activeRebalanceProposal?.month, october)
     }
 
+    func testOnePlacedMarginCanChangeDurationAndUndoWithoutChangingItsGoal() async throws {
+        let store = try makeStore()
+        let goal = TestFixtures.goal(.rest, count: 1)
+        store.context.insert(MarginGoalEntity(snapshot: goal))
+        try store.context.save()
+        try store.refresh()
+        XCTAssertTrue(store.addMargin(kind: .rest, on: TestFixtures.date(day: 15)))
+        let original = try XCTUnwrap(store.items.first)
+        store.rescheduleItem(id: original.id, toStart: original.startDate, durationSeconds: 1800)
+        XCTAssertNil(store.pendingChangePreview)
+        let shortened = try XCTUnwrap(store.items.first)
+        XCTAssertEqual(shortened.id, original.id)
+        XCTAssertEqual(shortened.endDate.timeIntervalSince(shortened.startDate), 1800)
+        XCTAssertFalse(shortened.isAllDay)
+        XCTAssertEqual(store.goals.first?.effectiveDurationMinutes, 720)
+        await store.undoLastCalendarMutation()
+        XCTAssertEqual(store.items, [original])
+    }
+
+    func testExtendingAMarginIntoAnEventNeedsAReviewAndDoesNotSilentlySave() throws {
+        let store = try makeStore()
+        var margin = TestFixtures.event(day: 15, hour: 13, duration: 1, kind: .margin, marginKind: .reading)
+        margin.endDate = margin.startDate.addingTimeInterval(1800)
+        let event = TestFixtures.event(day: 15, hour: 14)
+        store.context.insert(CalendarItemEntity(snapshot: margin))
+        store.context.insert(CalendarItemEntity(snapshot: event))
+        try store.context.save()
+        try store.refresh()
+        store.rescheduleItem(id: margin.id, toStart: margin.startDate, durationSeconds: 7200)
+        XCTAssertNotNil(store.pendingChangePreview)
+        XCTAssertEqual(store.items.first { $0.id == margin.id }, margin)
+    }
+
     func testImportedCalendarAppearsInThisWeeksChatDayAndWidgetWithoutNextWeeksEvents() async throws {
         let store = try makeStore()
         store.clock = DemoClock(now: TestFixtures.date(day: 16, hour: 10))

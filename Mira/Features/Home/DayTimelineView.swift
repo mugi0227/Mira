@@ -352,7 +352,7 @@ struct DayTimelineView: View {
                     item: item,
                     lane: lane,
                     laneCount: laneCount,
-                    y: min(yOffset(for: item.startDate), hourHeight * 24 - 44),
+                    y: min(yOffset(for: max(Calendar.mira.startOfDay(for: date), item.startDate)), hourHeight * 24 - 44),
                     height: eventHeight(for: item)
                 )
             })
@@ -368,8 +368,9 @@ struct DayTimelineView: View {
 
     private func eventHeight(for item: CalendarItemSnapshot) -> CGFloat {
         let dayEnd = Calendar.mira.startOfDay(for: date).addingDays(1)
-        let end = min(dayEnd, max(item.endDate, item.startDate.addingTimeInterval(30 * 60)))
-        let minutes = max(30, end.timeIntervalSince(item.startDate) / 60)
+        let start = max(Calendar.mira.startOfDay(for: date), item.startDate)
+        let end = min(dayEnd, max(item.endDate, start.addingTimeInterval(30 * 60)))
+        let minutes = max(30, end.timeIntervalSince(start) / 60)
         return max(44, CGFloat(minutes / 60) * hourHeight)
     }
 

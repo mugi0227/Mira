@@ -180,7 +180,7 @@ private struct AvailabilityRuleRow: View {
             Text(displayTitle ?? rule.shortWeekdayTitle)
                 .font(.headline)
                 .foregroundStyle(palette.primaryText)
-                .frame(width: 28, height: 28)
+                .frame(width: displayTitle == nil ? 28 : 44, height: 28)
                 .background(dayBackground, in: Circle())
                 .accessibilityHidden(true)
 

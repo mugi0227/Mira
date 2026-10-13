@@ -200,17 +200,23 @@ extension MiraStore {
     /// Moves a plan to a new start, keeping its length. A move the person made
     /// themselves is already an explicit choice, so it saves at once with undo
     /// and only stops to ask when it would cost a margin or collide.
-    func rescheduleItem(id: UUID, toStart newStart: Date) {
+    func rescheduleItem(id: UUID, toStart newStart: Date, durationSeconds: TimeInterval? = nil) {
         do {
             guard let entity = try entity(id: id) else { return }
             guard entity.snapshot.deviceEvent == nil else {
                 toast = "この予定の詳細から「カレンダーで編集」を選んでください"
                 return
             }
-            guard newStart != entity.startDate else { return }
+            let duration = durationSeconds ?? entity.endDate.timeIntervalSince(entity.startDate)
+            guard duration.isFinite, duration > 0 else { return }
+            let newEnd = newStart.addingTimeInterval(duration)
+            guard newStart != entity.startDate || newEnd != entity.endDate else { return }
             var after = entity.snapshot
             after.startDate = newStart
-            after.endDate = newStart.addingTimeInterval(entity.endDate.timeIntervalSince(entity.startDate))
+            after.endDate = newEnd
+            if after.kind == .margin, after.marginKind == .rest {
+                after.isAllDay = duration >= 10 * 3600
+            }
             let impact = previewImpact(for: after, excludingItemID: id)
             let conflicts = eventEntryConflicts(for: after, excludingItemID: id)
             let preview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
