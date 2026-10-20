@@ -16,36 +16,44 @@ final class MiraTimeOwnershipUITests: XCTestCase {
     }
 
     func testVagueRequestBecomesSuggestionAppliedWithinTwoTapsAndCanBeUndone() {
-        let field = app.textFields["mira.request"]
-        XCTAssertTrue(field.waitForExistence(timeout: 4))
-        field.tap()
-        field.typeText("来週は自分の時間を増やしたい")
+        type("来週は自分の時間を増やしたい")
 
         // U1: send + apply = two taps after typing.
         app.buttons["送信"].tap()
         let apply = app.buttons["この案で置く"].firstMatch
-        XCTAssertTrue(apply.waitForExistence(timeout: 4))
+        require(apply, "apply button after sending")
         apply.tap()
 
         // U2: no confirmation dialog on apply or undo.
         XCTAssertEqual(app.alerts.count, 0)
         let undo = app.buttons["取り消す"].firstMatch
-        XCTAssertTrue(scrollTo(undo))
+        XCTAssertTrue(scrollTo(undo), "undo button\n\(app.debugDescription.prefix(4000))")
         undo.tap()
         XCTAssertEqual(app.alerts.count, 0)
-        XCTAssertTrue(app.staticTexts["取り消しました"].waitForExistence(timeout: 4))
+        require(app.staticTexts["取り消しました"], "undone status")
     }
 
     func testUnknownRequestOffersChoices() {
-        let field = app.textFields["mira.request"]
-        XCTAssertTrue(field.waitForExistence(timeout: 4))
-        field.tap()
-        field.typeText("ラーメン")
+        type("ラーメン")
         app.buttons["送信"].tap()
         let choice = app.buttons["来週の自分の時間を増やす"]
-        XCTAssertTrue(choice.waitForExistence(timeout: 4))
+        require(choice, "fallback choice")
         choice.tap()
-        XCTAssertTrue(app.buttons["この案で置く"].firstMatch.waitForExistence(timeout: 4))
+        require(app.buttons["この案で置く"].firstMatch, "apply after choice")
+    }
+
+    private func type(_ text: String) {
+        let field = app.textFields["mira.request"]
+        require(field, "request field")
+        field.tap()
+        field.typeText(text)
+        XCTAssertTrue(app.buttons["送信"].isEnabled, "send enabled after typing; field value: \(String(describing: field.value))")
+    }
+
+    private func require(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 5) {
+        if !element.waitForExistence(timeout: timeout) {
+            XCTFail("missing \(label)\n\(app.debugDescription.prefix(6000))")
+        }
     }
 
     func testShareShowsMaskedPreview() {
