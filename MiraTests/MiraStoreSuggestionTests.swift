@@ -35,6 +35,18 @@ final class MiraStoreSuggestionTests: XCTestCase {
         XCTAssertEqual(store.visibleSuggestions.first?.id, suggestion.id)
     }
 
+    func testRequestStillFindsTimeAfterOnboardingPlacedMargins() async throws {
+        let store = try await makeStore()
+        store.finishOnboarding(
+            targets: [.rest: 4, .freeEvening: 8, .reading: 2, .solo: 2, .importantPeople: 2],
+            baseRules: store.fetchBaseRules()
+        )
+        guard case .suggested(let suggestion) = store.submitRequest("来週は自分の時間を増やしたい") else {
+            return XCTFail("expected a suggestion after onboarding")
+        }
+        XCTAssertFalse(suggestion.margins.isEmpty)
+    }
+
     func testApplyAddsOnlyMarginsAndUndoRemovesThem() async throws {
         let store = try await makeStore()
         let confirmedBefore = store.items.filter { $0.kind != .margin }

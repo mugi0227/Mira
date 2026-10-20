@@ -108,9 +108,9 @@ struct MiraAssistantView: View {
             case .needsChoice(let options):
                 choices = options
                 notice = "こういうことかな？近いものを選んでね。"
-            case .nothingFits:
+            case .nothingFits(let scope, let hours):
                 choices = []
-                notice = "その週には、予定とぶつからずに置ける時間が見つかりませんでした。"
+                notice = "\(scope.title)は予定とぶつからずに置ける時間が見つかりませんでした。すでに自分の時間が\(hours)時間あります。"
             }
         }
     }

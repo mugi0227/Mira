@@ -6,7 +6,7 @@ extension MiraStore {
     enum RequestOutcome: Equatable {
         case suggested(Suggestion)
         case needsChoice([PlanningIntent])
-        case nothingFits
+        case nothingFits(scope: WeekScope, currentHours: Int)
     }
 
     var visibleSuggestions: [Suggestion] {
@@ -47,7 +47,16 @@ extension MiraStore {
             items: items,
             baseRules: fetchBaseRules(),
             trend: currentTrend
-        ) else { return .nothingFits }
+        ) else {
+            let scope: WeekScope
+            switch intent {
+            case .increaseSelfTime(let s, _), .protectEvenings(let s): scope = s
+            case .unknown: scope = .nextWeek
+            }
+            let week = currentWeek.adding(weeks: scope == .nextWeek ? 1 : 0)
+            let hours = Int(SelfTimePlanner().selfTimeHours(in: week, items: items).rounded())
+            return .nothingFits(scope: scope, currentHours: hours)
+        }
         save(suggestion, isNew: true)
         return .suggested(suggestions.first { $0.id == suggestion.id } ?? suggestion)
     }

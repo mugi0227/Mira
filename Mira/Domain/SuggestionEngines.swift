@@ -57,12 +57,8 @@ struct SelfTimePlanner: Sendable {
     ) -> [SuggestedMargin] {
         let occupied = items.filter { $0.kind != .birthday }.map(\.occupiedInterval)
         let candidates = week.days.flatMap { day in
-            windows(on: day, eveningsOnly: eveningsOnly).map { (day, $0.0, $0.1) }
-        }
-        .filter { _, interval, _ in
-            interval.start >= now
-                && !occupied.contains(where: { $0.intersects(interval) })
-                && !isBlockedByBaseRule(interval, rules: baseRules)
+            windows(on: day, eveningsOnly: eveningsOnly, occupied: occupied, baseRules: baseRules, notBefore: now)
+                .map { (day, $0.0, $0.1) }
         }
         .map { day, interval, band in
             (day, interval, band, score(interval: interval, band: band, items: items, trend: trend))
@@ -105,15 +101,80 @@ struct SelfTimePlanner: Sendable {
         return max(6, (monthHours * 7 / days).rounded())
     }
 
-    private func windows(on day: Date, eveningsOnly: Bool) -> [(DateInterval, TimeOfDayKind)] {
+    /// Real free gaps of the day (after events, buffers, margins and base rules), cut to a comfortable length
+    /// and anchored at the preferred start times when the gap allows it.
+    private func windows(
+        on day: Date,
+        eveningsOnly: Bool,
+        occupied: [DateInterval],
+        baseRules: [BaseAvailabilityRule],
+        notBefore: Date
+    ) -> [(DateInterval, TimeOfDayKind)] {
         let weekday = calendar.component(.weekday, from: day)
         let isWeekend = weekday == 1 || weekday == 7
-        let evening = interval(day, 19, 22)
-        if eveningsOnly { return [(interval(day, 18, 22), .evening)] }
-        if isWeekend {
-            return [(interval(day, 13, 17), .afternoon), (interval(day, 9, 12), .morning), (evening, .evening)]
+        let range: (Int, Int)
+        let preferredStarts: [Int]
+        let length: Double
+        if eveningsOnly {
+            range = (18, 23); preferredStarts = [18, 19]; length = 4
+        } else if isWeekend {
+            range = (9, 23); preferredStarts = [13, 9, 18]; length = 4
+        } else {
+            range = (7, 23); preferredStarts = [19, 18, 20]; length = 3
         }
-        return [(evening, .evening)]
+
+        let dayRange = interval(day, range.0, range.1)
+        let busy = (occupied + baseRuleIntervals(on: day, rules: baseRules)).filter { $0.intersects(dayRange) }
+        var result: [(DateInterval, TimeOfDayKind)] = []
+        for gap in freeGaps(in: dayRange, busy: busy, notBefore: notBefore) {
+            let starts = preferredStarts.map { day.setting(hour: $0, calendar: calendar) } + [roundedUpToHour(gap.start)]
+            for start in starts where start >= gap.start && start < gap.end {
+                let end = min(gap.end, start.addingTimeInterval(length * 3600))
+                guard end.timeIntervalSince(start) >= Self.minimumHours * 3600 else { continue }
+                let candidate = DateInterval(start: start, end: end)
+                guard !result.contains(where: { $0.0 == candidate }) else { continue }
+                result.append((candidate, band(for: start)))
+            }
+        }
+        return result
+    }
+
+    static let minimumHours = 2.0
+
+    private func freeGaps(in range: DateInterval, busy: [DateInterval], notBefore: Date) -> [DateInterval] {
+        var cursor = max(range.start, roundedUpToHour(notBefore))
+        var gaps: [DateInterval] = []
+        for interval in busy.sorted(by: { $0.start < $1.start }) {
+            if interval.start > cursor { gaps.append(DateInterval(start: cursor, end: min(interval.start, range.end))) }
+            cursor = max(cursor, interval.end)
+            if cursor >= range.end { break }
+        }
+        if cursor < range.end { gaps.append(DateInterval(start: cursor, end: range.end)) }
+        return gaps.filter { $0.duration > 0 }
+    }
+
+    private func baseRuleIntervals(on day: Date, rules: [BaseAvailabilityRule]) -> [DateInterval] {
+        let weekday = calendar.component(.weekday, from: day)
+        return rules.filter { $0.weekday == weekday }.map { rule in
+            let start = calendar.startOfDay(for: day).addingTimeInterval(Double(rule.startMinute) * 60)
+            let end = calendar.startOfDay(for: day).addingTimeInterval(Double(rule.endMinute) * 60)
+            return DateInterval(start: start, end: max(start, end))
+        }
+    }
+
+    private func roundedUpToHour(_ date: Date) -> Date {
+        let components = calendar.dateComponents([.minute, .second], from: date)
+        guard (components.minute ?? 0) > 0 || (components.second ?? 0) > 0 else { return date }
+        let floored = date.setting(hour: calendar.component(.hour, from: date), calendar: calendar)
+        return floored.addingTimeInterval(3600)
+    }
+
+    private func band(for start: Date) -> TimeOfDayKind {
+        switch calendar.component(.hour, from: start) {
+        case ..<12: .morning
+        case 12..<17: .afternoon
+        default: .evening
+        }
     }
 
     private func interval(_ day: Date, _ startHour: Int, _ endHour: Int) -> DateInterval {
@@ -130,7 +191,12 @@ struct SelfTimePlanner: Sendable {
     private func score(interval: DateInterval, band: TimeOfDayKind, items: [CalendarItemSnapshot], trend: TimeTrend?) -> Double {
         let weekday = calendar.component(.weekday, from: interval.start)
         var value = 100.0
-        if weekday == 1 || weekday == 7 { value += band == .afternoon ? 10 : 4 }
+        if weekday == 1 || weekday == 7 {
+            value += band == .afternoon ? 10 : 4
+        } else if band != .evening {
+            value -= 8
+        }
+        value += min(interval.duration / 3600, 4)
 
         let previousDay = interval.start.addingDays(-1, calendar: calendar)
         if items.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && $0.loadClass >= .heavy }) {
@@ -141,20 +207,6 @@ struct SelfTimePlanner: Sendable {
         }
         if let trend { value += trend.bonus(for: interval, band: band, calendar: calendar) }
         return value
-    }
-
-    private func isBlockedByBaseRule(_ interval: DateInterval, rules: [BaseAvailabilityRule]) -> Bool {
-        let weekday = calendar.component(.weekday, from: interval.start)
-        let startMinute = minuteOfDay(interval.start)
-        let endMinute = minuteOfDay(interval.end)
-        return rules.contains { rule in
-            rule.weekday == weekday && startMinute < rule.endMinute && rule.startMinute < endMinute
-        }
-    }
-
-    private func minuteOfDay(_ date: Date) -> Int {
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 }
 

@@ -65,6 +65,22 @@ final class SuggestionEngineTests: XCTestCase {
         }
     }
 
+    func testSuggestionUsesRealGapsWhenUsualEveningsAreTaken() throws {
+        // Every evening 18:00–20:00 is booked; 20:00–23:00 is still free.
+        let events = nextWeek.days.map { eventItem(on: $0, hour: 18, hours: 2) }
+        let weekendDays = Set(nextWeek.days.filter { [1, 7].contains(calendar.component(.weekday, from: $0)) }.map { calendar.startOfDay(for: $0) })
+        let weekendBlocks = weekendDays.map { eventItem(on: $0, hour: 9, hours: 9) }
+        let suggestion = try XCTUnwrap(engine.suggestion(
+            for: .increaseSelfTime(scope: .nextWeek, kind: nil),
+            now: now, items: events + weekendBlocks, baseRules: [], trend: nil
+        ))
+        for margin in suggestion.margins {
+            XCTAssertFalse((events + weekendBlocks).contains { $0.occupiedInterval.intersects(margin.interval) && ($0.occupiedInterval.intersection(with: margin.interval)?.duration ?? 0) > 0 })
+            XCTAssertGreaterThanOrEqual(margin.hours, SelfTimePlanner.minimumHours)
+            XCTAssertGreaterThanOrEqual(calendar.component(.hour, from: margin.startDate), 20)
+        }
+    }
+
     func testApplicableMarginsDropOnesThatNowCollide() throws {
         let suggestion = try XCTUnwrap(engine.suggestion(
             for: .increaseSelfTime(scope: .nextWeek, kind: nil),
