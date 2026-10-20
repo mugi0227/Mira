@@ -64,6 +64,11 @@ extension MiraStore {
             try context.delete(model: PendingInvitationEntity.self)
             try context.delete(model: LoadRuleEntity.self)
             try context.delete(model: BaseRuleEntity.self)
+            try context.delete(model: SuggestionEntity.self)
+            try context.delete(model: WeeklyReflectionEntity.self)
+            settingsEntity?.trendSuggestionsEnabled = true
+            settingsEntity?.lastSuggestionNotifiedAt = nil
+            trendSuggestionsEnabled = true
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
             try context.save()

@@ -81,6 +81,32 @@ final class MiraScreenshotUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["読み取った予定"].waitForExistence(timeout: 6))
         settle()
         try capture("12-legacy-import-review")
+
+        app.tabBars.buttons["Mira"].tap()
+        settle()
+        try capture("13-mira-tab")
+
+        let field = app.textFields["mira.request"]
+        XCTAssertTrue(field.waitForExistence(timeout: 4))
+        field.tap()
+        field.typeText("来週は自分の時間を増やしたい")
+        app.buttons["送信"].tap()
+        XCTAssertTrue(app.buttons["この案で置く"].firstMatch.waitForExistence(timeout: 4))
+        settle()
+        try capture("14-mira-suggestion")
+
+        app.swipeUp()
+        app.swipeUp()
+        settle()
+        try capture("15-mira-review")
+
+        let share = app.buttons["空き枠を共有"]
+        if share.waitForExistence(timeout: 3) {
+            share.tap()
+            XCTAssertTrue(app.navigationBars["空き枠を共有"].waitForExistence(timeout: 4))
+            settle()
+            try capture("16-availability-share")
+        }
     }
 
     private func tapNext(in app: XCUIApplication) {

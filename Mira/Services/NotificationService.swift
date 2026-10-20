@@ -32,6 +32,20 @@ actor NotificationService {
         try? await UNUserNotificationCenter.current().add(request)
     }
 
+    func scheduleSuggestion(id: UUID, title: String, body: String, at date: Date) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        let components = Calendar.mira.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let request = UNNotificationRequest(
+            identifier: "suggestion.\(id.uuidString)",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
     func cancelAdjustmentReminder(id: UUID) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: ["adjustment.deadline.\(id.uuidString)"]

@@ -10,6 +10,8 @@ final class AppSettingsEntity {
     var characterNotificationsEnabled: Bool
     var notificationsEnabled: Bool
     var demoModeEnabled: Bool
+    var trendSuggestionsEnabled: Bool = true
+    var lastSuggestionNotifiedAt: Date? = nil
     var createdAt: Date
     var updatedAt: Date
 
@@ -286,4 +288,42 @@ final class ImportantPersonEntity {
         self.targetEnabled = targetEnabled
         self.isArchived = false
     }
+}
+
+@Model
+final class SuggestionEntity {
+    @Attribute(.unique) var id: UUID
+    var weekStart: Date
+    var createdAt: Date
+    @Attribute(.externalStorage) var payload: Data
+
+    init(suggestion: Suggestion) {
+        id = suggestion.id
+        weekStart = suggestion.weekStart
+        createdAt = suggestion.createdAt
+        payload = (try? JSONEncoder().encode(suggestion)) ?? Data()
+    }
+
+    var snapshot: Suggestion? {
+        try? JSONDecoder().decode(Suggestion.self, from: payload)
+    }
+
+    func apply(_ suggestion: Suggestion) {
+        payload = (try? JSONEncoder().encode(suggestion)) ?? payload
+    }
+}
+
+@Model
+final class WeeklyReflectionEntity {
+    @Attribute(.unique) var weekStart: Date
+    var satisfactionRaw: Int
+    var updatedAt: Date
+
+    init(weekStart: Date, satisfaction: Satisfaction) {
+        self.weekStart = weekStart
+        self.satisfactionRaw = satisfaction.rawValue
+        self.updatedAt = .now
+    }
+
+    var satisfaction: Satisfaction? { Satisfaction(rawValue: satisfactionRaw) }
 }

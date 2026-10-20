@@ -16,6 +16,8 @@ final class MiraStore {
     let loadEngine = LoadEngine()
     let protectionEngine = ProtectionEngine()
     let assistantEngine = AssistantEngine()
+    let suggestionEngine = SuggestionEngine()
+    let notificationPolicy = SuggestionNotificationPolicy()
     let classifier: any EventSemanticClassifying
 
     private(set) var isReady = false
@@ -24,6 +26,8 @@ final class MiraStore {
     private(set) var adjustments: [AdjustmentEntity] = []
     private(set) var pendingInvitations: [PendingInvitationEntity] = []
     private(set) var importantPeople: [ImportantPersonEntity] = []
+    private(set) var suggestions: [Suggestion] = []
+    private(set) var reflections: [Date: Satisfaction] = [:]
     private(set) var aiStatus = "確認中"
 
     var selectedMonth: Date
@@ -34,6 +38,7 @@ final class MiraStore {
     var characterNotificationsEnabled = true
     var notificationsEnabled = false
     var demoModeEnabled = true
+    var trendSuggestionsEnabled = true
     var presentedAddSheet = false
     var toast: String?
 
@@ -104,5 +109,13 @@ final class MiraStore {
         adjustments = try context.fetch(FetchDescriptor<AdjustmentEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         pendingInvitations = try context.fetch(FetchDescriptor<PendingInvitationEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
         importantPeople = try context.fetch(FetchDescriptor<ImportantPersonEntity>())
+        suggestions = try context.fetch(FetchDescriptor<SuggestionEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
+            .compactMap(\.snapshot)
+        let reflectionEntities = try context.fetch(FetchDescriptor<WeeklyReflectionEntity>())
+        var latestReflections: [Date: Satisfaction] = [:]
+        for entity in reflectionEntities {
+            if let satisfaction = entity.satisfaction { latestReflections[entity.weekStart] = satisfaction }
+        }
+        reflections = latestReflections
     }
 }

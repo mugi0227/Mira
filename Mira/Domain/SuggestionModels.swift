@@ -121,6 +121,7 @@ struct Suggestion: Identifiable, Codable, Hashable, Sendable {
     var usesTrend: Bool
     var createdAt: Date
     var resolvedAt: Date?
+    var appliedMarginIDs: [UUID] = []
 
     var addedHours: Double { margins.reduce(0) { $0 + $1.hours } }
     var week: WeekKey { WeekKey(start: weekStart) }

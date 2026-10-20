@@ -11,6 +11,11 @@ struct MainTabView: View {
             .tabItem { Label("ホーム", systemImage: "calendar") }
 
             NavigationStack {
+                MiraAssistantView(palette: palette)
+            }
+            .tabItem { Label("Mira", systemImage: "sparkles") }
+
+            NavigationStack {
                 AdjustmentsView(palette: palette)
             }
             .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }

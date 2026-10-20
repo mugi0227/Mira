@@ -11,6 +11,7 @@ extension MiraStore {
         characterNotificationsEnabled = settingsEntity.characterNotificationsEnabled
         notificationsEnabled = settingsEntity.notificationsEnabled
         demoModeEnabled = settingsEntity.demoModeEnabled
+        trendSuggestionsEnabled = settingsEntity.trendSuggestionsEnabled
     }
 
     func fetchBaseRules() -> [BaseAvailabilityRule] {
