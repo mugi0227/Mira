@@ -90,6 +90,20 @@ final class MiraScreenshotUITests: XCTestCase {
 
         if tap(app.buttons["マイ余白"], in: app) {
             capture("11-my-margins")
+            let review = app.descendants(matching: .any)["weeklyReviewCard"]
+            if review.waitForExistence(timeout: 3) {
+                var attempts = 0
+                while attempts < 4, !review.isHittable || review.frame.maxY > app.frame.maxY - 140 {
+                    app.swipeUp()
+                    settle(0.4)
+                    attempts += 1
+                }
+                capture("11b-weekly-review")
+                app.swipeDown()
+                app.swipeDown()
+                app.swipeDown()
+                settle()
+            }
             let baseHours = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "普段は予定を置かない時間")).firstMatch
             if tap(baseHours, in: app, avoidingTabBar: true), app.navigationBars["基本時間"].waitForExistence(timeout: 3) {
                 capture("12-base-hours-editor")
