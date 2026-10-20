@@ -14,10 +14,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testChatRequestShowsChipsAndAppliesInOneTap() throws {
         openCompanion()
-        sendChat("来週は自分の時間を増やしたい")
-
-        let apply = app.buttons["selfTimeApply"].lastMatch
-        require(apply, "apply button on the self-time card", timeout: 20)
+        let apply = sendAndWaitForNewCard("来週は自分の時間を増やしたい", identifier: "selfTimeApply")
         let chips = app.buttons.matching(identifier: "selfTimeSlotChip")
         XCTAssertGreaterThan(chips.count, 0)
         XCTAssertTrue(app.staticTexts["あなたのお願い"].exists || app.descendants(matching: .any)["あなたのお願い"].exists)
@@ -34,7 +31,7 @@ final class SelfTimeChatUITests: XCTestCase {
         // U1: one tap after Mira answers. U2: no confirmation dialog.
         apply.tap()
         XCTAssertEqual(app.alerts.count, 0)
-        let undo = app.buttons["selfTimeUndo"].lastMatch
+        let undo = app.buttons.matching(identifier: "selfTimeUndo").firstMatch
         require(undo, "undo chip after applying")
         undo.tap()
         XCTAssertEqual(app.alerts.count, 0)
@@ -43,9 +40,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testChatRequestCanBeDismissed() throws {
         openCompanion()
-        sendChat("来週は自分の時間を増やしたい")
-        let dismiss = app.buttons["selfTimeDismiss"].lastMatch
-        require(dismiss, "dismiss button", timeout: 20)
+        let dismiss = sendAndWaitForNewCard("来週は自分の時間を増やしたい", identifier: "selfTimeDismiss")
         dismiss.tap()
         XCTAssertEqual(app.alerts.count, 0)
         require(app.staticTexts["見送りました"], "dismissed status")
@@ -110,6 +105,20 @@ final class SelfTimeChatUITests: XCTestCase {
         app.buttons["miraChatSend"].tap()
     }
 
+    /// A proactive card may already be in the chat, so wait for the one this message adds.
+    private func sendAndWaitForNewCard(_ text: String, identifier: String) -> XCUIElement {
+        let query = app.buttons.matching(identifier: identifier)
+        let before = query.count
+        sendChat(text)
+        let deadline = Date().addingTimeInterval(20)
+        while query.count <= before, Date() < deadline {
+            _ = query.element(boundBy: before).waitForExistence(timeout: 1)
+        }
+        let element = query.element(boundBy: before)
+        require(element, "\(identifier) on the new self-time card", timeout: 1)
+        return element
+    }
+
     private func scrollUntilHittable(_ element: XCUIElement) {
         var attempts = 0
         while !(element.exists && element.isHittable), attempts < 5 {
@@ -135,8 +144,4 @@ final class SelfTimeChatUITests: XCTestCase {
         }
         _ = app.buttons["miraCompanionButton"].waitForExistence(timeout: 12)
     }
-}
-
-private extension XCUIElementQuery {
-    var lastMatch: XCUIElement { element(boundBy: Swift.max(count - 1, 0)) }
 }
