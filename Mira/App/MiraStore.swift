@@ -45,6 +45,10 @@ final class MiraStore {
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
     @ObservationIgnored var chatHistoryRestored = false
+    var selfTimeLog = SelfTimeLog()
+    var hasUnreadMiraSuggestion = false
+    var trendSuggestionsEnabled = true
+    @ObservationIgnored var selfTimeLogLoaded = false
     @ObservationIgnored var lastWidgetSignature: Int?
 
     var selectedMonth: Date {
@@ -147,6 +151,15 @@ final class MiraStore {
     }
 
     var currentAssistantMessage: AssistantMessage {
+        if hasUnreadMiraSuggestion {
+            return AssistantMessage(
+                title: theme == .pixelCat ? "来週の自分の時間、提案があるにゃ" : "来週の自分の時間の提案があります",
+                body: "トークで確認して、置くかどうか決めてね。",
+                mood: .thinking,
+                severity: 2,
+                actionTitle: "提案を見る"
+            )
+        }
         if let proposal = activeRebalanceProposal,
            Calendar.mira.isDate(proposal.month, equalTo: selectedMonth, toGranularity: .month) {
             return AssistantMessage(
@@ -208,6 +221,7 @@ final class MiraStore {
             loadDrafts()
             await refreshDeviceCalendar()
             await reconcileReminders()
+            await refreshProactiveSelfTimeSuggestion()
             isReady = true
         } catch {
             context.rollback()
@@ -297,6 +311,9 @@ final class MiraStore {
         try context.delete(model: ImportantPersonEntity.self)
         try context.delete(model: ConversationCaseEntity.self)
         try context.delete(model: RebalanceProposalEntity.self)
+        resetSelfTimeLog()
+        settingsEntity?.trendSuggestionsEnabled = nil
+        trendSuggestionsEnabled = true
         settingsEntity?.onboardingCompleted = false
         settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue

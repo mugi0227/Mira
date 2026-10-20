@@ -25,7 +25,11 @@ extension MiraStore {
 
         await refreshDeviceCalendar(around: now)
         do {
-            try await currentChatAgent().respond(to: text, store: self, sink: sink)
+            if let intent = selfTimeIntent(in: text) {
+                respondToSelfTimeRequest(intent, sink: sink)
+            } else {
+                try await currentChatAgent().respond(to: text, store: self, sink: sink)
+            }
         } catch {
             sink.setText(sink.text.isEmpty ? "ごめんね、うまく考えられなかったにゃ。もう一度言い方を変えてみてね。" : sink.text)
         }
@@ -94,6 +98,8 @@ extension MiraStore {
         guard let message = chatMessages.first(where: { $0.id == messageID }),
               let card = message.cards.first(where: { $0.id == cardID }) else { return false }
         switch card {
+        case .selfTime(let proposal):
+            return applySelfTimeCard(messageID: messageID, proposal: proposal)
         case .eventProposal(var proposal):
             guard proposal.state == .pending else { return false }
             // Re-check against the calendar as it is now, not as it was when proposed.
@@ -134,6 +140,9 @@ extension MiraStore {
         guard let message = chatMessages.first(where: { $0.id == messageID }),
               let card = message.cards.first(where: { $0.id == cardID }) else { return }
         switch card {
+        case .selfTime(let proposal):
+            dismissSelfTimeCard(messageID: messageID, proposal: proposal)
+            return
         case .eventProposal(var proposal):
             proposal.state = .dismissed
             replaceChatCard(messageID: messageID, with: .eventProposal(proposal))

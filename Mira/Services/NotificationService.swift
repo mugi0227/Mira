@@ -93,6 +93,24 @@ actor NotificationService {
         }
     }
 
+    /// A proactive suggestion: opening it takes the person to the chat, where the card waits.
+    func scheduleSuggestion(id: UUID, title: String, body: String, at date: Date) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["openChat": true]
+        var components = Calendar.mira.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        components.calendar = Calendar.mira
+        components.timeZone = Calendar.mira.timeZone
+        let request = UNNotificationRequest(
+            identifier: "suggestion.\(id.uuidString)",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
     func cancelAdjustmentReminder(id: UUID) {
         cancel(identifier: "adjustment.deadline.\(id.uuidString)")
     }

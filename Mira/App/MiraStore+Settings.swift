@@ -140,6 +140,9 @@ extension MiraStore {
             try context.delete(model: ImportantPersonEntity.self)
             try context.delete(model: ConversationCaseEntity.self)
             try context.delete(model: RebalanceProposalEntity.self)
+            resetSelfTimeLog()
+            settingsEntity?.trendSuggestionsEnabled = nil
+            trendSuggestionsEnabled = true
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue

@@ -51,6 +51,15 @@ struct ReminderPlan: Sendable {
 
 final class ReminderNotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if response.actionIdentifier != UNNotificationDismissActionIdentifier,
+           response.notification.request.content.userInfo["openChat"] as? Bool == true {
+            UserDefaults.standard.set(true, forKey: "mira.open-chat.pending")
+            Task { @MainActor in
+                NotificationCenter.default.post(name: Notification.Name("mira.open-chat"), object: nil)
+                completionHandler()
+            }
+            return
+        }
         guard response.actionIdentifier != UNNotificationDismissActionIdentifier,
               let rawValue = response.notification.request.content.userInfo["destination"] as? String,
               let destination = ReminderDestination(rawValue: rawValue) else {

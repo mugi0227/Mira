@@ -73,6 +73,14 @@ struct HomeView: View {
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
+            showCompanion = true
+        }
+        .task {
+            if UserDefaults.standard.bool(forKey: MiraStore.openChatRequestKey) {
+                showCompanion = true
+            }
+        }
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(palette.isCatSkin ? .hidden : .visible, for: .navigationBar)
@@ -326,20 +334,31 @@ struct HomeView: View {
                 .foregroundStyle(palette.accent)
                 .frame(minWidth: 44, minHeight: 44)
         }
-        .padding(.bottom, friendShareImage == nil ? 0 : 52)
+        .padding(.bottom, 52)
         .overlay(alignment: .bottom) {
-            if let friendShareImage {
-                ShareLink(
-                    item: friendShareImage,
-                    preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
-                ) {
-                    Label("画像で送る", systemImage: "square.and.arrow.up")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(palette.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+            HStack(spacing: MiraSpacing.xs) {
+                if let friendShareImage {
+                    ShareLink(
+                        item: friendShareImage,
+                        preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
+                    ) {
+                        Label("画像で送る", systemImage: "square.and.arrow.up")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(palette.onAccent)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                    }
+                    .accessibilityIdentifier("friendShareImage")
                 }
-                .accessibilityIdentifier("friendShareImage")
+                // Text keeps the same privacy as the image: only which bands are free.
+                ShareLink(item: store.friendAvailabilityText()) {
+                    Label("文字で送る", systemImage: "text.bubble")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(palette.accent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                }
+                .accessibilityIdentifier("friendShareText")
             }
         }
         .miraCard(palette, padding: MiraSpacing.sm)

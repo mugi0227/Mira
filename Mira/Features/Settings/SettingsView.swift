@@ -131,14 +131,19 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
-                Toggle("返事や日程調整の期限を知らせる", systemImage: "bell.fill", isOn: Binding(
+                Toggle("返事の期限とMiraの提案を知らせる", systemImage: "bell.fill", isOn: Binding(
                     get: { store.notificationsEnabled },
                     set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
                 ))
+                Toggle("最近の傾向に沿って提案する", systemImage: "chart.line.uptrend.xyaxis", isOn: Binding(
+                    get: { store.trendSuggestionsEnabled },
+                    set: { store.setTrendSuggestionsEnabled($0) }
+                ))
+                .accessibilityIdentifier("trendSuggestionsToggle")
             } header: {
-                Text("通知")
+                Text("通知と提案")
             } footer: {
-                Text("同じ内容を何度も通知せず、返事期限など重要なものを優先します。")
+                Text("Miraは提案だけをして、予定を勝手に変えません。提案の通知は1日1回まで。傾向はMiraの提案を置いた・見送った記録だけから出し、あなたが決めた時間や目標が常に優先されます。")
             }
             .listRowBackground(palette.surface)
 

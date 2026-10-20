@@ -13,6 +13,7 @@ final class AppSettingsEntity {
     var marginComfortRaw: String?
     var weekStartRaw: String?
     var deviceHolidaysEnabled: Bool?
+    var trendSuggestionsEnabled: Bool?
     var createdAt: Date
     var updatedAt: Date
 

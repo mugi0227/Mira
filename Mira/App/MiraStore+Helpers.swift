@@ -14,6 +14,7 @@ extension MiraStore {
         marginComfortLevel = MarginComfortLevel(rawValue: settingsEntity.marginComfortRaw ?? "") ?? .standard
         weekStartDay = WeekStartDay(rawValue: settingsEntity.weekStartRaw ?? "") ?? .monday
         deviceHolidaysEnabled = settingsEntity.deviceHolidaysEnabled ?? false
+        trendSuggestionsEnabled = settingsEntity.trendSuggestionsEnabled ?? true
     }
 
     func fetchBaseRules() -> [BaseAvailabilityRule] {

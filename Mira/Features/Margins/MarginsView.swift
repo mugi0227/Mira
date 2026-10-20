@@ -14,6 +14,7 @@ struct MarginsView: View {
             VStack(spacing: MiraSpacing.lg) {
                 monthPicker
                 overviewCard
+                WeeklyReviewCard(palette: palette)
                 automaticPlanCard
                 goalsSection
                 baseRulesCard

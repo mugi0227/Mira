@@ -16,7 +16,8 @@ struct MiraChatView: View {
         "今週の予定は？",
         "来週、友達とご飯に行ける日を探して",
         "土曜の誘いを断る文を作って",
-        "今月ちゃんと休めてる？"
+        "今月ちゃんと休めてる？",
+        "来週は自分の時間を増やしたい"
     ]
 
     var body: some View {
@@ -24,7 +25,7 @@ struct MiraChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
-                        if store.chatMessages.isEmpty {
+                        if !store.chatMessages.contains(where: { $0.role == .user }) {
                             welcome
                         }
                         ForEach(store.chatMessages) { message in
@@ -43,7 +44,12 @@ struct MiraChatView: View {
                 }
                 .onAppear {
                     store.restoreChatIfNeeded()
+                    store.markMiraSuggestionsRead()
                     proxy.scrollTo("chat-bottom", anchor: .bottom)
+                }
+                .task {
+                    await store.refreshProactiveSelfTimeSuggestion()
+                    store.markMiraSuggestionsRead()
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { composer }
@@ -221,7 +227,9 @@ private struct ChatBubble: View {
                                     .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
                             }
                             .textSelection(.enabled)
-                            .accessibilityIdentifier(message.isStreaming ? "chatAssistantStreaming" : "chatAssistantText")
+                            .accessibilityIdentifier(message.isStreaming
+                                ? "chatAssistantStreaming"
+                                : (message.isProactive == true ? "chatProactiveText" : "chatAssistantText"))
                     }
                     ForEach(message.cards) { card in
                         ChatCardView(card: card, messageID: message.id, palette: palette)
@@ -292,6 +300,7 @@ private struct ChatCardView: View {
             case .moveProposal(let proposal): moveCard(proposal)
             case .message(let draft): messageCard(draft)
             case .balance(let balance): balanceCard(balance)
+            case .selfTime(let proposal): SelfTimeProposalCard(proposal: proposal, messageID: messageID, palette: palette)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

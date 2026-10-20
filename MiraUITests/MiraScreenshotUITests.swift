@@ -67,6 +67,20 @@ final class MiraScreenshotUITests: XCTestCase {
                     capture("07c-chat-event-proposal")
                 }
             }
+            let input = app.descendants(matching: .any)["miraChatInput"]
+            if input.waitForExistence(timeout: 3) {
+                input.tap()
+                input.typeText("来週は自分の時間を増やしたい")
+                app.buttons["miraChatSend"].tap()
+                let apply = app.buttons.matching(identifier: "selfTimeApply")
+                if apply.firstMatch.waitForExistence(timeout: 20) {
+                    settle(1.0)
+                    capture("07d-chat-self-time-chips")
+                    apply.element(boundBy: apply.count - 1).tap()
+                    settle(1.0)
+                    capture("07e-chat-self-time-applied")
+                }
+            }
             tap(app.buttons["閉じる"], in: app)
         }
 
