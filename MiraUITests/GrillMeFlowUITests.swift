@@ -74,6 +74,10 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(addMenu.waitForExistence(timeout: 4))
         addMenu.tap()
         let addItem = app.buttons["予定・余白を追加"]
+        // A menu can close if the screen redraws while it opens; open it once more before judging.
+        if !addItem.waitForExistence(timeout: 3) {
+            addMenu.tap()
+        }
         XCTAssertTrue(addItem.waitForExistence(timeout: 3))
         addItem.tap()
         let itemSheet = app.navigationBars["予定を追加"]
