@@ -333,7 +333,10 @@ struct SuggestionEngine: Sendable {
     /// Margins that would now collide with something already on the calendar are dropped before applying.
     func applicableMargins(of suggestion: Suggestion, items: [CalendarItemSnapshot]) -> [SuggestedMargin] {
         let occupied = items.filter { $0.kind != .birthday }.map(\.occupiedInterval)
-        return suggestion.margins.filter { margin in !occupied.contains(where: { $0.intersects(margin.interval) }) }
+        // Touching ends (a margin until 21:00, a slot from 21:00) is not a collision.
+        return suggestion.margins.filter { margin in
+            !occupied.contains { $0.start < margin.endDate && margin.startDate < $0.end }
+        }
     }
 
     func visiblePending(_ suggestions: [Suggestion]) -> [Suggestion] {

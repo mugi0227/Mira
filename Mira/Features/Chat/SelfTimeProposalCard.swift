@@ -74,7 +74,12 @@ struct SelfTimeProposalCard: View {
     }
 
     private func slotChip(_ margin: SuggestedMargin) -> some View {
-        let included = !proposal.excludedMarginIDs.contains(margin.id)
+        let included: Bool
+        switch proposal.state {
+        case .pending: included = !proposal.excludedMarginIDs.contains(margin.id)
+        case .applied: included = proposal.appliedMarginIDs.contains(margin.id)
+        case .dismissed, .undone: included = false
+        }
         let label = "\(Self.dayFormatter.string(from: margin.startDate)) \(Self.timeFormatter.string(from: margin.startDate))–\(Self.timeFormatter.string(from: margin.endDate))"
         return Button {
             withAnimation(MiraMotion.quick) {
@@ -107,7 +112,7 @@ struct SelfTimeProposalCard: View {
         .buttonStyle(MiraPressStyle())
         .disabled(!isPending)
         .accessibilityLabel("\(label) \(margin.kind.shortTitle)")
-        .accessibilityValue(included ? "置く" : "外した")
+        .accessibilityValue(isPending ? (included ? "置く" : "外した") : (included ? "置いた" : "置いていない"))
         .accessibilityAddTraits(included ? .isSelected : [])
         .accessibilityIdentifier("selfTimeSlotChip")
     }

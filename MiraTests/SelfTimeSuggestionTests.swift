@@ -95,6 +95,14 @@ final class SelfTimeSuggestionTests: XCTestCase {
         XCTAssertTrue(suggestion.reason.contains("その次の週"))
     }
 
+    func testSlotRightAfterAnotherMarginStaysApplicable() throws {
+        let start = nextWeek.start.addingDays(5).setting(hour: 21)
+        let margin = SuggestedMargin(kind: .rest, startDate: start, endDate: start.addingTimeInterval(2 * 3600))
+        let suggestion = Suggestion(origin: .request, title: "t", reason: "r", weekStart: nextWeek.start, margins: [margin], usesTrend: false, createdAt: now)
+        let restUntilNine = marginItem(on: start, hour: 9, hours: 12)
+        XCTAssertEqual(engine.applicableMargins(of: suggestion, items: [restUntilNine]), [margin])
+    }
+
     func testApplicableMarginsDropOnesThatNowCollide() throws {
         let suggestion = try XCTUnwrap(engine.suggestion(
             for: .increaseSelfTime(scope: .nextWeek, kind: nil),
