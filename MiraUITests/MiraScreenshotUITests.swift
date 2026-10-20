@@ -63,6 +63,9 @@ final class MiraScreenshotUITests: XCTestCase {
         }
 
         let importText = app.staticTexts["古いカレンダーから移行"]
+        for _ in 0..<4 where !(importText.exists && importText.isHittable) {
+            app.swipeUp()
+        }
         XCTAssertTrue(importText.waitForExistence(timeout: 4))
         importText.tap()
         XCTAssertTrue(app.navigationBars["カレンダーの引っ越し"].waitForExistence(timeout: 4))
