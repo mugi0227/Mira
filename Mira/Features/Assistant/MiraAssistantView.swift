@@ -42,7 +42,7 @@ struct MiraAssistantView: View {
                 .font(.headline)
                 .foregroundStyle(palette.primaryText)
             HStack(spacing: MiraSpacing.xs) {
-                TextField("例：来週は自分の時間を増やしたい", text: $request)
+                TextField("例：来週はゆっくりしたい", text: $request)
                     .textFieldStyle(.plain)
                     .padding(.horizontal, MiraSpacing.sm)
                     .frame(minHeight: 44)

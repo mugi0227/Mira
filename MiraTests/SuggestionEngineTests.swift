@@ -205,6 +205,15 @@ final class SuggestionEngineTests: XCTestCase {
         XCTAssertLessThan(summary.ratio, 1)
     }
 
+    func testWeeklyTargetSpanningTwoMonthsUsesEachDaysMonth() {
+        // The demo week starts on Monday 8/31; only September has goals (rest 4 × 12h = 48h → 1.6h/day).
+        let week = WeekKey(containing: now)
+        XCTAssertEqual(calendar.component(.month, from: week.start), 8)
+        let target = SelfTimePlanner().weeklyTargetHours(for: week, goals: [TestFixtures.goal(.rest, count: 4), TestFixtures.goal(.solo, count: 8)])
+        // 6 September days × (48h + 48h) / 30 days = 19.2h
+        XCTAssertEqual(target, 19, accuracy: 0.01)
+    }
+
     func testLowSatisfactionMakesNextProposalMoreGenerous() throws {
         let normal = try XCTUnwrap(proactive(items: [], history: [], satisfaction: nil))
         let tired = try XCTUnwrap(proactive(items: [], history: [], satisfaction: .low))

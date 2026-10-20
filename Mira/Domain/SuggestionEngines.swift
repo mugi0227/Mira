@@ -92,13 +92,17 @@ struct SelfTimePlanner: Sendable {
         }
     }
 
+    /// Each day takes its own month's goals, so a week spanning two months is measured fairly.
     func weeklyTargetHours(for week: WeekKey, goals: [MarginGoalSnapshot]) -> Double {
-        let key = MonthKey(date: week.start, calendar: calendar)
-        let monthHours = goals
-            .filter { $0.year == key.year && $0.month == key.month && $0.isEnabled && $0.kind != .importantPeople }
-            .reduce(0) { $0 + Double($1.targetCount * $1.durationHours) }
-        let days = Double(calendar.range(of: .day, in: .month, for: key.firstDay)?.count ?? 30)
-        return max(6, (monthHours * 7 / days).rounded())
+        let total = week.days.reduce(0.0) { sum, day in
+            let key = MonthKey(date: day, calendar: calendar)
+            let monthHours = goals
+                .filter { $0.year == key.year && $0.month == key.month && $0.isEnabled && $0.kind != .importantPeople }
+                .reduce(0) { $0 + Double($1.targetCount * $1.durationHours) }
+            let days = Double(calendar.range(of: .day, in: .month, for: key.firstDay)?.count ?? 30)
+            return sum + monthHours / days
+        }
+        return max(6, total.rounded())
     }
 
     /// Real free gaps of the day (after events, buffers, margins and base rules), cut to a comfortable length

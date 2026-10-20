@@ -21,6 +21,10 @@
 - Legacy Calendar Import mock
 - unit and UI test sources
 - GitHub Actions workflow
+- Mira tab: vague request → suggestion, proactive suggestions with notification, apply / dismiss / undo
+- trend-based suggestions from Mira's own suggestion history (can be turned off)
+- weekly review with self-time vs target and one-tap satisfaction
+- availability sharing with masked busy time
 
 ## Deferred by design
 
@@ -33,5 +37,5 @@
 
 ## Verification
 
-- Linux pure-domain compilation and test type-check: complete
+- Linux pure-domain build and unit tests: `scripts/domain-tests-linux.sh`
 - Full iOS build and XCTest: performed by GitHub Actions on macOS/Xcode
