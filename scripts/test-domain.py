@@ -27,6 +27,7 @@ EXCLUDED = {
     "MiraTests/PixelCatAssetMappingTests.swift": "CatMood belongs to the SwiftUI design system.",
     "MiraTests/ReminderPlanTests.swift": "ReminderPlan currently imports Apple UserNotifications.",
     "Mira/Services/MiraChatAgent.swift": "Chat agents drive the @MainActor MiraStore tools.",
+    "MiraTests/JapaneseTypesettingTests.swift": "Reads the iOS app bundle's Info.plist.",
 }
 
 

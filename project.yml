@@ -1,6 +1,8 @@
 name: Mira
 options:
   bundleIdPrefix: jp.mugi
+  # Japanese is the app's language, so kanji use Japanese glyphs on any device language.
+  developmentLanguage: ja
   createIntermediateGroups: true
   deploymentTarget:
     iOS: "18.0"
