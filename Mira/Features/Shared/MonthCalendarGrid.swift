@@ -76,8 +76,14 @@ struct MonthCalendarGrid: View {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
+    private var friendTitlePreviewLimit: Int { preferredHeight == nil ? 3 : 2 }
+
     private func rowHeight(dayCount: Int) -> CGFloat {
-        let regular: CGFloat = dayCount > 35 ? 88 : 104
+        let hasPairedPreviews = privacyMode && friendLevel == .titles
+        // Each time/title pair can use three fixed-size lines. Exported cards
+        // keep their three previews; compact interactive grids keep two.
+        let pairedRowHeight = CGFloat(friendTitlePreviewLimit) * 40 + 44
+        let regular: CGFloat = hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
         let hasOverflow = cells.contains { date in
@@ -87,7 +93,7 @@ struct MonthCalendarGrid: View {
         }
         // Keep room for the friend's availability bands. The personal grid can
         // trade preview chips for a visible card edge without shrinking text.
-        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : 72
+        let minimum: CGFloat = hasPairedPreviews ? pairedRowHeight : (privacyMode ? (hasOverflow ? 88 : 76) : 72)
         return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -202,17 +208,31 @@ struct MonthCalendarGrid: View {
                 if privacyMode {
                     if friendLevel != .freeOnly {
                         let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
-                        ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(palette.secondaryText)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.65)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier("friendDayContent")
+                        if friendLevel == .titles {
+                            ForEach(Array(content.gridEntries.prefix(friendTitlePreviewLimit).enumerated()), id: \.offset) { _, entry in
+                                Text("\(entry.time)\n\(entry.title)")
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(3)
+                                    .lineSpacing(1)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, 2)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
+                        } else {
+                            ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
                         }
-                        if content.gridLines.count > visibleItemLimit {
-                            Text("ほか \(content.gridLines.count - visibleItemLimit)件")
+                        let limit = friendLevel == .titles ? friendTitlePreviewLimit : visibleItemLimit
+                        if content.gridLines.count > limit {
+                            Text("ほか \(content.gridLines.count - limit)件")
                                 .font(.system(size: 8, weight: .semibold, design: .rounded))
                                 .foregroundStyle(palette.secondaryText)
                                 .lineLimit(1)

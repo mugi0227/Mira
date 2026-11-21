@@ -182,6 +182,7 @@ final class MiraStyleUITests: XCTestCase {
         let work = day.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "仕事")).firstMatch
         for _ in 0..<4 where !work.isHittable { app.scrollViews["homeScroll"].swipeUp() }
         XCTAssertTrue(work.isHittable, app.debugDescription)
+        XCTAssertTrue(work.label.contains("9–18"))
         XCTAssertEqual(day.staticTexts.matching(identifier: "friendDayContent").count, 2)
         capture("compact-friend-calendar-two-previews")
     }
