@@ -5,6 +5,16 @@ import XCTest
 
 @MainActor
 final class FieldReviewRegressionTests: XCTestCase {
+    func testDemoBusyAllDayEventsExplicitlyOccupyTime() throws {
+        let store = try makeStore()
+        try DemoSeeder.seedBaseline(in: store.context, clock: DemoClock.standard)
+        try store.refresh()
+        let allDayEvents = store.items.filter { $0.kind == .confirmed && $0.isAllDay }
+        XCTAssertFalse(allDayEvents.isEmpty)
+        XCTAssertTrue(allDayEvents.allSatisfy { $0.occupiesTime == true && $0.countsAgainstWhitespace })
+        XCTAssertTrue(store.items.filter { $0.kind == .birthday }.allSatisfy { !$0.countsAgainstWhitespace })
+    }
+
     func testComfortLevelsHaveDistinctCountsEvenForABusyMonth() {
         let engine = MarginRecommendationEngine()
         for items in [[], (1...20).map { TestFixtures.event(day: $0, load: .heavy) }] {
@@ -83,6 +93,15 @@ final class FieldReviewRegressionTests: XCTestCase {
         let impact = store.protectionEngine.analyze(proposedEvent: proposed, month: TestFixtures.september,
                                                    items: store.items, goals: store.goals, relocationCandidates: [])
         XCTAssertEqual(impact.protectionLevel, .finalDefense)
+    }
+
+    func testDismissedRebalanceStaysDismissedWhenNothingChanged() throws {
+        let store = try makeStore()
+        XCTAssertTrue(store.addCustomGoal(title: "ギター", target: 1, durationMinutes: 30, month: TestFixtures.september))
+        let proposal = try XCTUnwrap(store.activeRebalanceProposal)
+        store.dismissRebalanceProposal(proposal)
+        store.recalculateBalance(for: TestFixtures.september)
+        XCTAssertNil(store.activeRebalanceProposal)
     }
 
     func testSelectedMonthCannotPickUpTheLatestProposalFromAnotherMonth() throws {
@@ -196,6 +215,7 @@ final class FieldReviewRegressionTests: XCTestCase {
         event.startDate = TestFixtures.date(day: 14, hour: 0)
         event.endDate = TestFixtures.date(day: 16, hour: 0)
         event.isAllDay = true
+        event.occupiesTime = true
         XCTAssertTrue(event.overlapsDay(TestFixtures.date(day: 15)))
         XCTAssertFalse(event.overlapsDay(TestFixtures.date(day: 16)))
         XCTAssertEqual(FriendAvailability(date: TestFixtures.date(day: 15), items: [event]).summary, "終日予定")

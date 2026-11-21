@@ -86,7 +86,7 @@ extension MiraStore {
 
     @discardableResult
     func exportToDeviceCalendar(_ item: CalendarItemSnapshot) -> Bool {
-        guard !demoModeEnabled, item.kind == .confirmed, item.deviceEvent == nil else { return false }
+        guard !demoModeEnabled, item.countsAgainstWhitespace, item.deviceEvent == nil else { return false }
         do {
             guard let entity = try entity(id: item.id) else { return false }
             guard entity.snapshot.deviceEvent == nil, entity.endDate > entity.startDate else { return false }

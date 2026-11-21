@@ -17,7 +17,7 @@ struct SchedulerEngine: Sendable {
     ) -> MarginPlacementProposal {
         let monthKey = MonthKey(date: month, calendar: calendar)
         var occupied = events
-            .filter { $0.kind != .birthday }
+            .filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }
             .map(\.occupiedInterval)
         occupied.append(contentsOf: existingMargins.map(\.occupiedInterval))
 
@@ -108,7 +108,7 @@ struct SchedulerEngine: Sendable {
         let duration = margin.endDate.timeIntervalSince(margin.startDate)
         guard duration.isFinite, duration > 0, limit > 0,
               let days = calendar.range(of: .day, in: .month, for: key.firstDay) else { return [] }
-        let occupied = (events + otherMargins.filter { $0.id != margin.id }).map(\.occupiedInterval)
+        let occupied = (events + otherMargins.filter { $0.id != margin.id }).filter { $0.kind != .confirmed || $0.countsAgainstWhitespace }.map(\.occupiedInterval)
         let candidates = days.flatMap { day -> [DateInterval] in
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: key.firstDay) else { return [] }
             let preferred = interval(for: kind, on: date, durationHours: 1).start
@@ -241,10 +241,10 @@ struct SchedulerEngine: Sendable {
 
         let previousDay = calendar.date(byAdding: .day, value: -1, to: interval.start) ?? interval.start
         let nextDay = calendar.date(byAdding: .day, value: 1, to: interval.start) ?? interval.start
-        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && $0.loadClass >= .heavy }) {
+        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy }) {
             value += kind == .rest ? 26 : 8
         }
-        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: nextDay) && $0.loadClass >= .heavy }) {
+        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: nextDay) && ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy }) {
             value += kind == .rest ? 14 : 4
         }
 
