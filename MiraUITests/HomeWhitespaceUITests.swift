@@ -8,6 +8,20 @@ final class HomeWhitespaceUITests: XCTestCase {
         app = XCUIApplication()
     }
 
+    func testSoftMinimalRingSurroundsDateWithoutSeparateMeterRow() {
+        launchHome(theme: "softMinimal")
+        let ring = element("whitespace-2026-09-01")
+        let date = app.buttons["calendar-date-2026-09-01"]
+        XCTAssertTrue(ring.waitForExistence(timeout: 5))
+        XCTAssertTrue(ring.label.contains("余白"))
+        XCTAssertTrue(ring.label.contains("7時間"))
+        XCTAssertTrue(ring.label.contains("パーセント"))
+        XCTAssertEqual(ring.frame.midX, date.frame.midX, accuracy: 1)
+        XCTAssertEqual(ring.frame.midY, date.frame.midY, accuracy: 1)
+        XCTAssertGreaterThan(ring.frame.height, 26)
+        capture("soft-minimal-date-ring")
+    }
+
     func testDailyMetersNavigateWithMonthAndKeepDayNavigation() {
         launchHome(theme: "silhouetteCat")
         let first = element("whitespace-2026-09-01")
