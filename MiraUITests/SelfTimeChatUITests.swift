@@ -8,6 +8,9 @@ final class SelfTimeChatUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if name.contains("testHomeScrollEndsJustAboveCompanion") {
+            app.launchArguments += ["-ui-theme", "softMinimal"]
+        }
         if name.contains("testMarkdownAssistantReply") { app.launchArguments.append("-ui-markdown-reply") }
         app.launch()
         completeOnboardingIfNeeded()
@@ -156,7 +159,7 @@ final class SelfTimeChatUITests: XCTestCase {
         let gap = companion.frame.minY - progress.frame.maxY
         XCTAssertGreaterThanOrEqual(gap, 0)
         XCTAssertLessThanOrEqual(gap, 48, "Home should not scroll into unused space above Mira")
-        let tabGap = app.buttons["miraTab-home"].frame.minY - companion.frame.maxY
+        let tabGap = app.tabBars.buttons["ホーム"].frame.minY - companion.frame.maxY
         XCTAssertGreaterThanOrEqual(tabGap, 0)
         XCTAssertLessThanOrEqual(tabGap, 32, "The tab bar already reserves its own space")
     }
@@ -234,7 +237,7 @@ final class SelfTimeChatUITests: XCTestCase {
     func testDayTimelineEndsNearTheFinalHour() {
         XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
         let day = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "9月", "予定なし")
+            NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "9月", "、予定なし、余白 ")
         ).firstMatch
         require(day, "an empty day on the demo calendar")
         day.tap()
