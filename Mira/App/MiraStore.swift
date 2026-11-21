@@ -206,6 +206,9 @@ final class MiraStore {
             if demoModeEnabled { try DemoSeeder.seedBaseline(in: context, clock: clock) }
             try normalizeLegacyMarginKinds()
             try refresh()
+            if ProcessInfo.processInfo.arguments.contains("-friend-share-test"), importantPeople.isEmpty {
+                addImportantPerson(name: "はる", monthlyTarget: nil)
+            }
             // Previous versions allowed a connected calendar to remain on the demo clock.
             if deviceCalendarService.enabled && deviceCalendarService.hasAccess,
                !UserDefaults.standard.bool(forKey: "mira.calendar.everydayClockMigrated") {

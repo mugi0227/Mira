@@ -96,6 +96,7 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -only-testing:MiraUITests/GrillMeFlowUITests \
             -only-testing:MiraUITests/SelfTimeChatUITests \
+            -only-testing:MiraUITests/FriendShareLevelUITests \
             CODE_SIGNING_ALLOWED=NO \
             test | tee ui-tests.log
 

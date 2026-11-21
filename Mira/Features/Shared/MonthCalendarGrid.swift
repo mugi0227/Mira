@@ -9,8 +9,8 @@ struct MonthCalendarGrid: View {
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
-    /// Friend view shows coarse availability without titles.
     var privacyMode = false
+    var friendLevel: FriendShareLevel = .freeOnly
     var baseRules: [BaseAvailabilityRule] = []
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
@@ -148,16 +148,24 @@ struct MonthCalendarGrid: View {
                 }
 
                 if privacyMode {
-                    let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
-                    if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
-                        Text(availability.summary)
+                    if friendLevel != .freeOnly {
+                        let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
+                        Text(content.lines.joined(separator: "\n"))
                             .font(.system(size: 9, weight: .semibold, design: .rounded))
-                            .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
+                            .foregroundStyle(palette.secondaryText)
+                            .accessibilityIdentifier("friendDayContent")
                     } else {
-                        ForEach(availability.bands) { band in
-                            Text(band.label)
+                        let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
+                        if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
+                            Text(availability.summary)
                                 .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                                .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
+                        } else {
+                            ForEach(availability.bands) { band in
+                                Text(band.label)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                            }
                         }
                     }
                 } else {

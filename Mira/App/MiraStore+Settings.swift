@@ -86,6 +86,15 @@ extension MiraStore {
         try? refresh()
     }
 
+    func friendShareLevel(for person: ImportantPersonEntity) -> FriendShareLevel {
+        person.friendShareLevelRaw.flatMap(FriendShareLevel.init(rawValue:)) ?? .freeOnly
+    }
+
+    func setFriendShareLevel(_ level: FriendShareLevel, for person: ImportantPersonEntity) {
+        person.friendShareLevelRaw = level.rawValue
+        try? context.save()
+    }
+
     func setNotificationsEnabled(_ enabled: Bool) async {
         if enabled {
             let granted = await NotificationService.shared.requestAuthorization()

@@ -1,7 +1,5 @@
 import Foundation
 
-/// The text version of the friend share: only which coarse bands are free.
-/// Like the image, it never contains titles, margin kinds or calendar names.
 enum FriendAvailabilityText {
     static let bandHours: [(title: String, end: Int)] = [("朝", 12), ("昼", 18), ("夜", 24)]
 
@@ -10,8 +8,19 @@ enum FriendAvailabilityText {
         days: Int = 14,
         items: [CalendarItemSnapshot],
         baseRules: [BaseAvailabilityRule] = [],
+        level: FriendShareLevel = .freeOnly,
         calendar: Calendar = .mira
     ) -> String {
+        guard level != .hidden else { return "" }
+        guard days > 0 else { return "" }
+        if level != .freeOnly {
+            let formatter = DateFormatter.mira("M/d(E)")
+            return (0..<days).map { offset in
+                let day = calendar.startOfDay(for: now).addingDays(offset, calendar: calendar)
+                let content = FriendDayContent(date: day, items: items, baseRules: baseRules, level: level, calendar: calendar)
+                return "・\(formatter.string(from: day)) \(content.lines.isEmpty ? "予定なし" : content.lines.joined(separator: "、"))"
+            }.joined(separator: "\n")
+        }
         let formatter = DateFormatter.mira("M/d(E)")
         let today = calendar.startOfDay(for: now)
         let lines: [String] = (0..<days).compactMap { offset in

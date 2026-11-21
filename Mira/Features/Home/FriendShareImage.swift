@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Shares morning, afternoon and evening availability without event titles.
 struct FriendShareCard: View {
     let month: Date
     let items: [CalendarItemSnapshot]
@@ -8,33 +7,39 @@ struct FriendShareCard: View {
     let weekStartDay: WeekStartDay
     let referenceDate: Date
     var baseRules: [BaseAvailabilityRule] = []
+    var level: FriendShareLevel = .freeOnly
+    var recipientName: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(month.japaneseMonthTitle)
-                    .font(.title2.bold())
-                    .foregroundStyle(palette.primaryText)
-                Spacer()
-                Label("空いている日はここ", systemImage: "sparkles")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(palette.accent)
+            if level != .hidden {
+                if let recipientName { Text("\(recipientName)さんへ").font(.headline) }
+                HStack(alignment: .firstTextBaseline) {
+                    Text(month.japaneseMonthTitle)
+                        .font(.title2.bold())
+                        .foregroundStyle(palette.primaryText)
+                    Spacer()
+                    Label(level == .freeOnly ? "空いている日はここ" : level.title, systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                }
+                MonthCalendarGrid(
+                    month: month,
+                    selectedDate: .constant(.distantPast),
+                    items: items,
+                    palette: palette,
+                    weekStartDay: weekStartDay,
+                    referenceDate: referenceDate,
+                    allowsDragging: false,
+                    privacyMode: true,
+                    friendLevel: level,
+                    baseRules: baseRules
+                )
+                .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+                Text(level.explanation)
+                    .font(.footnote)
+                    .foregroundStyle(palette.secondaryText)
             }
-            MonthCalendarGrid(
-                month: month,
-                selectedDate: .constant(.distantPast),
-                items: items,
-                palette: palette,
-                weekStartDay: weekStartDay,
-                referenceDate: referenceDate,
-                allowsDragging: false,
-                privacyMode: true,
-                baseRules: baseRules
-            )
-            .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-            Text("朝 8–12時・昼 12–18時・夜 18–24時\n「予定」はその時間帯に予定や仕事が入っています。")
-                .font(.footnote)
-                .foregroundStyle(palette.secondaryText)
         }
         .padding(MiraSpacing.md)
         .frame(width: 390)
