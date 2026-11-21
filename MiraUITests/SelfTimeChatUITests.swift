@@ -8,10 +8,14 @@ final class SelfTimeChatUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
-        if name.contains("testHomeScrollEndsJustAboveCompanion") {
-            app.launchArguments += ["-ui-theme", "softMinimal"]
-        }
         if name.contains("testMarkdownAssistantReply") { app.launchArguments.append("-ui-markdown-reply") }
+        if name.contains("testHomeScrollEndsJustAboveCompanion") {
+            if let themeIndex = app.launchArguments.firstIndex(of: "-ui-theme") {
+                app.launchArguments[themeIndex + 1] = "softMinimal"
+            } else {
+                app.launchArguments += ["-ui-theme", "softMinimal"]
+            }
+        }
         app.launch()
         completeOnboardingIfNeeded()
     }
@@ -236,9 +240,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testDayTimelineEndsNearTheFinalHour() {
         XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
-        let day = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "9月", "、予定なし、余白 ")
-        ).firstMatch
+        let day = app.buttons["calendar-date-2026-09-03"]
         require(day, "an empty day on the demo calendar")
         day.tap()
         require(app.buttons["この日に予定を追加"], "day timeline")
@@ -248,7 +250,7 @@ final class SelfTimeChatUITests: XCTestCase {
         let lastHour = app.staticTexts["23:00"]
         require(lastHour, "last hour")
         captureScrollState("timeline-scroll-end")
-        let gap = app.buttons["miraTab-home"].frame.minY - lastHour.frame.maxY
+        let gap = app.buttons.matching(NSPredicate(format: "label == %@", "ホーム")).firstMatch.frame.minY - lastHour.frame.maxY
         XCTAssertGreaterThan(gap, 0)
         XCTAssertLessThan(gap, 110, "The final hour should not be followed by another hour of blank space")
     }

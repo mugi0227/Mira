@@ -20,7 +20,7 @@ struct MarginsView: View {
                 baseRulesCard
                 futureMonthCard
             }
-            .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
+            .padding(.horizontal, MiraSpacing.lg)
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, MiraSpacing.md)
         }
@@ -73,7 +73,7 @@ struct MarginsView: View {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 44)
                     .background {
-                        if palette.isCatSkin { Circle().fill(palette.surface) }
+                        Circle().fill(palette.surface)
                     }
             }
             .accessibilityLabel("前の月")
@@ -96,7 +96,7 @@ struct MarginsView: View {
                 Image(systemName: "chevron.right")
                     .frame(width: 44, height: 44)
                     .background {
-                        if palette.isCatSkin { Circle().fill(palette.surface) }
+                        Circle().fill(palette.surface)
                     }
             }
             .accessibilityLabel("次の月")
@@ -132,10 +132,10 @@ struct MarginsView: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(palette.accent)
-                .frame(minHeight: palette.isCatSkin ? 44 : 36)
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.sm : 0)
+                .frame(minHeight: 44)
+                .padding(.horizontal, MiraSpacing.sm)
                 .background {
-                    if palette.isCatSkin { Capsule().fill(palette.accentSoft) }
+                    Capsule().fill(palette.accentSoft)
                 }
             }
             Spacer(minLength: 0)

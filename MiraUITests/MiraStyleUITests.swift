@@ -31,7 +31,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertLessThanOrEqual(companion.frame.maxY, calendar.frame.minY - 16)
         let bottomOverflow = calendar.frame.maxY - scroll.frame.maxY + 7
         if bottomOverflow > 0 {
-            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.75))
             let end = start.withOffset(CGVector(dx: 0, dy: -bottomOverflow - 16))
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
@@ -180,13 +180,14 @@ final class MiraStyleUITests: XCTestCase {
         app.terminate()
         app.launchArguments.removeAll { $0 == "-reset-demo" }
         launchHome()
-        let previousMonth = app.buttons["前の月"]
+        let previousMonth = app.buttons.matching(NSPredicate(format: "label == %@", "前の月")).firstMatch
         waitUntilStableAndHittable(previousMonth)
         previousMonth.tap()
         let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "2026年8月"), object: heading
+            predicate: NSPredicate(format: "label BEGINSWITH %@", "2026年8月、"), object: heading
         )], timeout: 5), .completed)
+        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月、0件の予定")
         app.buttons["friendViewToggle"].tap()
         let recipientPicker = app.buttons["friendRecipientPicker"]
         waitUntilStableAndHittable(recipientPicker)
@@ -200,7 +201,7 @@ final class MiraStyleUITests: XCTestCase {
         let titles = app.buttons["予定名まで"]
         XCTAssertTrue(titles.waitForExistence(timeout: 5))
         titles.tap()
-        XCTAssertEqual(heading.label, "2026年8月", "Friend picker interactions must not change the displayed month")
+        XCTAssertEqual(heading.label.components(separatedBy: "、").first, "2026年8月", "Friend picker interactions must not change the displayed month")
 
         // August spans six weeks; September 2 is in its last row. Shared
         // calendars cannot open a day, so keep the normal two preview rows.
@@ -273,12 +274,12 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(month.label, "2026年10月")
+        XCTAssertEqual(month.label.components(separatedBy: "、").first, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
         let restoredLayout = NSPredicate { _, _ in
             guard month.exists, lastRow.exists, tabs.exists else { return false }
-            return month.label == "2026年9月"
+            return month.label.components(separatedBy: "、").first == "2026年9月"
                 && abs(month.frame.minY - monthFrame.minY) <= 1
                 && abs(lastRow.frame.maxY - lastRowFrame.maxY) <= 1
                 && abs(tabs.frame.minY - tabFrame.minY) <= 1
@@ -434,6 +435,6 @@ final class MiraStyleUITests: XCTestCase {
                 && abs(frame.width - previousFrame.width) <= 0.5
                 && abs(frame.height - previousFrame.height) <= 0.5
         }, object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed, app.debugDescription)
     }
 }

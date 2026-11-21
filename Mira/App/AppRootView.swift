@@ -7,6 +7,7 @@ extension Notification.Name {
 
 struct MiraOverlayLayout {
     var tabBarHeight: CGFloat = 0
+    var nativeTabBarTop: Anchor<CGPoint>?
     var companionBounds: Anchor<CGRect>?
 }
 
@@ -16,6 +17,7 @@ struct MiraOverlayLayoutKey: PreferenceKey {
     static func reduce(value: inout MiraOverlayLayout, nextValue: () -> MiraOverlayLayout) {
         let next = nextValue()
         value.tabBarHeight = max(value.tabBarHeight, next.tabBarHeight)
+        value.nativeTabBarTop = next.nativeTabBarTop ?? value.nativeTabBarTop
         value.companionBounds = next.companionBounds ?? value.companionBounds
     }
 }
@@ -68,70 +70,97 @@ struct AppRootView: View {
             if store.isReady { Task { await store.refreshDeviceCalendar() } }
         }
         .safeAreaInset(edge: .bottom) {
-            if let issue = store.persistenceIssue ?? store.draftPersistenceIssue {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(issue, systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline)
-                    if store.draftPersistenceIssue != nil {
-                        Button("下書きの保存を再試行") { store.persistDraftArchive() }
-                            .frame(minHeight: 44)
-                    }
-                    if store.persistenceIssue != nil {
-                        Button("この案内を閉じる") { store.persistenceIssue = nil }
-                            .frame(minHeight: 44)
-                    }
-                }.padding().background(palette.surface)
-            } else if let undo = store.undoEntry {
-                HStack(spacing: MiraSpacing.xs) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(palette.success)
-                        .accessibilityHidden(true)
-                    Text("\(undo.title)を保存しました")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(palette.primaryText)
-                        .lineLimit(2)
-                    Spacer(minLength: 0)
-                    Button("取り消す") { Task { await store.undoLastCalendarMutation() } }
-                        .font(.subheadline.weight(.bold))
-                        .frame(minHeight: 44)
-                    Button { store.undoEntry = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                        .foregroundStyle(palette.secondaryText)
-                        .accessibilityLabel("取り消しの案内を閉じる")
-                }
-                .padding(.leading, MiraSpacing.md)
-                .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
-                        .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
-                }
-                .shadow(color: palette.shadow, radius: 14, y: 4)
-                .padding(.horizontal, MiraSpacing.md)
-                .padding(.bottom, MiraSpacing.xs)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .task(id: undo.after) {
-                    // Keep the way back visible long enough to notice, then step aside.
-                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
-                    if store.undoEntry?.after == undo.after { store.undoEntry = nil }
-                }
+            if palette.isCatSkin && (store.persistenceIssue != nil || store.draftPersistenceIssue != nil || store.undoEntry != nil) {
+                mutationBanner(palette: palette)
+                    .padding(.bottom, store.persistenceIssue == nil && store.draftPersistenceIssue == nil ? MiraSpacing.xs : 0)
             }
         }
         .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
             GeometryReader { geometry in
-                let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
                 let trailingClearance = layout.companionBounds.map {
                     max(0, geometry.size.width - geometry[$0].minX) + MiraSpacing.xs
                 } ?? 0
-                VStack {
-                    Spacer(minLength: 0)
-                    toastBanner(palette: palette)
-                        .padding(.trailing, trailingClearance)
-                        .padding(.bottom, bottomClearance + MiraSpacing.xs)
+                if palette.isCatSkin {
+                    let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
+                    VStack {
+                        Spacer(minLength: 0)
+                        toastBanner(palette: palette)
+                            .padding(.trailing, trailingClearance)
+                            .padding(.bottom, bottomClearance + MiraSpacing.xs)
+                    }
+                    .allowsHitTesting(false)
+                } else {
+                    let bottomClearance = layout.nativeTabBarTop.map {
+                        max(0, geometry.size.height - geometry[$0].y)
+                    } ?? 0
+                    VStack {
+                        Spacer(minLength: 0)
+                        VStack(spacing: MiraSpacing.xs) {
+                            toastBanner(palette: palette)
+                                .padding(.trailing, trailingClearance)
+                                .allowsHitTesting(false)
+                            mutationBanner(palette: palette)
+                        }
+                        .padding(.bottom, bottomClearance + MiraSpacing.md)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
             }
-            .allowsHitTesting(false)
         }
         .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
+    }
+
+    @ViewBuilder
+    private func mutationBanner(palette: MiraThemePalette) -> some View {
+        if let issue = store.persistenceIssue ?? store.draftPersistenceIssue {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(issue, systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                if store.draftPersistenceIssue != nil {
+                    Button("下書きの保存を再試行") { store.persistDraftArchive() }
+                        .frame(minHeight: 44)
+                }
+                if store.persistenceIssue != nil {
+                    Button("この案内を閉じる") { store.persistenceIssue = nil }
+                        .frame(minHeight: 44)
+                }
+            }.padding().background(palette.surface)
+        } else if let undo = store.undoEntry {
+            HStack(spacing: MiraSpacing.xs) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(palette.success)
+                    .accessibilityHidden(true)
+                Text("\(undo.title)を保存しました")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Button("取り消す") { Task { await store.undoLastCalendarMutation() } }
+                    .font(.subheadline.weight(.bold))
+                    .frame(minHeight: 44)
+                Button { store.undoEntry = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .foregroundStyle(palette.secondaryText)
+                    .accessibilityLabel("取り消しの案内を閉じる")
+            }
+            .padding(.leading, MiraSpacing.md)
+            .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
+                    .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
+            }
+            .shadow(color: palette.shadow, radius: 14, y: 4)
+            .padding(.horizontal, MiraSpacing.md)
+            .accessibilityIdentifier("calendarUndoBanner")
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: undo.after) {
+                let arguments = ProcessInfo.processInfo.arguments
+                guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
+                // Keep the way back visible long enough to notice, then step aside.
+                do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                if store.undoEntry?.after == undo.after { store.undoEntry = nil }
+            }
+        }
     }
 
     @ViewBuilder
@@ -145,7 +174,7 @@ struct AppRootView: View {
                 .padding(.vertical, MiraSpacing.xs)
                 .background(.ultraThinMaterial, in: Capsule())
                 .shadow(color: palette.shadow, radius: 12, y: 5)
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
+                .padding(.horizontal, MiraSpacing.lg)
                 .accessibilityIdentifier("appToast")
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: toast) {

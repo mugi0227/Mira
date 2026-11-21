@@ -20,6 +20,9 @@ struct MainTabView: View {
             TabView(selection: $selectedTab) {
                 NavigationStack {
                     HomeView(palette: palette)
+                        .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bottom) {
+                            MiraOverlayLayout(nativeTabBarTop: palette.isCatSkin ? nil : $0)
+                        }
                 }
                 .transformPreference(MiraOverlayLayoutKey.self) { layout in
                     if selectedTab != .home { layout.companionBounds = nil }
@@ -30,6 +33,9 @@ struct MainTabView: View {
 
                 NavigationStack {
                     AdjustmentsView(palette: palette)
+                        .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bottom) {
+                            MiraOverlayLayout(nativeTabBarTop: palette.isCatSkin ? nil : $0)
+                        }
                 }
                 .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
                 .tag(MiraTab.adjustments)
@@ -37,6 +43,9 @@ struct MainTabView: View {
 
                 NavigationStack {
                     MarginsView(palette: palette)
+                        .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bottom) {
+                            MiraOverlayLayout(nativeTabBarTop: palette.isCatSkin ? nil : $0)
+                        }
                 }
                 .tabItem { Label("マイ余白", systemImage: "leaf") }
                 .tag(MiraTab.margins)
@@ -44,6 +53,9 @@ struct MainTabView: View {
 
                 NavigationStack {
                     SettingsView(palette: palette)
+                        .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bottom) {
+                            MiraOverlayLayout(nativeTabBarTop: palette.isCatSkin ? nil : $0)
+                        }
                 }
                 .tabItem { Label("設定", systemImage: "gearshape") }
                 .tag(MiraTab.settings)
