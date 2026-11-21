@@ -97,6 +97,10 @@ final class MiraStyleUITests: XCTestCase {
     func testToastLeavesMonthControlsReachable() {
         app.launchArguments += ["-ui-testing-persistent-toast"]
         launchHome()
+        let calendarPermission = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .buttons.matching(NSPredicate(format: "label IN %@", ["Allow Full Access", "フルアクセスを許可"])).firstMatch
+        if calendarPermission.waitForExistence(timeout: 2) { calendarPermission.tap() }
+
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
@@ -198,7 +202,11 @@ final class MiraStyleUITests: XCTestCase {
         app.buttons["miraTab-settings"].tap()
         let colors = app.descendants(matching: .any)["appColorSettings"].firstMatch
         for _ in 0..<4 where !colors.isHittable {
-            app.swipeUp()
+            if colors.exists && colors.frame.minY < app.frame.midY {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
         }
         XCTAssertTrue(colors.waitForExistence(timeout: 5))
         colors.tap()

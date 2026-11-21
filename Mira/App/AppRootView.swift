@@ -6,7 +6,7 @@ extension Notification.Name {
 }
 
 struct MiraOverlayLayout {
-    var tabBarHeight: CGFloat = 44
+    var tabBarHeight: CGFloat = 0
     var companionBounds: Anchor<CGRect>?
 }
 
@@ -117,6 +117,7 @@ struct AppRootView: View {
         }
         .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
             GeometryReader { geometry in
+                let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
                 let trailingClearance = layout.companionBounds.map {
                     max(0, geometry.size.width - geometry[$0].minX) + MiraSpacing.xs
                 } ?? 0
@@ -124,7 +125,7 @@ struct AppRootView: View {
                     Spacer(minLength: 0)
                     toastBanner(palette: palette)
                         .padding(.trailing, trailingClearance)
-                        .padding(.bottom, layout.tabBarHeight + MiraSpacing.xs)
+                        .padding(.bottom, bottomClearance + MiraSpacing.xs)
                 }
             }
             .allowsHitTesting(false)
