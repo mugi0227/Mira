@@ -123,7 +123,9 @@ struct DayTimelineView: View {
     private func conflictRow(_ text: String, icon: String, tappable: Bool) -> some View {
         HStack(alignment: .top, spacing: MiraSpacing.xs) {
             Image(systemName: icon).frame(width: 20).accessibilityHidden(true)
-            Text(text).frame(maxWidth: .infinity, alignment: .leading)
+            Text(text)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if tappable { Image(systemName: "chevron.right").accessibilityHidden(true) }
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
