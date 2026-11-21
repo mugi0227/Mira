@@ -278,7 +278,7 @@ struct HomeView: View {
     }
 
     private var nextEvent: CalendarItemSnapshot? {
-        store.items.filter { $0.kind == .confirmed && $0.endDate > store.now }
+        store.items.filter { $0.countsAgainstWhitespace && $0.endDate > store.now }
             .min { $0.startDate < $1.startDate }
     }
 
@@ -623,7 +623,7 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        let values = store.selectedDayItems.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }
         guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
@@ -755,6 +755,7 @@ private struct AgendaRow: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }

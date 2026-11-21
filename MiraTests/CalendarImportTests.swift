@@ -68,6 +68,25 @@ final class CalendarImportParsingTests: XCTestCase {
 
 @MainActor
 final class CalendarImportCommitTests: XCTestCase {
+    func testAllDayImportExplicitlyOccupiesTime() throws {
+        let schema = Schema([
+            AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
+            BaseRuleEntity.self, AdjustmentEntity.self, PendingInvitationEntity.self,
+            LoadRuleEntity.self, ImportantPersonEntity.self, ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
+        ])
+        let container = try ModelContainer(for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let store = MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
+        let candidate = ImportCandidate(title: "旅行", start: TestFixtures.date(day: 6, hour: 9),
+            end: TestFixtures.date(day: 6, hour: 21), isAllDay: true, colorTag: nil, confidence: 0.9, sourceIndex: 0)
+        XCTAssertEqual(store.importCandidates([candidate]), 1)
+        let saved = try XCTUnwrap(store.items.first)
+        XCTAssertEqual(saved.occupiesTime, true)
+        XCTAssertTrue(saved.countsAgainstWhitespace)
+    }
+
     func testImportAddsOnlySelectedPlansAndUndoesAsOne() async throws {
         let schema = Schema([
             AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,

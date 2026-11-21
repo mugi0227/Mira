@@ -498,7 +498,7 @@ extension MiraStore {
     func commitChange(_ preview: ChangePreview, to entity: CalendarItemEntity, undoTitle: String) throws {
         let undo = captureCalendarUndo(title: undoTitle)
         let previousDate = preview.before.startDate
-        if preview.after.kind == .confirmed {
+        if preview.after.countsAgainstWhitespace {
             for margin in preview.impact.overlappingMargins {
                 if let overlapped = try self.entity(id: margin.id) { context.delete(overlapped) }
             }
