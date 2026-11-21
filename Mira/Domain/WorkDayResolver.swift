@@ -9,7 +9,7 @@ struct WorkDayResolver: Sendable {
         let day = calendar.startOfDay(for: date)
         if let override = overrides[day] { return override }
         return rules.contains { $0.weekday == calendar.component(.weekday, from: day) }
-            && !(excludeHolidays && holidays.contains(day))
+            && !(excludeHolidays && (holidays.contains(day) || JapanesePublicHolidays.isHoliday(day, calendar: calendar)))
     }
 
     func effectiveRules(on date: Date, rules: [BaseAvailabilityRule], calendar: Calendar = .mira) -> [BaseAvailabilityRule] {
