@@ -1,4 +1,4 @@
-name: Visual Layout Review
+name: Layout Screenshots
 
 on:
   pull_request:
@@ -10,13 +10,11 @@ on:
       - 'Shared/**'
       - 'project.yml'
       - 'MiraUITests/**'
-      - 'scripts/visual-review.py'
       - '.github/workflows/visual-review.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   visual-review:
@@ -71,43 +69,13 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
             -only-testing:MiraUITests/MiraLayoutAuditUITests test
-      - name: Review screenshots (advisory)
-        if: always()
-        continue-on-error: true
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          python3 scripts/visual-review.py
-          cat /tmp/mira-visual-review/report.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload review evidence
+      - name: Upload screenshots and audit
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: mira-visual-review
+          name: mira-layout-screenshots
           path: |
             /tmp/mira-screenshots
             /tmp/mira-layout-audit
-            /tmp/mira-visual-review
           if-no-files-found: warn
-      - name: Update sticky PR review
-        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
-        continue-on-error: true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = '/tmp/mira-visual-review/report.md';
-            if (!fs.existsSync(path)) return;
-            const marker = '<!-- mira-visual-review -->';
-            const report = fs.readFileSync(path, 'utf8');
-            const body = marker + '\n' + report.slice(0, 60000) +
-              (report.length > 60000 ? '\n\n（全文はartifactを参照）' : '');
-            const params = {...context.repo, issue_number: context.issue.number};
-            const comments = await github.paginate(github.rest.issues.listComments, params);
-            const previous = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
-            if (previous) {
-              await github.rest.issues.updateComment({...context.repo, comment_id: previous.id, body});
-            } else {
-              await github.rest.issues.createComment({...params, body});
-            }
