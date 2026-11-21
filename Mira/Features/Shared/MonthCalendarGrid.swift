@@ -57,7 +57,7 @@ struct MonthCalendarGrid: View {
         }
         // Inset the entire grid rather than every cell so all seven columns
         // stay aligned, including the leading/trailing days near the corners.
-        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : (privacyMode ? 0 : 6))
         .padding(.top, palette.isCatSkin ? MiraSpacing.lg : 0)
         .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
         .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
@@ -179,9 +179,9 @@ struct MonthCalendarGrid: View {
                     Spacer(minLength: 0)
                     ZStack {
                         if isSelected {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            RoundedRectangle(cornerRadius: privacyMode ? 12 : 14, style: .continuous)
                                 .fill(palette.actionGradient)
-                                .frame(width: 30, height: 30)
+                                .frame(width: privacyMode ? 30 : 27, height: privacyMode ? 30 : 27)
                                 .matchedGeometryEffect(id: "selected-date", in: dateSelection)
                         } else if isToday {
                             Circle()
@@ -203,20 +203,21 @@ struct MonthCalendarGrid: View {
                 }
                 .contentShape(Rectangle())
             }
-            .frame(height: 26)
+            .frame(height: privacyMode ? 26 : 34)
             .buttonStyle(.plain)
             .accessibilityLabel("\(date.japaneseShortDate)を開く")
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
-
-            if !privacyMode {
-                let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
-                WhitespaceRing(fraction: whitespace.fraction, palette: palette)
-                    .frame(width: 13, height: 13)
-                    .frame(maxWidth: .infinity)
-                    .opacity(isInDisplayedMonth ? 1 : 0.3)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
-                    .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+            .overlay {
+                if !privacyMode {
+                    let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
+                    WhitespaceRing(fraction: whitespace.fraction, palette: palette)
+                        .frame(width: 32, height: 32)
+                        .opacity(isInDisplayedMonth ? 1 : 0.3)
+                        .allowsHitTesting(false)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
+                        .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+                }
             }
 
             VStack(spacing: 2) {
@@ -432,14 +433,14 @@ private struct CalendarEventStrip: View {
             Text(chipTitle)
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .lineLimit(palette.isCatSkin ? 2 : 1)
-                .multilineTextAlignment(.leading)
+                .multilineTextAlignment(.center)
                 .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
         .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
         .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
-        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 2)
-        .padding(.trailing, palette.isCatSkin ? 1 : 3)
-        .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .leading)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {

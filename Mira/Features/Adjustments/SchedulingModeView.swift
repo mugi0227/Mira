@@ -323,12 +323,12 @@ struct SchedulingModeView: View {
             }
         }
         .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous)
-                .stroke(palette.isCatSkin ? palette.cardBorder : palette.primaryText.opacity(0.10), lineWidth: palette.isCatSkin ? 1 : 0.5)
+            RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
+                .stroke(palette.cardBorder, lineWidth: 1)
         }
-        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.sm : 0)
+        .padding(.horizontal, MiraSpacing.sm)
     }
 
     private func schedulingDayCell(_ date: Date, draft: SchedulingDraft) -> some View {

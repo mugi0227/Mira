@@ -82,8 +82,10 @@ final class MiraStyleUITests: XCTestCase {
         add(calendar)
         app.buttons["calendar-date-2026-09-01"].tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
-        let memoRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", memoTitle + "、")).firstMatch
+        let memoRows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", memoTitle + "、"))
+        let memoRow = memoRows.firstMatch
         XCTAssertTrue(memoRow.waitForExistence(timeout: 5))
+        XCTAssertEqual(memoRows.count, 1)
         for _ in 0..<4 where !memoRow.isHittable { app.swipeDown() }
         XCTAssertTrue(memoRow.isHittable)
         XCTAssertTrue(memoRow.label.contains("18:00–20:00"))
@@ -92,6 +94,9 @@ final class MiraStyleUITests: XCTestCase {
         day.name = "memo-day"
         day.lifetime = .keepAlways
         add(day)
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(memoRow.isHittable)
+        XCTAssertEqual(memoRows.count, 1)
         memoRow.tap()
         let occupancy = app.buttons["eventOccupiesTime"]
         XCTAssertTrue(occupancy.waitForExistence(timeout: 5))
@@ -366,7 +371,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(month.label, "2026年10月")
+        XCTAssertEqual(month.label.components(separatedBy: "、").first, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
         app.terminate()

@@ -28,11 +28,9 @@ struct PrimaryButton: View {
             }
             .clipShape(Capsule())
             .overlay {
-                if palette.isCatSkin {
-                    Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)
-                }
+                Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)
             }
-            .shadow(color: palette.isCatSkin && !isDisabled ? palette.shadow : .clear, radius: 10, y: 4)
+            .shadow(color: !isDisabled ? palette.shadow : .clear, radius: 10, y: 4)
         }
         .buttonStyle(MiraPressStyle())
         .disabled(isDisabled)
@@ -48,7 +46,7 @@ struct ProgressPill: View {
     let palette: MiraThemePalette
 
     var body: some View {
-        HStack(spacing: palette.isCatSkin ? 4 : 6) {
+        HStack(spacing: 4) {
             Image(systemName: symbol)
                 .font(.caption.weight(.semibold))
                 .accessibilityHidden(true)
@@ -59,13 +57,11 @@ struct ProgressPill: View {
                 .font(.caption.monospacedDigit().weight(.semibold))
         }
         .foregroundStyle(palette.primaryText)
-        .padding(.horizontal, palette.isCatSkin ? 8 : 11)
+        .padding(.horizontal, 8)
         .frame(minHeight: 36)
-        .background(palette.isCatSkin ? palette.goalTint(for: symbol) : palette.accentSoft, in: Capsule())
+        .background(palette.goalTint(for: symbol), in: Capsule())
         .overlay {
-            if palette.isCatSkin {
-                Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5)
-            }
+            Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) \(current)回、目標\(target)回")

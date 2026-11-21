@@ -186,9 +186,7 @@ struct MiraCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // Large rounded corners need breathing room even when a caller
-            // requests a compact card. Keep Soft Minimal's original density.
-            .padding(palette.isCatSkin ? max(padding, MiraSpacing.lg) : padding)
+            .padding(max(padding, MiraSpacing.lg))
             .background {
                 RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
                     .fill(reduceTransparency ? palette.elevatedSurface : palette.surface)

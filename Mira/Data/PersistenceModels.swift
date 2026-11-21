@@ -21,7 +21,7 @@ final class AppSettingsEntity {
     init(
         key: String = "main",
         onboardingCompleted: Bool = false,
-        themeRaw: String = AppThemeKind.pixelCat.rawValue,
+        themeRaw: String = AppThemeKind.softMinimal.rawValue,
         assistantEnabled: Bool = true,
         characterNotificationsEnabled: Bool = true,
         notificationsEnabled: Bool = false,
