@@ -59,6 +59,19 @@ final class SelfTimeChatUITests: XCTestCase {
         add(attachment)
     }
 
+    func testOverlappingProposalNamesExistingEvent() throws {
+        openCompanion()
+        sendChat("明日の10時に友達と夕食を追加して")
+        require(app.buttons["chatApplyCard"].firstMatch, "event proposal", timeout: 20)
+        let warning = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "『仕事』", "重なっています")).firstMatch
+        require(warning, "named work conflict")
+        XCTAssertTrue(warning.label.contains("09:00〜18:00"))
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "named-conflict-proposal"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
         let companion = app.buttons["miraCompanionButton"]
         require(companion, "companion", timeout: 12)

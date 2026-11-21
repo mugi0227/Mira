@@ -21,7 +21,7 @@ final class EverydayWorkflowTests: XCTestCase {
         let candidate = try XCTUnwrap(session.candidates.first)
         let prepared = await store.prepareCandidateConfirmation(sessionID: session.id, candidateID: candidate.id)
         let approval = try XCTUnwrap(prepared)
-        XCTAssertTrue(approval.conflicts.contains("確定予定と重なっています"))
+        XCTAssertTrue(approval.conflicts.contains { $0.contains("先に決まった予定") })
         XCTAssertEqual(approval.impact.protectionLevel, .finalDefense)
 
         let confirmed = await store.confirmCandidate(sessionID: session.id, candidateID: candidate.id, approval: approval)

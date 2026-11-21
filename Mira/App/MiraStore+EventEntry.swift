@@ -21,10 +21,14 @@ extension MiraStore {
             .flatMap(\.candidates)
         let excludedID = excludingItemID ?? event.id
 
-        return ConflictEngine(calendar: .mira).conflicts(
+        let candidateTitles = adjustments.reduce(into: [UUID: String]()) { titles, adjustment in
+            for candidate in adjustment.candidates { titles[candidate.id] = adjustment.title }
+        }
+        return ConflictEngine(calendar: .mira).conflictDetails(
             candidate: candidate,
             events: items.filter { $0.id != excludedID },
             otherCandidates: heldCandidates,
+            candidateTitles: candidateTitles,
             baseRules: fetchBaseRules()
         )
     }
