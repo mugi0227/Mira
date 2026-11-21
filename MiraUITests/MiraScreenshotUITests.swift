@@ -9,6 +9,7 @@ final class MiraScreenshotUITests: XCTestCase {
     }
 
     func testCaptureRepresentativeScreens() throws {
+        try? FileManager.default.removeItem(atPath: "/tmp/mira-screenshots")
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing", "-reset-demo"]
         app.launch()

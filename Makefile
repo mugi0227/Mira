@@ -1,4 +1,4 @@
-.PHONY: generate build test clean
+.PHONY: generate build test clean visual-review
 
 generate:
 	xcodegen generate
@@ -11,3 +11,6 @@ test: generate
 
 clean:
 	rm -rf Mira.xcodeproj DerivedData
+
+visual-review:
+	python3 scripts/visual-review.py

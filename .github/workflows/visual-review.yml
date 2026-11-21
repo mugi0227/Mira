@@ -1,0 +1,113 @@
+name: Visual Layout Review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Mira/**'
+      - 'MiraWidget/**'
+      - 'MiraOverrides/**'
+      - 'Shared/**'
+      - 'project.yml'
+      - 'MiraUITests/**'
+      - 'scripts/visual-review.py'
+      - '.github/workflows/visual-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  visual-review:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          echo "Selecting $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i ios
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Resolve and boot iPhone simulator
+        run: |
+          SIMULATOR_UDID=$(python3 - <<'PY'
+          import json
+          import subprocess
+          data = json.loads(subprocess.check_output([
+              'xcrun', 'simctl', 'list', 'devices', 'available', '-j'
+          ]))
+          for devices in data.get('devices', {}).values():
+              for device in devices:
+                  if device.get('isAvailable') and device.get('name', '').startswith('iPhone'):
+                      print(device['udid'])
+                      raise SystemExit(0)
+          raise SystemExit('No available iPhone Simulator found')
+          PY
+          )
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl privacy "$SIMULATOR_UDID" grant calendar jp.mugi.mira
+      - name: Capture representative screens
+        run: |
+          xcodebuild -project Mira.xcodeproj -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MiraUITests/MiraScreenshotUITests/testCaptureRepresentativeScreens test
+      - name: Audit layout geometry
+        if: ${{ !cancelled() }}
+        env:
+          TEST_RUNNER_MIRA_LAYOUT_AUDIT_STRICT: '0'
+        run: |
+          xcodebuild -project Mira.xcodeproj -scheme Mira \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MiraUITests/MiraLayoutAuditUITests test
+      - name: Review screenshots (advisory)
+        if: always()
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python3 scripts/visual-review.py
+          cat /tmp/mira-visual-review/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload review evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-visual-review
+          path: |
+            /tmp/mira-screenshots
+            /tmp/mira-layout-audit
+            /tmp/mira-visual-review
+          if-no-files-found: warn
+      - name: Update sticky PR review
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '/tmp/mira-visual-review/report.md';
+            if (!fs.existsSync(path)) return;
+            const marker = '<!-- mira-visual-review -->';
+            const report = fs.readFileSync(path, 'utf8');
+            const body = marker + '\n' + report.slice(0, 60000) +
+              (report.length > 60000 ? '\n\n（全文はartifactを参照）' : '');
+            const params = {...context.repo, issue_number: context.issue.number};
+            const comments = await github.paginate(github.rest.issues.listComments, params);
+            const previous = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({...context.repo, comment_id: previous.id, body});
+            } else {
+              await github.rest.issues.createComment({...params, body});
+            }
