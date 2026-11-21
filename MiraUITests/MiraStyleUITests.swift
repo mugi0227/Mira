@@ -141,6 +141,7 @@ final class MiraStyleUITests: XCTestCase {
     }
 
     func testCompactCalendarOverflowOpensAllEventsForTheDay() {
+        app.launchArguments += ["-friend-share-test"]
         launchHome()
         app.buttons["calendar-date-2026-09-02"].tap()
         let add = app.buttons["この日に予定を追加"]
@@ -167,6 +168,28 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "仕事、")).firstMatch.exists)
         XCTAssertTrue(dinner.exists)
         capture("compact-calendar-day-events")
+
+        app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["前の月"].tap()
+        XCTAssertTrue(app.staticTexts["2026年8月"].waitForExistence(timeout: 5))
+        app.buttons["friendViewToggle"].tap()
+        app.buttons["friendRecipientPicker"].tap()
+        let recipient = app.buttons["はる"]
+        if !recipient.waitForExistence(timeout: 3) { app.buttons["friendRecipientPicker"].tap() }
+        XCTAssertTrue(recipient.waitForExistence(timeout: 5), app.debugDescription)
+        recipient.tap()
+        app.buttons["friendLevelPicker"].tap()
+        app.buttons["予定名まで"].tap()
+
+        // August spans six weeks; September 2 is in its last row. Shared
+        // calendars cannot open a day, so keep the normal two preview rows.
+        let day = app.buttons["calendar-day-2026-09-02"].firstMatch
+        let work = day.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "仕事")).firstMatch
+        for _ in 0..<4 where !work.isHittable { app.scrollViews["homeScroll"].swipeUp() }
+        XCTAssertTrue(work.isHittable, app.debugDescription)
+        XCTAssertTrue(work.label.contains("9–18"))
+        XCTAssertEqual(day.staticTexts.matching(identifier: "friendDayContent").count, 2)
+        capture("compact-friend-calendar-two-previews")
     }
 
     func testToastLeavesMonthControlsReachable() throws {

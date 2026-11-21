@@ -83,6 +83,10 @@ final class FriendShareLevelTests: XCTestCase {
         let titles = FriendDayContent(date: day, items: items, level: .titles)
         XCTAssertEqual(titles.lines, ["09:30–10:00 予定あり", "10:00–12:00 面談", "12:00–13:00 予定あり", "13:00–14:00 予定あり", "14:00–14:30 予定あり"])
         XCTAssertEqual(titles.gridLines, ["9:30–10", "10 面談", "12–13", "13–14", "14–14:30"])
+        XCTAssertEqual(Array(titles.gridEntries.prefix(2)), [
+            .init(time: "9:30–10", title: "予定あり"),
+            .init(time: "10–12", title: "面談")
+        ])
         for level in [FriendShareLevel.busyTimes, .titles] {
             let text = FriendAvailabilityText.text(from: day, days: 1, items: items, level: level)
             XCTAssertTrue(text.contains("09:30"))
@@ -200,5 +204,15 @@ final class FriendShareLevelTests: XCTestCase {
         XCTAssertEqual(FriendDayContent(date: day, items: [event], level: .busyTimes).gridLines, ["10:30–12"])
         XCTAssertTrue(FriendDayContent(date: day, items: [event], level: .hidden).gridLines.isEmpty)
         XCTAssertTrue(FriendAvailabilityText.text(from: day, items: [event], level: .titles).contains("余白は「予定あり」"))
+    }
+
+    func testCalendarPairsFullTimesWithTitlesWithoutRevealingMargins() {
+        let dinner = TestFixtures.event(title: "みんなでご飯", day: 5, hour: 18, duration: 4)
+        XCTAssertEqual(FriendDayContent(date: TestFixtures.date(day: 5), items: [dinner], level: .titles).gridEntries,
+                       [.init(time: "18–22", title: "みんなでご飯")])
+        var margin = TestFixtures.event(title: "秘密の余白", day: 6, kind: .margin, marginKind: .rest)
+        margin.isAllDay = true
+        XCTAssertEqual(FriendDayContent(date: TestFixtures.date(day: 6), items: [margin], level: .titles).gridEntries,
+                       [.init(time: "終日", title: "予定あり")])
     }
 }

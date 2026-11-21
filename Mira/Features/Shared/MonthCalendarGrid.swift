@@ -76,8 +76,23 @@ struct MonthCalendarGrid: View {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
+    private var friendTitlePreviewLimit: Int {
+        // Preserve the preview count from the original single-line layout,
+        // before adding height for legible time/title pairs.
+        var height: CGFloat = cells.count > 35 ? 88 : 104
+        if palette.isCatSkin, let preferredHeight {
+            let chrome = 30 + MiraSpacing.lg * 2
+            height = min(height, (preferredHeight - chrome) / CGFloat(cells.count / 7))
+        }
+        return height < 100 ? 2 : 3
+    }
+
     private func rowHeight(dayCount: Int) -> CGFloat {
-        let regular: CGFloat = dayCount > 35 ? 88 : 104
+        let hasPairedPreviews = privacyMode && friendLevel == .titles
+        // Each time/title pair can use three fixed-size lines, without
+        // reducing the original two or three previews to make room.
+        let pairedRowHeight = CGFloat(friendTitlePreviewLimit) * 40 + 44
+        let regular: CGFloat = hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
         let hasOverflow = cells.contains { date in
@@ -86,8 +101,14 @@ struct MonthCalendarGrid: View {
             return count > (privacyMode ? (hasHoliday ? 1 : 2) : (hasHoliday ? 0 : 1))
         }
         // Keep the ring, two-line title and overflow link inside each row;
-        // friend mode instead reserves room for availability bands.
-        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : (hasOverflow ? 92 : 76)
+        // friend mode instead reserves room for availability bands or pairs.
+        let minimum: CGFloat = if hasPairedPreviews {
+            pairedRowHeight
+        } else if privacyMode {
+            hasOverflow ? 88 : 76
+        } else {
+            hasOverflow ? 92 : 76
+        }
         return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -143,8 +164,12 @@ struct MonthCalendarGrid: View {
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
-        let isCompact = cellHeight < 104
-        let visibleItemLimit = isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
+        let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight < 104
+        let visibleItemLimit = if privacyMode {
+            isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        } else {
+            isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
+        }
 
         VStack(alignment: .leading, spacing: 2) {
             Button {
@@ -207,17 +232,32 @@ struct MonthCalendarGrid: View {
                 if privacyMode {
                     if friendLevel != .freeOnly {
                         let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
-                        ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(palette.secondaryText)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.65)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier("friendDayContent")
+                        if friendLevel == .titles {
+                            ForEach(Array(content.gridEntries.prefix(friendTitlePreviewLimit).enumerated()), id: \.offset) { _, entry in
+                                Text("\(entry.time)\n\(entry.title)")
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(3)
+                                    .lineSpacing(1)
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.bottom, 2)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
+                        } else {
+                            ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
                         }
-                        if content.gridLines.count > visibleItemLimit {
-                            Text("ほか \(content.gridLines.count - visibleItemLimit)件")
+                        let limit = friendLevel == .titles ? friendTitlePreviewLimit : visibleItemLimit
+                        if content.gridLines.count > limit {
+                            Text("ほか \(content.gridLines.count - limit)件")
                                 .font(.system(size: 8, weight: .semibold, design: .rounded))
                                 .foregroundStyle(palette.secondaryText)
                                 .lineLimit(1)
@@ -274,7 +314,7 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
-        .padding(.horizontal, 2)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .background {
