@@ -2,6 +2,17 @@ import XCTest
 @testable import Mira
 
 final class ProtectionConflictTests: XCTestCase {
+    func testTimeUnknownConflictUsesTheEventsDisplayLabel() {
+        let slot = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 19),
+            endDate: TestFixtures.date(day: 12, hour: 21), timeOfDay: .evening)
+        var event = TestFixtures.event(title: "食事", day: 12, hour: 19)
+        event.exactTimeKnown = false
+        event.schedulingTimeBand = .evening
+        let details = ConflictEngine().conflictDetails(candidate: slot, events: [event], otherCandidates: [])
+        XCTAssertEqual(details, ["夜・時間未定『食事』（確定予定）と重なっています"])
+        XCTAssertFalse(details.joined().contains("19:00"))
+    }
+
     func testConflictDetailsNameEachKindAndLimitToTwo() {
         let slot = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 13),
             endDate: TestFixtures.date(day: 12, hour: 18), timeOfDay: .afternoon)

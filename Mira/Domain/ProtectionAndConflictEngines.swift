@@ -135,7 +135,8 @@ struct ConflictEngine: Sendable {
             let kind = event.kind == .margin ? "守っている余白" : "確定予定"
             let title = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let label = title.isEmpty ? kind : title
-            let time = event.isAllDay ? "終日" : timeRange(event.startDate, event.endDate)
+            let time = !event.exactTimeKnown ? event.timeDescription
+                : (event.isAllDay ? "終日" : timeRange(event.startDate, event.endDate))
             details.append((event.startDate, "\(time)『\(label)』（\(kind)）"))
         }
         for other in otherCandidates where other.status == .held && other.id != candidate.id
