@@ -132,6 +132,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     func testFriendShareOffersText() throws {
+        XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
         let toggle = app.buttons["friendViewToggle"]
         scrollUntilHittable(toggle)
         require(toggle, "friend view toggle", timeout: 8)
