@@ -13,9 +13,9 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(discard.isHittable)
         capture("event-form-rest")
         for _ in 0..<3 { app.swipeUp() }
-        let end = app.staticTexts["終了"]
-        XCTAssertTrue(end.isHittable)
-        XCTAssertLessThan(end.frame.maxY, discard.frame.minY)
+        let calendarLegend = app.descendants(matching: .any)["eventRoomLegend"].firstMatch
+        XCTAssertTrue(calendarLegend.isHittable)
+        XCTAssertLessThan(calendarLegend.frame.maxY, discard.frame.minY)
         capture("event-form-max-scroll")
         for _ in 0..<3 where !app.segmentedControls.buttons["余白"].isHittable { app.swipeDown() }
         app.segmentedControls.buttons["余白"].tap()
