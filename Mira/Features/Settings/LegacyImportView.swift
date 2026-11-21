@@ -138,8 +138,8 @@ struct LegacyImportView: View {
 
     private func reading(done: Int, total: Int) -> some View {
         VStack(spacing: MiraSpacing.md) {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: .thinking, size: 96)
+            if store.theme.isCat {
+                MiraCatView(mood: .thinking, size: 96)
             }
             ProgressView(value: Double(done), total: Double(max(total, 1)))
                 .tint(palette.accent)

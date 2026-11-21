@@ -67,7 +67,7 @@ extension MiraStore {
               let plan = ReminderPlan.adjustment(
                 id: session.id, title: session.title, status: session.status,
                 deadline: session.responseDeadline,
-                catVoice: characterNotificationsEnabled && theme == .pixelCat
+                catVoice: characterNotificationsEnabled && theme.isCat
               ) else {
             await NotificationService.shared.cancelAdjustmentReminder(id: session.id)
             return
@@ -80,7 +80,7 @@ extension MiraStore {
               let plan = ReminderPlan.invitation(
                 id: invitation.id, title: invitation.title, status: invitation.status,
                 deadline: invitation.replyDeadline,
-                catVoice: characterNotificationsEnabled && theme == .pixelCat
+                catVoice: characterNotificationsEnabled && theme.isCat
               ) else {
             await NotificationService.shared.cancelInvitationReminder(id: invitation.id)
             return
@@ -93,7 +93,7 @@ extension MiraStore {
             await NotificationService.shared.reconcile([])
             return
         }
-        let catVoice = characterNotificationsEnabled && theme == .pixelCat
+        let catVoice = characterNotificationsEnabled && theme.isCat
         let plans = adjustments.compactMap {
             ReminderPlan.adjustment(id: $0.id, title: $0.title, status: $0.status, deadline: $0.responseDeadline, catVoice: catVoice)
         } + pendingInvitations.compactMap {

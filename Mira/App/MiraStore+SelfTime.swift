@@ -81,7 +81,7 @@ extension MiraStore {
         ) else { return }
         record(suggestion)
 
-        let catVoice = theme == .pixelCat
+        let catVoice = theme.isCat
         chatMessages.append(ChatMessage(
             role: .assistant,
             text: catVoice

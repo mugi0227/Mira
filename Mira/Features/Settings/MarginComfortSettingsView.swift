@@ -10,7 +10,7 @@ struct MarginComfortSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                 HStack(spacing: MiraSpacing.md) {
-                    PixelCatView(mood: .relaxed, size: 82)
+                    MiraCatView(mood: .relaxed, size: 82)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("休む量もMiraに任せられます")
                             .font(.title3.bold())

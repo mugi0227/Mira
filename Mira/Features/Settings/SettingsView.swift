@@ -295,7 +295,7 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .pixelCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .silhouetteCat ? "くすみカラーの丸いシルエット猫" : theme.isCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()
@@ -303,13 +303,13 @@ private struct ThemePreviewCard: View {
                 }
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
                     HStack(spacing: MiraSpacing.sm) {
-                        if theme == .pixelCat {
-                            PixelCatView(mood: .relaxed, size: 64)
+                        if theme.isCat {
+                            MiraCatArtwork(theme: theme, mood: .relaxed, size: 64)
                         } else {
                             Image(systemName: "leaf.circle.fill").font(.system(size: 48)).foregroundStyle(palette.accent).frame(width: 64)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(theme == .pixelCat ? "いい感じです" : "今月はいいバランスです").font(.headline)
+                            Text(theme.isCat ? "いい感じです" : "今月はいいバランスです").font(.headline)
                             Text("予定も余白も、ちゃんと居場所があります。")
                                 .font(.caption).foregroundStyle(palette.secondaryText)
                         }
@@ -337,6 +337,7 @@ private struct ThemePreviewCard: View {
             .miraCard(palette)
         }
         .buttonStyle(MiraPressStyle())
+        .accessibilityIdentifier("theme-\(theme.rawValue)")
         .accessibilityLabel("\(theme.displayName)スキン" + (selected ? "、選択中" : ""))
     }
 
@@ -365,8 +366,8 @@ private struct AIStatusView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: MiraSpacing.lg) {
-                if store.theme == .pixelCat {
-                    PixelCatView(mood: .thinking, size: 108)
+                if store.theme.isCat {
+                    MiraCatView(mood: .thinking, size: 108)
                 } else {
                     Image(systemName: "brain.head.profile").font(.system(size: 68)).foregroundStyle(palette.accent)
                 }
