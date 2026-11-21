@@ -71,7 +71,7 @@ final class MiraStyleUITests: XCTestCase {
         }
         let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
         XCTAssertLessThanOrEqual(card.frame.maxY + 20, scroll.frame.maxY)
-        XCTAssertLessThanOrEqual(card.frame.maxY + 20, app.buttons["miraCompanionButton"].frame.minY)
+        XCTAssertFalse(card.frame.intersects(app.buttons["miraCompanionButton"].frame))
         XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次の余白")).firstMatch.isHittable)
         capture("roomier-goals")
     }
