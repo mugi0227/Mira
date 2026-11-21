@@ -7,6 +7,8 @@ final class MiraLayoutAuditUITests: XCTestCase {
         continueAfterFailure = true
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing", "-reset-demo"]
+        app.launchArguments += ["-ui-theme", "softMinimal"]
+        app.launchArguments += ["-AppleInterfaceStyle", "Light"]
         app.launch()
         if !app.buttons["おすすめを確認"].waitForExistence(timeout: 4) {
             tap(app.buttons["設定"])

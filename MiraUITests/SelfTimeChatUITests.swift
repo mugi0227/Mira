@@ -232,9 +232,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testDayTimelineEndsNearTheFinalHour() {
         XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
-        let day = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "9月", "予定なし")
-        ).firstMatch
+        let day = app.buttons["calendar-date-2026-09-03"]
         require(day, "an empty day on the demo calendar")
         day.tap()
         require(app.buttons["この日に予定を追加"], "day timeline")

@@ -22,6 +22,7 @@ struct DayTimelineView: View {
     private let timeLabelWidth: CGFloat = 52
 
     var body: some View {
+        let pinnedItems = allDayItems
         GeometryReader { viewport in
         ScrollViewReader { proxy in
             ScrollView {
@@ -37,17 +38,36 @@ struct DayTimelineView: View {
                             .background(palette.critical.opacity(0.10), in: RoundedRectangle(cornerRadius: MiraRadius.small))
                     }
 
-                    if !allDayItems.isEmpty {
-                        allDaySection
-                    }
-
-                    timeline
+                    timeline(hasPinnedAllDayItems: !pinnedItems.isEmpty)
                 }
                 .padding(.horizontal, MiraSpacing.md)
                 .padding(.top, MiraSpacing.sm)
                 .padding(.bottom, MiraSpacing.md)
             }
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if !pinnedItems.isEmpty {
+                    ViewThatFits(in: .vertical) {
+                        allDaySection(pinnedItems)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ScrollView {
+                            allDaySection(pinnedItems)
+                        }
+                    }
+                    .frame(maxHeight: viewport.size.height * 0.25)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, MiraSpacing.md)
+                    .padding(.vertical, MiraSpacing.sm)
+                    .background(palette.background)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(palette.primaryText.opacity(0.10))
+                            .frame(height: 0.5)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
             .safeAreaInset(edge: .top, spacing: proposal == nil ? 0 : MiraSpacing.md) {
                 if let proposal {
                     ScrollView {
@@ -170,13 +190,13 @@ struct DayTimelineView: View {
         return "予定と余白が\(dayItems.count)件あります"
     }
 
-    private var allDaySection: some View {
+    private func allDaySection(_ items: [CalendarItemSnapshot]) -> some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
             Text("終日")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
 
-            ForEach(allDayItems) { item in
+            ForEach(items) { item in
                 Button {
                     selectedItem = item
                 } label: {
@@ -199,7 +219,7 @@ struct DayTimelineView: View {
         }
     }
 
-    private var timeline: some View {
+    private func timeline(hasPinnedAllDayItems: Bool) -> some View {
         HStack(alignment: .top, spacing: MiraSpacing.xs) {
             VStack(spacing: 0) {
                 ForEach(0..<24, id: \.self) { hour in
@@ -207,7 +227,7 @@ struct DayTimelineView: View {
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: timeLabelWidth, height: hourHeight, alignment: .topTrailing)
-                        .offset(y: proposal == nil ? -7 : 0)
+                        .offset(y: proposal == nil && !hasPinnedAllDayItems ? -7 : 0)
                         .id("hour-\(hour)")
                 }
             }

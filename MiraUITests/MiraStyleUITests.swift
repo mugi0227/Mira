@@ -120,10 +120,12 @@ final class MiraStyleUITests: XCTestCase {
         scroll.swipeUp()
         let summary = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
         for _ in 0..<4 where !summary.isHittable { app.swipeUp() }
+        XCTAssertTrue(summary.isHittable)
         let pills = summary.descendants(matching: .any).matching(identifier: "homeGoalPill")
         XCTAssertEqual(pills.count, 3)
         for index in 0..<pills.count {
             let pill = pills.element(boundBy: index)
+            XCTAssertTrue(pill.isHittable)
             XCTAssertGreaterThanOrEqual(pill.frame.minX - app.frame.minX, 20)
             XCTAssertGreaterThanOrEqual(app.frame.maxX - pill.frame.maxX, 20)
             XCTAssertLessThanOrEqual(pill.frame.maxY + 20, scroll.frame.maxY)
@@ -152,11 +154,11 @@ final class MiraStyleUITests: XCTestCase {
         launchHome()
         let september = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertTrue(september.waitForExistence(timeout: 5))
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertEqual(september.label.components(separatedBy: "、").first, "2026年9月")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(september.label, "2026年10月")
+        XCTAssertEqual(september.label.components(separatedBy: "、").first, "2026年10月")
         app.buttons["前の月"].tap()
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertEqual(september.label.components(separatedBy: "、").first, "2026年9月")
         // A date text's accessibility frame can expand over its event chips.
         // The explicit header button has its own, non-overlapping hit target.
         let dayHeader = app.buttons["calendar-date-2026-09-02"]
@@ -230,7 +232,7 @@ final class MiraStyleUITests: XCTestCase {
 
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["前の月"].tap()
-        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月")
+        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label.components(separatedBy: "、").first, "2026年8月")
         app.buttons["friendViewToggle"].tap()
         app.buttons["friendRecipientPicker"].tap()
         let recipient = app.buttons["はる"]
@@ -302,7 +304,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertFalse(toastFrame.intersects(app.miraChatButton.frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(month.label, "2026年10月")
+        XCTAssertEqual(month.label.components(separatedBy: "、").first, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
         app.terminate()

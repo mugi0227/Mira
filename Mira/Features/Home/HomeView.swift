@@ -33,8 +33,8 @@ struct HomeView: View {
             GeometryReader { viewport in
                 ScrollView {
                     // The calendar leads; everything else is secondary and sits below
-                    // it, while talking to Mira lives behind the corner companion.
-                    VStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
+                    // it, while talking to Mira lives in the tab bar.
+                    VStack(spacing: MiraSpacing.lg) {
                         monthHeader
                             .padding(.horizontal, screenInset)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
@@ -95,12 +95,6 @@ struct HomeView: View {
                         )
                         .frame(height: scrollFadeHeight)
                         Color.white
-                        LinearGradient(
-                            colors: [.white, .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: scrollFadeHeight)
                     }
                 }
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
@@ -181,7 +175,7 @@ struct HomeView: View {
         return store.items.filter { $0.startDate < interval.end && $0.endDate > interval.start }
     }
 
-    private var screenInset: CGFloat { palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md }
+    private var screenInset: CGFloat { MiraSpacing.lg }
 
     private var nextStepCard: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -290,14 +284,7 @@ struct HomeView: View {
             .accessibilityLabel("前の月")
 
             Spacer()
-            VStack(spacing: 2) {
-                Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.title2.bold())
-                    .foregroundStyle(palette.primaryText)
-                Text(monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
-            }
+            monthHeading
             Spacer()
 
             Button {
@@ -317,21 +304,24 @@ struct HomeView: View {
         .foregroundStyle(palette.accent)
     }
 
+    private var monthHeading: some View {
+        VStack(spacing: 2) {
+            Text(store.selectedMonth.japaneseMonthTitle)
+                .font(.system(.title2, design: .serif, weight: .medium))
+            Text(monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+        }
+        .foregroundStyle(palette.primaryText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(store.selectedMonth.japaneseMonthTitle + "、" + monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
+        .accessibilityIdentifier("homeMonthHeading")
+    }
+
     private var skyMonthHeader: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xxs) {
             HStack(alignment: .center, spacing: MiraSpacing.sm) {
-                VStack(alignment: .leading, spacing: -5) {
-                    Text(DateFormatter.mira("yyyy").string(from: store.selectedMonth))
-                        .font(.system(size: 18, weight: .medium, design: .serif))
-                        .tracking(3)
-                    Text(DateFormatter.mira("M月").string(from: store.selectedMonth))
-                        .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 48 : 58, weight: .regular, design: .serif))
-                        .tracking(1)
-                }
-                .foregroundStyle(palette.primaryText)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(store.selectedMonth.japaneseMonthTitle)
-                .accessibilityIdentifier("homeMonthHeading")
+                monthHeading
                 Spacer(minLength: 0)
                 HStack(spacing: MiraSpacing.xs) {
                     Button { changeMonth(by: -1) } label: {
@@ -667,23 +657,21 @@ struct AssistantCard: View {
                         HStack(spacing: 8) {
                             Text(actionTitle)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if palette.isCatSkin {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.bold))
-                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
                         }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(palette.accent)
-                        .padding(.horizontal, palette.isCatSkin ? 14 : 0)
+                        .padding(.horizontal, 14)
                         .frame(minHeight: 44)
-                        .background(palette.isCatSkin ? palette.accentSoft.opacity(0.85) : .clear, in: Capsule())
+                        .background(palette.accentSoft.opacity(0.85), in: Capsule())
                     }
                     .buttonStyle(MiraPressStyle())
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, palette.isCatSkin ? 4 : 0)
+        .padding(.vertical, 4)
         .background {
             if palette.isCatSkin { MiraCompanionBackdrop(palette: palette) }
         }

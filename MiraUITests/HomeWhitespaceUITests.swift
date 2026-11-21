@@ -8,6 +8,20 @@ final class HomeWhitespaceUITests: XCTestCase {
         app = XCUIApplication()
     }
 
+    func testSoftMinimalRingSurroundsDateWithoutSeparateMeterRow() {
+        launchHome(theme: "softMinimal")
+        let ring = element("whitespace-2026-09-01")
+        let date = app.buttons["calendar-date-2026-09-01"]
+        XCTAssertTrue(ring.waitForExistence(timeout: 5))
+        XCTAssertTrue(ring.label.contains("余白"))
+        XCTAssertTrue(ring.label.contains("7時間"))
+        XCTAssertTrue(ring.label.contains("パーセント"))
+        XCTAssertEqual(ring.frame.midX, date.frame.midX, accuracy: 1)
+        XCTAssertEqual(ring.frame.midY, date.frame.midY, accuracy: 1)
+        XCTAssertGreaterThan(ring.frame.height, 26)
+        capture("soft-minimal-date-ring")
+    }
+
     func testDailyMetersNavigateWithMonthAndKeepDayNavigation() {
         launchHome(theme: "silhouetteCat")
         let first = element("whitespace-2026-09-01")
@@ -22,6 +36,32 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["calendar-date-2026-09-06"].tap()
         XCTAssertTrue(app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", "9月6日")).firstMatch.waitForExistence(timeout: 5))
         capture("whitespace-day-navigation")
+    }
+
+    func testAllDayEventStaysAboveTheScrollingTimeline() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-09-07"].tap()
+        let allDayEvent = app.buttons["美容院、終日"]
+        XCTAssertTrue(allDayEvent.waitForExistence(timeout: 5))
+        XCTAssertTrue(allDayEvent.isHittable)
+
+        let timeline = app.scrollViews.firstMatch
+        let lastHour = app.staticTexts["23:00"]
+        let initialEventY = allDayEvent.frame.minY
+        let initialLastHourY = lastHour.frame.minY
+        XCTAssertGreaterThan(initialLastHourY, timeline.frame.maxY)
+        capture("all-day-timeline-initial")
+
+        for _ in 0..<4 { timeline.swipeUp(velocity: .fast) }
+        XCTAssertTrue(lastHour.isHittable)
+        XCTAssertLessThan(lastHour.frame.minY, initialLastHourY)
+        XCTAssertTrue(allDayEvent.isHittable)
+        XCTAssertEqual(allDayEvent.frame.minY, initialEventY, accuracy: 1)
+        XCTAssertLessThan(allDayEvent.frame.maxY, lastHour.frame.minY)
+        capture("all-day-timeline-scrolled")
+
+        allDayEvent.tap()
+        XCTAssertTrue(app.navigationBars["詳細"].waitForExistence(timeout: 5))
     }
 
     func testNonOccupyingEventUpdatesRingAndPersistsAcrossLaunch() {

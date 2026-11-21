@@ -160,7 +160,7 @@ extension MiraStore {
             settingsEntity?.trendSuggestionsEnabled = nil
             trendSuggestionsEnabled = true
             settingsEntity?.onboardingCompleted = false
-            settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+            settingsEntity?.themeRaw = AppThemeKind.softMinimal.rawValue
             settingsEntity?.colorStyleRaw = nil
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
@@ -177,7 +177,7 @@ extension MiraStore {
             undoEntry = nil
             clearAllDrafts()
             onboardingCompleted = false
-            theme = .pixelCat
+            theme = .softMinimal
             colorStyle = .blue
             marginComfortLevel = .standard
             weekStartDay = .monday
