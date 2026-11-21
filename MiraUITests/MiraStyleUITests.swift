@@ -171,7 +171,7 @@ final class MiraStyleUITests: XCTestCase {
 
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["前の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年8月"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月")
         app.buttons["friendViewToggle"].tap()
         app.buttons["friendRecipientPicker"].tap()
         let recipient = app.buttons["はる"]
