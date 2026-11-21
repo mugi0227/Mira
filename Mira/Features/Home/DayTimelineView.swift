@@ -47,18 +47,30 @@ struct DayTimelineView: View {
             .miraScreenBackground(palette)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !pinnedItems.isEmpty {
-                    ViewThatFits(in: .vertical) {
-                        allDaySection(pinnedItems)
-                            .fixedSize(horizontal: false, vertical: true)
-                        ScrollView {
+                    VStack(spacing: 0) {
+                        ViewThatFits(in: .vertical) {
                             allDaySection(pinnedItems)
+                                .fixedSize(horizontal: false, vertical: true)
+                            ScrollView {
+                                allDaySection(pinnedItems)
+                            }
                         }
+                        .frame(maxHeight: viewport.size.height * 0.25)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, MiraSpacing.md)
+                        .padding(.top, MiraSpacing.sm)
+                        .padding(.bottom, MiraSpacing.md)
+                        .background(palette.background)
+
+                        LinearGradient(
+                            colors: [palette.background, palette.background.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: MiraSpacing.lg)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                     }
-                    .frame(maxHeight: viewport.size.height * 0.25)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, MiraSpacing.md)
-                    .padding(.vertical, MiraSpacing.sm)
-                    .background(palette.background)
                 }
             }
             .safeAreaInset(edge: .top, spacing: proposal == nil ? 0 : MiraSpacing.md) {
