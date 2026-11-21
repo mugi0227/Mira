@@ -74,6 +74,13 @@ struct NewItemSheet: View {
             .scrollContentBackground(.hidden)
             .miraFormStyle(palette)
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .bottom, spacing: MiraSpacing.sm) {
+                Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
+                    .buttonStyle(.bordered)
+                    .padding(.vertical, MiraSpacing.sm)
+                    .frame(maxWidth: .infinity)
+                    .background(.regularMaterial)
+            }
             .navigationTitle(mode == .event ? "予定を追加" : "余白を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -88,9 +95,6 @@ struct NewItemSheet: View {
                         Task { await save() }
                     }
                     .disabled(!canSave || isPreparing)
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
                 }
             }
             .confirmationDialog(

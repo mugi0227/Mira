@@ -1,6 +1,32 @@
 import XCTest
 
 final class MiraStyleUITests: XCTestCase {
+    func testNewItemFormClearsDraftDeleteButton() {
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        launchHome()
+        app.buttons["追加メニュー"].tap()
+        app.buttons["予定・余白を追加"].tap()
+        let memo = app.switches["時間を取らない予定"]
+        XCTAssertTrue(memo.waitForExistence(timeout: 5))
+        memo.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let discard = app.buttons["下書きを削除"]
+        XCTAssertTrue(discard.isHittable)
+        capture("event-form-rest")
+        for _ in 0..<3 { app.swipeUp() }
+        let end = app.staticTexts["終了"]
+        XCTAssertTrue(end.isHittable)
+        XCTAssertLessThan(end.frame.maxY, discard.frame.minY)
+        capture("event-form-max-scroll")
+        for _ in 0..<3 { app.swipeDown() }
+        app.segmentedControls.buttons["余白"].tap()
+        capture("margin-form-rest")
+        for _ in 0..<3 { app.swipeUp() }
+        let duration = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "所要時間：")).firstMatch
+        XCTAssertTrue(duration.isHittable)
+        XCTAssertLessThan(duration.frame.maxY, discard.frame.minY)
+        capture("margin-form-max-scroll")
+    }
+
     func testCreateNonOccupyingMemo() {
         continueAfterFailure = false
         let app = XCUIApplication()
