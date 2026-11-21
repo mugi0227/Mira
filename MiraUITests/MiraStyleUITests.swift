@@ -182,10 +182,12 @@ final class MiraStyleUITests: XCTestCase {
         scroll.swipeUp()
         let summary = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
         for _ in 0..<4 where !summary.isHittable { app.swipeUp() }
+        XCTAssertTrue(summary.isHittable)
         let pills = summary.descendants(matching: .any).matching(identifier: "homeGoalPill")
         XCTAssertEqual(pills.count, 3)
         for index in 0..<pills.count {
             let pill = pills.element(boundBy: index)
+            XCTAssertTrue(pill.isHittable)
             XCTAssertGreaterThanOrEqual(pill.frame.minX - app.frame.minX, 20)
             XCTAssertGreaterThanOrEqual(app.frame.maxX - pill.frame.maxX, 20)
             XCTAssertLessThanOrEqual(pill.frame.maxY + 20, scroll.frame.maxY)
