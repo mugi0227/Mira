@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var friendShareImage: Image?
     @State private var renderedFriendSignature: Int?
     @State private var friendRecipientID: UUID?
+    @State private var showFriendImagePreview = false
 
     private var friendRecipient: ImportantPersonEntity? {
         store.importantPeople.first { $0.id == friendRecipientID }
@@ -83,6 +84,11 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
+        }
+        .fullScreenCover(isPresented: $showFriendImagePreview) {
+            if let friendShareImage {
+                FriendShareImagePreview(image: friendShareImage)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
             showCompanion = true
@@ -277,19 +283,21 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 0) {
+            HStack(spacing: MiraSpacing.xs) {
                 Button { changeMonth(by: -1) } label: {
                     Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                        .background(palette.surface, in: Circle())
+                        .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
                 }
                 .accessibilityLabel("前の月")
                 Button { changeMonth(by: 1) } label: {
                     Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                        .background(palette.surface, in: Circle())
+                        .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
                 }
                 .accessibilityLabel("次の月")
             }
             .font(.body.weight(.heavy))
-            .background(palette.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 2) }
 
             addMenu
         }
@@ -320,6 +328,11 @@ struct HomeView: View {
     private var friendViewBanner: some View {
         VStack(alignment: .leading) {
             FriendShareControls(recipientID: $friendRecipientID, palette: palette)
+            if ProcessInfo.processInfo.arguments.contains("-friend-share-image-preview"),
+               friendLevel != .hidden, renderedFriendSignature == friendShareSignature, friendShareImage != nil {
+                Button("共有画像を確認") { showFriendImagePreview = true }
+                    .accessibilityIdentifier("friendShareExactImagePreview")
+            }
             HStack(spacing: MiraSpacing.sm) {
                 Image(systemName: "eye.slash.fill")
                     .foregroundStyle(palette.accent)

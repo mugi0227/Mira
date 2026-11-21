@@ -66,7 +66,7 @@ final class FriendShareLevelTests: XCTestCase {
             let renderer = ImageRenderer(content: card)
             let image = try XCTUnwrap(renderer.uiImage)
             let attachment = XCTAttachment(image: image)
-            attachment.name = "friend-share-rendered-\(level.rawValue)"
+            attachment.name = "friend-share-fixture-render-\(level.rawValue)"
             attachment.lifetime = .keepAlways
             add(attachment)
         }
