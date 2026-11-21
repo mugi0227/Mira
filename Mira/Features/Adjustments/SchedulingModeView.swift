@@ -65,7 +65,7 @@ struct SchedulingModeView: View {
                     Text("仮押さえ済みの候補や確定予定は変わりません。")
                 }
                 .confirmationDialog(
-                    "この候補、ちょっと気になるにゃ",
+                    "この候補、ちょっと気になります",
                     isPresented: Binding(
                         get: { pendingConflictCandidate != nil },
                         set: { if !$0 { pendingConflictCandidate = nil } }

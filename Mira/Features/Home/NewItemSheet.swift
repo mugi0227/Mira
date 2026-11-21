@@ -246,7 +246,7 @@ struct NewItemSheet: View {
             if isReviewing {
                 HStack(spacing: MiraSpacing.xs) {
                     ProgressView()
-                    Text("予定の意味・負荷・余白への影響を見ているにゃ")
+                    Text("予定の意味・負荷・余白への影響を確認しています")
                         .font(.caption)
                         .foregroundStyle(palette.secondaryText)
                 }
@@ -308,7 +308,7 @@ struct NewItemSheet: View {
 
                 if !alternativeEventDates.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("別候補なら、今の目標を崩しにくいにゃ")
+                        Text("別候補なら、今の目標を守りやすくなります")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(palette.secondaryText)
 
@@ -403,31 +403,31 @@ struct NewItemSheet: View {
 
     private var secretaryTitle: String {
         guard preparedEvent != nil else {
-            return "予定を入力すると、一緒に見ておくにゃ"
+            return "予定を入力すると、一緒に見ておきます"
         }
-        if isReviewing { return "ちょっと確認するにゃ" }
+        if isReviewing { return "ちょっと確認します" }
         if impact.protectionLevel == .finalDefense {
-            return "このままだと大事な余白がなくなるにゃ"
+            return "このままだと大事な余白がなくなります"
         }
         if liveConflicts.contains(where: { $0.contains("確定予定") }) {
-            return "別の予定と重なってるにゃ"
+            return "別の予定と重なっています"
         }
         if liveConflicts.contains(where: { $0.contains("基本的に予定を入れない時間") }) {
-            return "いつもの基本時間と重なってるにゃ"
+            return "いつもの基本時間と重なっています"
         }
         if !worsenedGoalDeficits.isEmpty {
-            return "このままだと目標が遠のきそうだにゃ"
+            return "このままだと目標が遠のきそうです"
         }
         if liveConflicts.contains(where: { $0.contains("余白") }) {
-            return "守ってる余白と重なってるにゃ"
+            return "守ってる余白と重なっています"
         }
         if !liveConflicts.isEmpty {
-            return "この時間、ちょっと気になるにゃ"
+            return "この時間、ちょっと気になります"
         }
         if !projectedGoalDeficits.isEmpty {
-            return "今月の目標も一緒に見ておくにゃ"
+            return "今月の目標も一緒に見ておきます"
         }
-        return "この予定なら大丈夫そうだにゃ"
+        return "この予定なら大丈夫そうです"
     }
 
     private var secretaryBody: String {
@@ -438,18 +438,18 @@ struct NewItemSheet: View {
             return "予定を止めるためではなく、入れた後の生活がどうなるかを見ています。"
         }
         if impact.protectionLevel == .finalDefense {
-            return "最後の余白を使います。別日に移す・今回は例外にする・目標を見直す、から選べるにゃ。"
+            return "最後の余白を使います。別日に移す・今回は例外にする・目標を見直す、から選べます。"
         }
         if !liveConflicts.isEmpty {
-            return "重なりはあるけど、追加は禁止しないにゃ。別候補も見つけておいたので、見比べて決めてにゃ。"
+            return "重なりはあるけど、追加は禁止しません。別候補も見つけておいたので、見比べて決めてください。"
         }
         if let first = worsenedGoalDeficits.keys.sorted(by: { $0.defaultPriority > $1.defaultPriority }).first {
-            return "\(first.title)が今より不足しそう。別候補なら今の目標を守りやすいにゃ。"
+            return "\(first.title)が今より不足しそう。別候補なら今の目標を守りやすくなります。"
         }
         if !projectedGoalDeficits.isEmpty {
-            return "今月はまだ未達の目標があるけど、この予定自体は大きく悪化させなさそうだにゃ。"
+            return "今月はまだ未達の目標があるけど、この予定自体は大きく悪化させなさそうです。"
         }
-        return "今の予定と余白を見た限り、大きな問題はなさそう。楽しんできてにゃ。"
+        return "今の予定と余白を見た限り、大きな問題はなさそう。楽しんできてください。"
     }
 
     private var secretaryMood: CatMood {
@@ -474,13 +474,13 @@ struct NewItemSheet: View {
 
     private var reviewDialogTitle: String {
         if impact.protectionLevel == .finalDefense {
-            return "このまま入れると余白がなくなるにゃ"
+            return "このまま入れると余白がなくなります"
         }
         if !liveConflicts.isEmpty {
-            return "この時間、ちょっと気になるにゃ"
+            return "この時間、ちょっと気になります"
         }
         if !worsenedGoalDeficits.isEmpty {
-            return "目標への影響を確認してにゃ"
+            return "目標への影響を確認してください"
         }
         return "余白を守りながら追加する？"
     }

@@ -247,16 +247,16 @@ struct PendingInvitationDetailSheet: View {
     }
 
     private var impactTitle: String {
-        if impact.protectionLevel == .finalDefense { return "このままだと大事な余白がなくなるにゃ" }
-        if !conflicts.isEmpty { return "この予定、少し気になるところがあるにゃ" }
-        if !worsenedGoalDeficits.isEmpty { return "今月の目標が少し遠のきそうだにゃ" }
+        if impact.protectionLevel == .finalDefense { return "このままだと大事な余白がなくなります" }
+        if !conflicts.isEmpty { return "この予定、少し気になるところがあります" }
+        if !worsenedGoalDeficits.isEmpty { return "今月の目標が少し遠のきそうです" }
         if !impact.overlappingMargins.isEmpty { return "移動したい余白があります" }
-        return "今のところ大きな問題はなさそうにゃ"
+        return "今のところ大きな問題はなさそうです"
     }
 
     private var impactBody: String {
         if needsReview {
-            return "影響は見えるようにするけど、Miraが勝手に断ったり禁止したりはしないにゃ。日程調整か、このまま参加するかを選べます。"
+            return "影響は見えるようにするけど、Miraが勝手に断ったり禁止したりはしません。日程調整か、このまま参加するかを選べます。"
         }
         return "余白・基本時間・ほかの予定・月の目標を見た限り、そのまま参加してもよさそうです。"
     }
@@ -266,7 +266,7 @@ struct PendingInvitationDetailSheet: View {
     }
 
     private var reviewTitle: String {
-        impact.protectionLevel == .finalDefense ? "最後の余白をどうする？" : "この予定、どうするにゃ？"
+        impact.protectionLevel == .finalDefense ? "最後の余白をどうする？" : "この予定、どうしますか？"
     }
 
     private var reviewMessage: String {

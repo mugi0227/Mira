@@ -79,7 +79,7 @@ final class MiraChatTests: XCTestCase {
         store.chatAgent = FailingChatAgent()
         await store.sendChat("今月ちゃんと休めてる？")
         let reply = try XCTUnwrap(store.chatMessages.last)
-        XCTAssertEqual(reply.text, "AIがうまく動かなかったにゃ。少し時間をおいてもう一度試してね。")
+        XCTAssertEqual(reply.text, ChatAnswer.failure)
         XCTAssertTrue(reply.cards.isEmpty)
         XCTAssertTrue(reply.activities.isEmpty)
         XCTAssertFalse(reply.isStreaming)
@@ -266,7 +266,7 @@ final class ChatHistoryTests: XCTestCase {
         let proposal = ChatEventProposal(event: TestFixtures.event(title: "映画", day: 10, hour: 19), impact: .none, conflicts: [])
         let messages = [
             ChatMessage(role: .user, text: "映画いける？"),
-            ChatMessage(role: .assistant, text: "いけるにゃ",
+            ChatMessage(role: .assistant, text: "よさそうです",
                 activities: [ChatActivity(symbol: "calendar", text: "確認")],
                 cards: [.eventProposal(proposal), .openSlots(ChatOpenSlots(purpose: "映画", slots: [
                     ChatOpenSlot(start: start, end: start.addingTimeInterval(7200), band: .evening)

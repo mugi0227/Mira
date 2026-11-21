@@ -90,7 +90,7 @@ final class SelfTimeChatUITests: XCTestCase {
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
         let companion = app.buttons["miraCompanionButton"]
         require(companion, "companion", timeout: 12)
-        let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があるにゃ"].exists
+        let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があります"].exists
         companion.tap()
         require(app.descendants(matching: .any)["miraChatInput"], "chat input")
         if hasSuggestion {

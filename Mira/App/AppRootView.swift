@@ -12,33 +12,36 @@ struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme)
+        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme, colorStyle: store.colorStyle)
 
-        ZStack {
-            MiraScreenBackground(palette: palette)
-
-            if store.isEmergencyStorage {
-                VStack(spacing: MiraSpacing.lg) {
-                    Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle)
-                    Text("保存済みのデータを開けませんでした").font(.title2.bold())
-                    Text("予定を失わないよう、データはそのまま残しています。空き容量を確認し、もう一度読み込んでください。")
-                    Button("もう一度読み込む") {
-                        NotificationCenter.default.post(name: .miraRetryStorage, object: nil)
-                    }.buttonStyle(.borderedProminent).frame(minHeight: 44)
-                }.padding(MiraSpacing.lg)
-            } else if !store.isReady {
-                VStack(spacing: MiraSpacing.md) {
-                    PixelCatView(mood: .thinking, size: 84)
-                    ProgressView("余白を準備中…")
-                        .tint(palette.accent)
-                        .foregroundStyle(palette.primaryText)
+        VStack(spacing: 0) {
+            toastBanner(palette: palette)
+            Group {
+                if store.isEmergencyStorage {
+                    VStack(spacing: MiraSpacing.lg) {
+                        Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle)
+                        Text("保存済みのデータを開けませんでした").font(.title2.bold())
+                        Text("予定を失わないよう、データはそのまま残しています。空き容量を確認し、もう一度読み込んでください。")
+                        Button("もう一度読み込む") {
+                            NotificationCenter.default.post(name: .miraRetryStorage, object: nil)
+                        }.buttonStyle(.borderedProminent).frame(minHeight: 44)
+                    }.padding(MiraSpacing.lg)
+                } else if !store.isReady {
+                    VStack(spacing: MiraSpacing.md) {
+                        PixelCatView(mood: .thinking, size: 84)
+                        ProgressView("余白を準備中…")
+                            .tint(palette.accent)
+                            .foregroundStyle(palette.primaryText)
+                    }
+                } else if !store.onboardingCompleted {
+                    OnboardingView(palette: palette)
+                } else {
+                    MainTabView(palette: palette)
                 }
-            } else if !store.onboardingCompleted {
-                OnboardingView(palette: palette)
-            } else {
-                MainTabView(palette: palette)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background { MiraScreenBackground(palette: palette) }
         .task {
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
@@ -98,26 +101,34 @@ struct AppRootView: View {
                 }
             }
         }
-        .overlay(alignment: .top) {
-            if let toast = store.toast {
-                Text(toast)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.primaryText)
-                    .padding(.horizontal, MiraSpacing.md)
-                    .padding(.vertical, MiraSpacing.sm)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .shadow(color: palette.shadow, radius: 12, y: 5)
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .task(id: toast) {
-                        do { try await Task.sleep(for: .seconds(2.6)) }
-                        catch { return }
-                        guard store.toast == toast else { return }
-                        withAnimation(reduceMotion ? nil : MiraMotion.standard) { store.toast = nil }
-                    }
-            }
-        }
         .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
+    }
+
+    @ViewBuilder
+    private func toastBanner(palette: MiraThemePalette) -> some View {
+        if let toast = store.toast {
+            Text(toast)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(palette.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, MiraSpacing.md)
+                .padding(.vertical, MiraSpacing.sm)
+                .background(.ultraThinMaterial, in: Capsule())
+                .shadow(color: palette.shadow, radius: 12, y: 5)
+                .padding(.horizontal, MiraSpacing.md)
+                .padding(.top, 8)
+                .padding(.bottom, MiraSpacing.xs)
+                .accessibilityIdentifier("appToast")
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .task(id: toast) {
+                    let arguments = ProcessInfo.processInfo.arguments
+                    guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
+                    do { try await Task.sleep(for: .seconds(2.6)) }
+                    catch { return }
+                    guard store.toast == toast else { return }
+                    withAnimation(reduceMotion ? nil : MiraMotion.standard) { store.toast = nil }
+                }
+        }
     }
 }

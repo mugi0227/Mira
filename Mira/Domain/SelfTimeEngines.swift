@@ -411,7 +411,7 @@ struct SuggestionNotificationPolicy: Sendable {
 
     func content(for suggestion: Suggestion, catVoice: Bool) -> (title: String, body: String) {
         (
-            catVoice ? "Miraから提案があるにゃ" : "Miraから提案があります",
+            catVoice ? "Miraから提案があります" : "Miraから提案があります",
             "\(suggestion.title)。見るだけでも大丈夫です。"
         )
     }

@@ -4,6 +4,8 @@ import SwiftUI
 /// chip that can be switched off; nothing is placed until the button is tapped.
 struct SelfTimeProposalCard: View {
     @Environment(MiraStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let proposal: ChatSelfTimeProposal
     let messageID: UUID
     let palette: MiraThemePalette
@@ -82,7 +84,7 @@ struct SelfTimeProposalCard: View {
         }
         let label = "\(Self.dayFormatter.string(from: margin.startDate)) \(Self.timeFormatter.string(from: margin.startDate))–\(Self.timeFormatter.string(from: margin.endDate))"
         return Button {
-            withAnimation(MiraMotion.quick) {
+            withAnimation(reduceMotion ? nil : MiraMotion.quick) {
                 store.toggleSelfTimeSlot(messageID: messageID, proposal: proposal, marginID: margin.id)
             }
         } label: {
@@ -122,15 +124,26 @@ struct SelfTimeProposalCard: View {
         switch proposal.state {
         case .pending:
             let count = proposal.chosenMargins.count
-            HStack(spacing: MiraSpacing.xs) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: MiraSpacing.xs))
+                : AnyLayout(HStackLayout(spacing: MiraSpacing.xs))
+            layout {
                 Button {
-                    withAnimation(MiraMotion.standard) {
+                    withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                         _ = store.applySelfTimeCard(messageID: messageID, proposal: proposal)
                     }
                 } label: {
-                    Label(count == 0 ? "枠を選んでね" : "この\(count)枠を置く", systemImage: "leaf.fill")
+                    HStack {
+                        Image(systemName: "leaf.fill").accessibilityHidden(true)
+                        Text(count == 0 ? "枠を選んでね" : "この\(count)枠を置く")
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(palette.onAccent)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(count == 0 ? palette.secondaryText.opacity(0.35) : palette.accent, in: Capsule())
                 }
@@ -138,25 +151,31 @@ struct SelfTimeProposalCard: View {
                 .disabled(count == 0)
                 .accessibilityIdentifier("selfTimeApply")
 
-                Button("今回は見送る") {
-                    withAnimation(MiraMotion.standard) {
+                Button {
+                    withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                         store.dismissSelfTimeCard(messageID: messageID, proposal: proposal)
                     }
+                } label: {
+                    Text("今回は見送る")
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 44)
                 .background(palette.surface, in: Capsule())
                 .overlay { Capsule().strokeBorder(palette.secondaryText.opacity(0.2), lineWidth: 1) }
                 .buttonStyle(MiraPressStyle())
                 .accessibilityIdentifier("selfTimeDismiss")
             }
+            .fixedSize(horizontal: false, vertical: true)
         case .applied:
             HStack(spacing: MiraSpacing.xs) {
                 statusChip("置きました", symbol: "checkmark.circle.fill", tint: palette.success)
                 Button {
-                    withAnimation(MiraMotion.standard) {
+                    withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                         store.undoSelfTimeCard(messageID: messageID, proposal: proposal)
                     }
                 } label: {

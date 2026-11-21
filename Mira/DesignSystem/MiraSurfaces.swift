@@ -1,20 +1,10 @@
 import SwiftUI
 
-/// The same sky treatment follows the cat skin into pushed screens and sheets.
 struct MiraScreenBackground: View {
     let palette: MiraThemePalette
 
     var body: some View {
         palette.backgroundGradient
-            .overlay(alignment: .topTrailing) {
-                if palette.isCatSkin {
-                    Circle()
-                        .fill(palette.surface.opacity(0.28))
-                        .frame(width: 280, height: 280)
-                        .blur(radius: 40)
-                        .offset(x: 90, y: -100)
-                }
-            }
             .ignoresSafeArea()
             .allowsHitTesting(false)
             .accessibilityHidden(true)

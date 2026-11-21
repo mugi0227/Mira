@@ -213,7 +213,7 @@ struct AdjustmentDetailSheet: View {
                     HStack(spacing: MiraSpacing.sm) {
                         Button {
                             UIPasteboard.general.string = session.generatedMessage
-                            store.toast = "文章をコピーしたにゃ"
+                            store.toast = "文章をコピーしました"
                         } label: {
                             Label("コピー", systemImage: "doc.on.doc")
                                 .frame(maxWidth: .infinity, minHeight: 44)

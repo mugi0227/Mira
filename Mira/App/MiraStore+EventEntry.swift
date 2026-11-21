@@ -175,8 +175,8 @@ extension MiraStore {
             updateMarginRecommendation(for: event.startDate)
             recalculateBalance(for: event.startDate)
             toast = resolution == .exception && !impact.overlappingMargins.isEmpty
-                ? "例外として予定を追加したにゃ"
-                : "予定を追加したにゃ"
+                ? "例外として予定を追加しました"
+                : "予定を追加しました"
             return true
         } catch {
             context.rollback()
