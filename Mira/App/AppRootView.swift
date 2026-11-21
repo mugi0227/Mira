@@ -28,7 +28,7 @@ struct AppRootView: View {
                     }.padding(MiraSpacing.lg)
                 } else if !store.isReady {
                     VStack(spacing: MiraSpacing.md) {
-                        PixelCatView(mood: .thinking, size: 84)
+                        MiraCatView(mood: .thinking, size: 84)
                         ProgressView("余白を準備中…")
                             .tint(palette.accent)
                             .foregroundStyle(palette.primaryText)

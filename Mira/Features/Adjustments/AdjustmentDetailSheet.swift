@@ -93,8 +93,8 @@ struct AdjustmentDetailSheet: View {
 
     private var statusHeader: some View {
         HStack(spacing: MiraSpacing.md) {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: session.status == .confirmed ? .celebrating : .thinking, size: 78)
+            if store.theme.isCat {
+                MiraCatView(mood: session.status == .confirmed ? .celebrating : .thinking, size: 78)
             } else {
                 Image(systemName: session.status == .confirmed ? "checkmark.circle.fill" : "calendar.badge.clock")
                     .font(.system(size: 44))

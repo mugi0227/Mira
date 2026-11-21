@@ -538,8 +538,8 @@ struct AssistantCard: View {
     var body: some View {
         let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: MiraSpacing.sm)) : AnyLayout(HStackLayout(spacing: MiraSpacing.md))
         layout {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: message.mood, size: 88)
+            if store.theme.isCat {
+                MiraCatView(mood: message.mood, size: 88)
                     .background(palette.accentSoft.opacity(0.3), in: Circle())
             } else {
                 Image(systemName: message.mood == .warning ? "exclamationmark.circle.fill" : "leaf.fill")
