@@ -66,7 +66,7 @@ final class PeekingCatCardUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 12))
         let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
         let scroll = app.scrollViews["homeScroll"]
         for _ in 0..<6 {

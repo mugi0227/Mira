@@ -30,7 +30,7 @@ final class SilhouetteCatUITests: XCTestCase {
         }
         finishOnboarding()
         capture("silhouette-home")
-        app.buttons["miraCompanionButton"].tap()
+        app.buttons["miraChatButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
         capture("silhouette-chat")
         app.buttons["閉じる"].tap()
@@ -53,7 +53,7 @@ final class SilhouetteCatUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 12))
     }
 
     private func openThemePicker() {

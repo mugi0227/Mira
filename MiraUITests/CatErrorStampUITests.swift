@@ -77,7 +77,7 @@ final class CatErrorStampUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        let companion = app.buttons["miraCompanionButton"]
+        let companion = app.buttons["miraChatButton"]
         XCTAssertTrue(companion.waitForExistence(timeout: 12))
         companion.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
