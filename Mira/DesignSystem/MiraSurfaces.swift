@@ -24,7 +24,11 @@ private struct MiraScreenModifier: ViewModifier {
                 .tint(palette.accent)
                 .foregroundStyle(palette.primaryText)
         } else {
-            content.background(palette.background)
+            content
+                .scrollContentBackground(.hidden)
+                .background { MiraScreenBackground(palette: palette) }
+                .tint(palette.accent)
+                .foregroundStyle(palette.primaryText)
         }
     }
 }
@@ -34,15 +38,11 @@ private struct MiraFormModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if palette.isCatSkin {
-            content
-                .scrollContentBackground(.hidden)
-                .listRowBackground(palette.surface)
-                .listSectionSpacing(MiraSpacing.md)
-                .miraScreenBackground(palette)
-        } else {
-            content
-        }
+        content
+            .scrollContentBackground(.hidden)
+            .listRowBackground(palette.surface)
+            .listSectionSpacing(MiraSpacing.md)
+            .miraScreenBackground(palette)
     }
 }
 

@@ -132,7 +132,7 @@ struct AvailabilityRuleEditor: View {
             .background(palette.surface, in: RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
-                    .stroke(palette.isCatSkin ? palette.cardBorder : palette.primaryText.opacity(0.08), lineWidth: 1)
+                    .stroke(palette.cardBorder, lineWidth: 1)
             }
         }
         .environment(\.locale, Locale(identifier: "ja_JP"))

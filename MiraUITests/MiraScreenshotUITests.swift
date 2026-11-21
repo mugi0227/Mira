@@ -12,6 +12,8 @@ final class MiraScreenshotUITests: XCTestCase {
         try? FileManager.default.removeItem(atPath: "/tmp/mira-screenshots")
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing", "-reset-demo"]
+        app.launchArguments += ["-ui-theme", "softMinimal"]
+        app.launchArguments += ["-AppleInterfaceStyle", "Light"]
         app.launch()
 
         ensureOnboarding(in: app)

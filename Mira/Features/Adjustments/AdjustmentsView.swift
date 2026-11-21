@@ -11,24 +11,22 @@ struct AdjustmentsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if palette.isCatSkin {
-                HStack(spacing: MiraSpacing.md) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("会いたい時間を、心地よく")
-                            .font(.title3.bold())
-                            .foregroundStyle(palette.primaryText)
-                        Text("日程も、返事待ちも、ここでひと息。")
-                            .font(.subheadline)
-                            .foregroundStyle(palette.secondaryText)
-                    }
-                    Spacer(minLength: 0)
-                    MiraBotanicalAccent(palette: palette)
-                        .frame(width: 48, height: 60)
-                        .accessibilityHidden(true)
+            HStack(spacing: MiraSpacing.md) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("会いたい時間を、心地よく")
+                        .font(.title3.bold())
+                        .foregroundStyle(palette.primaryText)
+                    Text("日程も、返事待ちも、ここでひと息。")
+                        .font(.subheadline)
+                        .foregroundStyle(palette.secondaryText)
                 }
-                .padding(.horizontal, MiraSpacing.lg)
-                .padding(.top, MiraSpacing.sm)
+                Spacer(minLength: 0)
+                MiraBotanicalAccent(palette: palette)
+                    .frame(width: 48, height: 60)
+                    .accessibilityHidden(true)
             }
+            .padding(.horizontal, MiraSpacing.lg)
+            .padding(.top, MiraSpacing.sm)
 
             Picker("表示", selection: $segment) {
                 ForEach(AdjustmentSegment.allCases) { segment in
@@ -36,11 +34,11 @@ struct AdjustmentsView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
+            .padding(.horizontal, MiraSpacing.lg)
             .padding(.vertical, MiraSpacing.sm)
 
             ScrollView {
-                LazyVStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
+                LazyVStack(spacing: MiraSpacing.lg) {
                     if segment != .pending {
                         if segment == .adjustments { manualSchedulingCard }
                         adjustmentList
@@ -48,7 +46,7 @@ struct AdjustmentsView: View {
                         invitationList
                     }
                 }
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
+                .padding(.horizontal, MiraSpacing.lg)
                 .padding(.bottom, MiraSpacing.md)
             }
             .scrollBounceBehavior(.basedOnSize)
@@ -100,7 +98,7 @@ struct AdjustmentsView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(palette.accent)
                     .frame(width: 48, height: 48)
-                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.small))
+                    .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.medium))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("新しい日程を探す")
                         .font(.headline)
@@ -115,7 +113,7 @@ struct AdjustmentsView: View {
                     .font(.caption.bold())
                     .foregroundStyle(palette.secondaryText)
             }
-            .miraCard(palette, padding: palette.isCatSkin ? MiraSpacing.md : MiraSpacing.sm)
+            .miraCard(palette, padding: MiraSpacing.md)
         }
         .buttonStyle(MiraPressStyle())
     }

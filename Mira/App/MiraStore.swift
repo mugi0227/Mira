@@ -58,7 +58,7 @@ final class MiraStore {
         }
     }
     var selectedDate: Date
-    var theme: AppThemeKind = .pixelCat
+    var theme: AppThemeKind = .softMinimal
     var colorStyle: AppColorStyle = .blue
     var onboardingCompleted = false
     var assistantEnabled = true
@@ -325,7 +325,7 @@ final class MiraStore {
         settingsEntity?.trendSuggestionsEnabled = nil
         trendSuggestionsEnabled = true
         settingsEntity?.onboardingCompleted = false
-        settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+        settingsEntity?.themeRaw = AppThemeKind.softMinimal.rawValue
         settingsEntity?.colorStyleRaw = nil
         colorStyle = .blue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
