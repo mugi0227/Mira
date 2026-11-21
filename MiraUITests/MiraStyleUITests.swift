@@ -182,7 +182,7 @@ final class MiraStyleUITests: XCTestCase {
         launchHome()
         let previousMonth = app.buttons.matching(NSPredicate(format: "label == %@", "前の月")).firstMatch
         waitUntilStableAndHittable(previousMonth)
-        previousMonth.tap()
+        app.buttons["前の月"].tap()
         let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label BEGINSWITH %@", "2026年8月、"), object: heading
