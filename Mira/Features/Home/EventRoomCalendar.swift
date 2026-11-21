@@ -13,6 +13,8 @@ struct EventRoomCalendar: View {
     let referenceDate: Date
     let weekStartDay: WeekStartDay
     let palette: MiraThemePalette
+    /// Loads the shown month's events from connected calendars before judging room.
+    let loadMonth: (Date) async -> Void
 
     @State private var month: Date
 
@@ -23,8 +25,10 @@ struct EventRoomCalendar: View {
         baseRules: [BaseAvailabilityRule],
         referenceDate: Date,
         weekStartDay: WeekStartDay,
-        palette: MiraThemePalette
+        palette: MiraThemePalette,
+        loadMonth: @escaping (Date) async -> Void = { _ in }
     ) {
+        self.loadMonth = loadMonth
         _selectedDate = selectedDate
         self.durationMinutes = durationMinutes
         self.items = items
@@ -74,6 +78,7 @@ struct EventRoomCalendar: View {
             guard !calendar.isDate(value, equalTo: month, toGranularity: .month) else { return }
             withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) { month = value }
         }
+        .task(id: month) { await loadMonth(month) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("eventRoomCalendar")
     }

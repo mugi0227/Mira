@@ -209,7 +209,8 @@ struct NewItemSheet: View {
                     baseRules: store.fetchBaseRules(),
                     referenceDate: store.now,
                     weekStartDay: store.weekStartDay,
-                    palette: palette
+                    palette: palette,
+                    loadMonth: { await store.refreshDeviceCalendar(around: $0) }
                 )
             } header: {
                 HStack {
