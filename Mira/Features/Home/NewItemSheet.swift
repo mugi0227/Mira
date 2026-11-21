@@ -677,7 +677,7 @@ struct NewItemSheet: View {
         value.endTime = endTime
         value.isAllDay = isAllDay
         value.isImportant = isImportant
-        value.isMemo = isMemo
+        value.isMemo = isMemo ? true : initialDraft.isMemo.map { _ in false }
         value.marginKind = marginKind
         value.marginGoalID = marginGoalID
         value.isMargin = mode == .margin
