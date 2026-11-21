@@ -4,6 +4,7 @@ import Foundation
 /// person acts on; nothing in the calendar changes until a card is approved.
 struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
     enum Role: String, Codable, Sendable { case user, assistant }
+    enum Failure: String, Codable, Sendable { case aiUnavailable }
 
     var id: UUID
     var role: Role
@@ -14,6 +15,8 @@ struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
     var createdAt: Date
     /// Set when Mira starts the conversation herself (a proactive suggestion).
     var isProactive: Bool?
+    /// Optional so conversations saved before failure stamps still decode.
+    var failure: Failure?
 
     init(
         id: UUID = UUID(),
@@ -23,7 +26,8 @@ struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
         cards: [ChatCard] = [],
         isStreaming: Bool = false,
         createdAt: Date = .now,
-        isProactive: Bool? = nil
+        isProactive: Bool? = nil,
+        failure: Failure? = nil
     ) {
         self.id = id
         self.role = role
@@ -33,6 +37,7 @@ struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
         self.isStreaming = isStreaming
         self.createdAt = createdAt
         self.isProactive = isProactive
+        self.failure = failure
     }
 }
 

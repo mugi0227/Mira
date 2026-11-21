@@ -12,11 +12,13 @@ struct EventDetailSheet: View {
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
     @State private var marginMinutes: Int
+    @State private var occupiesTime: Bool
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
         self.item = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
+        _occupiesTime = State(initialValue: item.countsAgainstWhitespace)
         _colorTag = State(initialValue: item.colorTag)
         _marginMinutes = State(initialValue: max(30, Int(item.endDate.timeIntervalSince(item.startDate) / 60)))
     }
@@ -27,6 +29,34 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
+                    if item.kind == .confirmed {
+                        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+                            Button {
+                                occupiesTime.toggle()
+                                store.setOccupiesTime(itemID: item.id, to: occupiesTime)
+                            } label: {
+                                HStack(spacing: MiraSpacing.md) {
+                                    Text("時間を使う予定")
+                                        .font(.headline)
+                                    Spacer(minLength: 0)
+                                    Label(occupiesTime ? "使う" : "メモ", systemImage: occupiesTime ? "checkmark.circle.fill" : "circle")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                .foregroundStyle(palette.accent)
+                                .padding(MiraSpacing.sm)
+                                .frame(minHeight: 48)
+                                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                            }
+                            .buttonStyle(MiraPressStyle())
+                            .accessibilityLabel("時間を使う予定")
+                            .accessibilityValue(occupiesTime ? "オン" : "オフ")
+                            .accessibilityIdentifier("eventOccupiesTime")
+                            Text("オフにすると、メモとして表示し、日ごとの余白を減らしません。")
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        .miraCard(palette)
+                    }
                     if item.kind != .margin {
                         colorCard
                     }

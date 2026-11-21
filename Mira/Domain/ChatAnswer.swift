@@ -1,7 +1,7 @@
 import Foundation
 
 enum ChatAnswer {
-    static let failure = "AIがうまく動かなかったにゃ。少し時間をおいてもう一度試してね。"
+    static let failure = "今はAIを利用できません。少し時間をおいて、もう一度お試しください。"
     static let characterLimit = 500
     static let lineLimit = 8
 

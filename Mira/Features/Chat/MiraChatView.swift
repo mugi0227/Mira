@@ -216,7 +216,7 @@ private struct ChatBubble: View {
             }
         } else {
             HStack(alignment: .top, spacing: MiraSpacing.xs) {
-                MiraAvatar(palette: palette, size: 32, mood: message.isStreaming ? .thinking : .happy)
+                MiraAvatar(palette: palette, size: 32, mood: message.isStreaming ? .thinking : (message.failure == nil ? .happy : .tired))
                 VStack(alignment: .leading, spacing: MiraSpacing.xs) {
                     if !message.activities.isEmpty {
                         ActivityTrail(activities: message.activities, palette: palette)
@@ -238,6 +238,13 @@ private struct ChatBubble: View {
                             .accessibilityIdentifier(message.isStreaming
                                 ? "chatAssistantStreaming"
                                 : (message.isProactive == true ? "chatProactiveText" : "chatAssistantText"))
+                    }
+                    if message.failure != nil && !message.isStreaming && store.theme.isCat {
+                        HStack {
+                            CatErrorStamp(theme: store.theme, palette: palette)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.top, MiraSpacing.xs)
                     }
                     ForEach(message.cards) { card in
                         ChatCardView(card: card, messageID: message.id, palette: palette)

@@ -27,12 +27,10 @@ final class MiraStyleUITests: XCTestCase {
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
         let companion = app.buttons["miraCompanionButton"]
-        XCTAssertGreaterThanOrEqual(companion.frame.minY, scroll.frame.maxY)
-        // In the demo's five-week month both lower corners must rest above the
-        // fading footer, not behind its avatar or a clipped horizontal band.
-        // Allow one point for fractional row-height rounding.
+        XCTAssertTrue(companion.isHittable)
+        XCTAssertLessThanOrEqual(companion.frame.maxY, calendar.frame.minY - 16)
+        XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
         XCTAssertGreaterThanOrEqual(scroll.frame.maxY - calendar.frame.maxY, 7)
-        XCTAssertGreaterThanOrEqual(companion.frame.minY - calendar.frame.maxY, 8)
         capture("roomier-calendar")
     }
 
@@ -73,7 +71,7 @@ final class MiraStyleUITests: XCTestCase {
         }
         let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
         XCTAssertLessThanOrEqual(card.frame.maxY + 20, scroll.frame.maxY)
-        XCTAssertLessThanOrEqual(card.frame.maxY + 20, app.buttons["miraCompanionButton"].frame.minY)
+        XCTAssertFalse(card.frame.intersects(app.buttons["miraCompanionButton"].frame))
         XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次の余白")).firstMatch.isHittable)
         capture("roomier-goals")
     }
@@ -93,12 +91,13 @@ final class MiraStyleUITests: XCTestCase {
 
     func testMonthControlsStillOpenADay() {
         launchHome()
-        let september = app.staticTexts["2026年9月"]
+        let september = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertTrue(september.waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年9月")
         app.buttons["次の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年10月")
         app.buttons["前の月"].tap()
-        XCTAssertTrue(september.waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年9月")
         // A date text's accessibility frame can expand over its event chips.
         // The explicit header button has its own, non-overlapping hit target.
         let dayHeader = app.buttons["calendar-date-2026-09-02"]
@@ -115,22 +114,28 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(scroll.exists)
         XCTAssertTrue(statusBar.exists)
         let viewport = scroll.frame
-        let heading = app.staticTexts["2026年9月"]
+        let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         let initialHeadingY = heading.frame.minY
         XCTAssertGreaterThanOrEqual(initialHeadingY, statusBar.frame.maxY)
-        let firstDay = app.buttons["calendar-day-2026-08-31"].firstMatch
-        let initialDayY = firstDay.frame.minY
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        let initialCalendarY = calendar.frame.minY
 
-        scroll.swipeUp()
+        // The calendar's event chips support dragging. Start in the screen
+        // gutter so a busy Simulator cannot turn this into an event drag.
+        let bottomGutter = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.9))
+        let topGutter = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.1))
+        bottomGutter.press(forDuration: 0.01, thenDragTo: topGutter)
 
         XCTAssertEqual(scroll.frame.minY, viewport.minY, accuracy: 1)
-        XCTAssertLessThan(firstDay.frame.minY, initialDayY)
-        XCTAssertLessThan(firstDay.frame.maxY, initialHeadingY)
-        XCTAssertTrue(app.buttons["miraCompanionButton"].isHittable)
+        // Lazy day cells may leave the accessibility tree when off-screen.
+        // The calendar container remains measurable throughout the scroll.
+        XCTAssertLessThan(calendar.frame.minY, initialCalendarY)
+        XCTAssertFalse(app.buttons["miraCompanionButton"].isHittable)
+        XCTAssertEqual(scroll.frame.maxY, viewport.maxY, accuracy: 1)
         // UIKit includes the top content inset in the scroll's accessibility
         // frame. The screenshot verifies the rendered safe-area fade as well.
         capture("calendar-scrolled-safe-area")
-        scroll.swipeDown()
+        topGutter.press(forDuration: 0.01, thenDragTo: bottomGutter)
         XCTAssertEqual(heading.frame.minY, initialHeadingY, accuracy: 1)
         capture("calendar-returned-header")
     }
@@ -206,29 +211,39 @@ final class MiraStyleUITests: XCTestCase {
 
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
+        // Existence can precede the toast's bottom transition and safe-area
+        // layout settling, especially after dismissing the permission dialog.
+        let toastSettled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = toast.frame
+            return !frame.isEmpty && frame.maxY <= tabs.frame.minY && !frame.intersects(lastRow.frame)
+        }, object: toast)
+        XCTAssertEqual(XCTWaiter.wait(for: [toastSettled], timeout: 5), .completed,
+                       "Toast \(toast.frame) must settle clear of the last row \(lastRow.frame) and tabs \(tabs.frame)")
         let toastFrame = toast.frame
         let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
         XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
-        let month = app.staticTexts["2026年9月"]
+        let month = theme == "rounded"
+            ? app.staticTexts["2026年9月"]
+            : app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertFalse(month.frame.intersects(toastFrame))
         for label in ["前の月", "次の月", "追加メニュー"] {
             let button = app.buttons[label]
             XCTAssertTrue(button.isHittable)
             XCTAssertFalse(button.frame.intersects(toastFrame))
         }
-        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
-        let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
         let monthFrame = month.frame
         let lastRowFrame = lastRow.frame
         let tabFrame = tabs.frame
         XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
         XCTAssertLessThanOrEqual(lastRowFrame.maxY, app.scrollViews["homeScroll"].frame.maxY)
-        XCTAssertFalse(lastRowFrame.intersects(toastFrame))
+        XCTAssertFalse(lastRowFrame.intersects(toastFrame), "Last row \(lastRowFrame) must not intersect toast \(toastFrame)")
         XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
         XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        XCTAssertEqual(month.label, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
         app.terminate()
