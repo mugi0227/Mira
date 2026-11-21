@@ -244,7 +244,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
     private func exactClockTime(in text: String) -> (Int, Int)? {
         let patterns = [
             "(?<![0-9])([0-9]{1,2}):([0-9]{2})(?![0-9])",
-            "(?<![0-9])([0-9]{1,2})時(半|[0-9]{1,2}分)?"
+            "(?<![0-9])([0-9]{1,2})時(?!間)(半|[0-9]{1,2}分)?"
         ]
         let nsText = text as NSString
         for pattern in patterns {

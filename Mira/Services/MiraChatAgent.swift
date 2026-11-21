@@ -132,7 +132,7 @@ final class RuleBasedChatAgent: MiraChatAgent {
             "したい", "を探して", "探して", "の誘いを断りたい", "を断りたい", "を断る文を作って", "断りたい"
         ]
         value = value.replacingOccurrences(
-            of: "^の?\\d{1,2}時(?:半)?(?:から|に)?", with: "", options: .regularExpression
+            of: "^(?:(?:[0-9]{1,2}/[0-9]{1,2}|(?:[0-9]{1,2}月)?[0-9]{1,2}日)の?)?の?(?:[01]?[0-9]|2[0-3])(?:時(?!間)(?:半|[0-5]?[0-9]分)?|:[0-5][0-9])(?:から|に)?", with: "", options: .regularExpression
         )
         for ending in requestEndings where value.hasSuffix(ending) && value.count > ending.count {
             value.removeLast(ending.count)

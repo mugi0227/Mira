@@ -141,6 +141,11 @@ final class MiraChatTests: XCTestCase {
 }
 
 final class ChatTitleTests: XCTestCase {
+    func testClockPrefixDoesNotEatDurationTitles() {
+        XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "24時間テレビを追加して"), "24時間テレビ")
+        XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "明日の19時30分に夕食を追加して"), "夕食")
+        XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "12/1の19時に夕食を追加して"), "夕食")
+    }
     func testRelativeEventTitle() {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "明日の19時に友達と夕食を追加して"), "友達と夕食")
     }
