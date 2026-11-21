@@ -145,7 +145,7 @@ struct AppRootView: View {
                 .padding(.vertical, MiraSpacing.xs)
                 .background(.ultraThinMaterial, in: Capsule())
                 .shadow(color: palette.shadow, radius: 12, y: 5)
-                .padding(.horizontal, MiraSpacing.md)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
                 .accessibilityIdentifier("appToast")
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: toast) {

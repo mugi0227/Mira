@@ -115,6 +115,8 @@ final class MiraStyleUITests: XCTestCase {
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
         let month = app.staticTexts["2026年9月"]
         XCTAssertFalse(month.frame.intersects(toastFrame))
         for label in ["前の月", "次の月", "追加メニュー"] {
