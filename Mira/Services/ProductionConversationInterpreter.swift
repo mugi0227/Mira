@@ -43,7 +43,9 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
             }
         }
         applyColloquialDefaults(text: normalized, to: &result)
-        if normalized.contains("追加"), !result.candidateDates.isEmpty, result.exactStartDate != nil {
+        if normalized.range(of: "追加(?:して|する|してください|をお願い)(?:[。！!]|$)", options: .regularExpression) != nil,
+           !["断る", "断り", "返信", "文を作って", "文を作成"].contains(where: normalized.contains),
+           !result.candidateDates.isEmpty, result.exactStartDate != nil {
             result.intent = .addEvent
         }
         applyExplicitExclusionPhrases(from: normalized, to: &result)

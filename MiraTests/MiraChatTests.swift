@@ -5,6 +5,14 @@ import XCTest
 
 @MainActor
 final class MiraChatTests: XCTestCase {
+    func testPreviouslyAddedDinnerCanProduceDeclineDraft() async throws {
+        let store = try makeStore()
+        store.chatAgent = FailingChatAgent()
+        await store.sendChat("明日の19時に追加した食事の誘いを断る文を作って")
+        let reply = try XCTUnwrap(store.chatMessages.last)
+        XCTAssertTrue(reply.cards.contains { if case .message = $0 { return true }; return false })
+        XCTAssertFalse(reply.cards.contains { if case .eventProposal = $0 { return true }; return false })
+    }
     func testExplicitAddOverridesColloquialDrinksInvitation() async throws {
         let store = try makeStore()
         store.chatAgent = FailingChatAgent()
