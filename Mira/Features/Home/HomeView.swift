@@ -83,8 +83,9 @@ struct HomeView: View {
                     }
                     .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
                     .padding(.top, MiraSpacing.xs)
-                    .padding(.bottom, MiraSpacing.lg)
+                    .padding(.bottom, MiraSpacing.lg + (store.assistantEnabled && !isFriendView && !palette.isCatSkin ? 72 : 0))
                 }
+                .safeAreaPadding(.bottom, store.assistantEnabled && !isFriendView && !palette.isCatSkin ? 72 : 0)
                 // Fade inside the viewport, not in the companion's dock. A
                 // scroll view's layout frame alone does not contain its drawing.
                 .scrollClipDisabled()
@@ -107,8 +108,9 @@ struct HomeView: View {
                 }
                 .accessibilityIdentifier("homeScroll")
             }
-            // A separate footer gives Mira a home without covering dates, card
-            // corners, or the goal pills at any scroll position.
+            .ignoresSafeArea(.container, edges: palette.isCatSkin ? [] : .bottom)
+        }
+        .overlay(alignment: .bottomTrailing) {
             if store.assistantEnabled && !isFriendView && !palette.isCatSkin {
                 HStack {
                     Spacer(minLength: 0)
@@ -123,8 +125,6 @@ struct HomeView: View {
                 .padding(.vertical, MiraSpacing.xs)
             }
         }
-        // Keep both the viewport and the companion within the safe area.
-        .clipped()
         .miraScreenBackground(palette)
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
