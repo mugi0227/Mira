@@ -18,37 +18,45 @@ struct MainTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $selectedTab) {
+            TabView(selection: tabSelectionBinding) {
                 NavigationStack {
                     HomeView(palette: palette)
                 }
                 .tabItem { Label("ホーム", systemImage: "calendar") }
-                .tag(MiraTab.home)
-                .toolbar(.hidden, for: .tabBar)
+                .tag(MiraTab.home.rawValue)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
                 NavigationStack {
                     AdjustmentsView(palette: palette)
                 }
                 .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
-                .tag(MiraTab.adjustments)
-                .toolbar(.hidden, for: .tabBar)
+                .tag(MiraTab.adjustments.rawValue)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
+
+                if !palette.isCatSkin && store.assistantEnabled {
+                    Color.clear
+                        .tabItem { Label("チャット", systemImage: "bubble.left.and.text.bubble.right") }
+                        .tag("chat")
+                        .badge(chatNeedsAttention ? "" : nil as String?)
+                        .toolbar(.visible, for: .tabBar)
+                }
 
                 NavigationStack {
                     MarginsView(palette: palette)
                 }
                 .tabItem { Label("マイ余白", systemImage: "leaf") }
-                .tag(MiraTab.margins)
-                .toolbar(.hidden, for: .tabBar)
+                .tag(MiraTab.margins.rawValue)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
                 NavigationStack {
                     SettingsView(palette: palette)
                 }
                 .tabItem { Label("設定", systemImage: "gearshape") }
-                .tag(MiraTab.settings)
-                .toolbar(.hidden, for: .tabBar)
+                .tag(MiraTab.settings.rawValue)
+                .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
             }
             .tint(palette.accent)
-            if !keyboardIsVisible {
+            if palette.isCatSkin && !keyboardIsVisible {
                 floatingTabBar
             }
         }
@@ -122,6 +130,19 @@ struct MainTabView: View {
         .sheet(isPresented: rebalancePresented) {
             RebalanceProposalSheet(palette: palette)
         }
+    }
+
+    private var tabSelectionBinding: Binding<String> {
+        Binding(
+            get: { selectedTab.rawValue },
+            set: { selection in
+                if selection == "chat" {
+                    showChat = true
+                } else if let tab = MiraTab(rawValue: selection) {
+                    selectedTab = tab
+                }
+            }
+        )
     }
 
     @MainActor

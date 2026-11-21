@@ -54,7 +54,7 @@ final class GrillMeFlowUITests: XCTestCase {
         let home = app.buttons["miraTab-home"]
         XCTAssertTrue(home.waitForExistence(timeout: 10))
         XCTAssertTrue(home.isHittable)
-        XCTAssertTrue(app.buttons["miraChatButton"].exists)
+        XCTAssertTrue(app.miraChatButton.exists)
         capture("cat-skin-01-home")
 
         let destinations = [
@@ -126,12 +126,12 @@ final class GrillMeFlowUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.buttons["miraChatButton"].waitForExistence(timeout: 12)
+        _ = app.miraChatButton.waitForExistence(timeout: 12)
     }
 
     /// Talking to Mira starts from the companion in the home corner.
     private func openCompanion() {
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         XCTAssertTrue(companion.waitForExistence(timeout: 12))
         companion.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))

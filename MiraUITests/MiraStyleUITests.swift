@@ -12,23 +12,24 @@ final class MiraStyleUITests: XCTestCase {
     func testCenterChatReturnsToSelectedTab() {
         app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "softMinimal", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         launchHome()
-        let chat = app.buttons["miraChatButton"]
-        XCTAssertEqual(chat.label, "チャット")
-        let orderedButtons = ["miraTab-home", "miraTab-adjustments", "miraChatButton", "miraTab-margins", "miraTab-settings"]
+        let bar = app.tabBars.firstMatch
+        XCTAssertTrue(bar.exists)
+        let chat = bar.buttons["チャット"]
+        let orderedButtons = ["ホーム", "調整", "チャット", "マイ余白", "設定"]
         for (left, right) in zip(orderedButtons, orderedButtons.dropFirst()) {
-            XCTAssertLessThanOrEqual(app.buttons[left].frame.maxX, app.buttons[right].frame.minX)
+            XCTAssertLessThan(bar.buttons[left].frame.midX, bar.buttons[right].frame.midX)
         }
         capture("centerchat-home")
-        for tab in ["home", "adjustments", "margins", "settings"] {
-            let selected = app.buttons["miraTab-\(tab)"]
+        for tab in ["ホーム", "調整", "マイ余白", "設定"] {
+            let selected = bar.buttons[tab]
             selected.tap()
             XCTAssertTrue(selected.isSelected)
-            if tab == "adjustments" { capture("centerchat-adjustments") }
+            if tab == "調整" { capture("centerchat-adjustments") }
             XCTAssertTrue(chat.isHittable)
             chat.tap()
             let input = app.descendants(matching: .any)["miraChatInput"]
             XCTAssertTrue(input.waitForExistence(timeout: 5))
-            if tab == "home" { capture("centerchat-sheet") }
+            if tab == "ホーム" { capture("centerchat-sheet") }
             app.buttons["閉じる"].tap()
             XCTAssertTrue(chat.waitForExistence(timeout: 5))
             XCTAssertTrue(selected.isSelected)
@@ -36,19 +37,24 @@ final class MiraStyleUITests: XCTestCase {
     }
 
     func testDisablingAssistantRestoresFourTabs() {
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "softMinimal", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         launchHome()
-        app.buttons["miraTab-settings"].tap()
+        let bar = app.tabBars.firstMatch
+        XCTAssertEqual(bar.buttons.count, 5)
+        bar.buttons["設定"].tap()
         let toggle = app.switches["案内役を表示"]
         for _ in 0..<6 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "0")
-        XCTAssertTrue(app.buttons["miraChatButton"].waitForNonExistence(timeout: 5))
-        for tab in ["home", "adjustments", "margins", "settings"] {
-            XCTAssertTrue(app.buttons["miraTab-\(tab)"].isHittable)
+        XCTAssertTrue(app.miraChatButton.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(bar.buttons.count, 4)
+        for tab in ["ホーム", "調整", "マイ余白", "設定"] {
+            XCTAssertTrue(bar.buttons[tab].isHittable)
         }
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 5))
+        XCTAssertEqual(bar.buttons.count, 5)
     }
 
     func testPendingChatRequestOpensSheet() {
@@ -79,7 +85,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         XCTAssertTrue(companion.isHittable)
         XCTAssertGreaterThanOrEqual(companion.frame.minY, scroll.frame.maxY)
         XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
@@ -124,7 +130,7 @@ final class MiraStyleUITests: XCTestCase {
         }
         let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
         XCTAssertLessThanOrEqual(card.frame.maxY + 20, scroll.frame.maxY)
-        XCTAssertFalse(card.frame.intersects(app.buttons["miraChatButton"].frame))
+        XCTAssertFalse(card.frame.intersects(app.miraChatButton.frame))
         XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次の余白")).firstMatch.isHittable)
         capture("roomier-goals")
     }
@@ -138,7 +144,7 @@ final class MiraStyleUITests: XCTestCase {
             button.tap()
             XCTAssertEqual(button.value as? String, "選択中")
         }
-        XCTAssertTrue(app.buttons["miraChatButton"].isHittable)
+        XCTAssertTrue(app.miraChatButton.isHittable)
         capture("rounded-home")
     }
 
@@ -183,7 +189,7 @@ final class MiraStyleUITests: XCTestCase {
         // Lazy day cells may leave the accessibility tree when off-screen.
         // The calendar container remains measurable throughout the scroll.
         XCTAssertLessThan(calendar.frame.minY, initialCalendarY)
-        XCTAssertTrue(app.buttons["miraChatButton"].isHittable)
+        XCTAssertTrue(app.miraChatButton.isHittable)
         XCTAssertEqual(scroll.frame.maxY, viewport.maxY, accuracy: 1)
         // UIKit includes the top content inset in the scroll's accessibility
         // frame. The screenshot verifies the rendered safe-area fade as well.
@@ -293,7 +299,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertLessThanOrEqual(lastRowFrame.maxY, app.scrollViews["homeScroll"].frame.maxY)
         XCTAssertFalse(lastRowFrame.intersects(toastFrame), "Last row \(lastRowFrame) must not intersect toast \(toastFrame)")
         XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
-        XCTAssertFalse(toastFrame.intersects(app.buttons["miraChatButton"].frame))
+        XCTAssertFalse(toastFrame.intersects(app.miraChatButton.frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
         XCTAssertEqual(month.label, "2026年10月")
@@ -311,7 +317,7 @@ final class MiraStyleUITests: XCTestCase {
 
     func testChatUsesNaturalVoiceAndAccessibleControls() {
         launchHome()
-        app.buttons["miraChatButton"].tap()
+        app.miraChatButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "にゃ")).count, 0)
         let suggestions = app.buttons.matching(identifier: "chatSuggestion")
@@ -330,8 +336,8 @@ final class MiraStyleUITests: XCTestCase {
     func testLargeTextKeepsChatEntryReachable() {
         app.launchArguments += ["-ui-testing-large-text"]
         launchHome()
-        XCTAssertTrue(app.buttons["miraChatButton"].isHittable)
-        app.buttons["miraChatButton"].tap()
+        XCTAssertTrue(app.miraChatButton.isHittable)
+        app.miraChatButton.tap()
         let input = app.descendants(matching: .any)["miraChatInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         XCTAssertTrue(input.isHittable)
@@ -417,7 +423,7 @@ final class MiraStyleUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 12))
         if !app.launchArguments.contains("-ui-testing-persistent-toast") {
             // Completing onboarding briefly shows a banner that moves Home.
             // Measure and tap only after that real, transient layout is gone.

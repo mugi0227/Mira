@@ -109,7 +109,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があります"].exists
         companion.tap()
@@ -143,7 +143,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     func testHomeScrollEndsJustAboveTabs() {
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         let home = app.scrollViews["homeScroll"]
         require(home, "home scroll")
@@ -269,7 +269,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     private func openCompanion() {
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         companion.tap()
         require(app.descendants(matching: .any)["miraChatInput"], "chat input")
@@ -319,6 +319,6 @@ final class SelfTimeChatUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.buttons["miraChatButton"].waitForExistence(timeout: 12)
+        _ = app.miraChatButton.waitForExistence(timeout: 12)
     }
 }

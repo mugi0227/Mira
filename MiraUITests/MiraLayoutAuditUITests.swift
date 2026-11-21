@@ -30,7 +30,7 @@ final class MiraLayoutAuditUITests: XCTestCase {
         try audit("05-home-calendar", in: app)
         app.swipeDown()
         app.swipeDown()
-        tap(app.buttons["miraChatButton"])
+        tap(app.miraChatButton)
         try audit("07a-chat-welcome", in: app)
         tap(app.buttons["閉じる"])
         for (label, name) in [("調整", "10-adjustments"), ("マイ余白", "11-my-margins"), ("設定", "13-settings")] {

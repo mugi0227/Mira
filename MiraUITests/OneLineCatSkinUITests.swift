@@ -28,7 +28,7 @@ final class OneLineCatSkinUITests: XCTestCase {
         capture("oneline-settings")
 
         app.buttons["miraTab-home"].tap()
-        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 5))
         capture("oneline-home")
 
         app.buttons["miraTab-margins"].tap()
@@ -39,7 +39,7 @@ final class OneLineCatSkinUITests: XCTestCase {
         capture("oneline-adjustments")
 
         app.buttons["miraTab-home"].tap()
-        app.buttons["miraChatButton"].tap()
+        app.miraChatButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
         capture("oneline-chat")
     }
@@ -50,7 +50,7 @@ final class OneLineCatSkinUITests: XCTestCase {
         selectOneLineCat()
 
         app.buttons["miraTab-home"].tap()
-        let companion = app.buttons["miraChatButton"]
+        let companion = app.miraChatButton
         XCTAssertTrue(companion.waitForExistence(timeout: 5))
 
         companion.tap()
@@ -166,7 +166,7 @@ final class OneLineCatSkinUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        XCTAssertTrue(app.buttons["miraChatButton"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 12))
     }
 
     private func capture(_ name: String) {
