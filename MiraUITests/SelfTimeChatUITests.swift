@@ -87,6 +87,27 @@ final class SelfTimeChatUITests: XCTestCase {
         add(attachment)
     }
 
+    func testProposalDayTimelineOpensConflictingEvent() throws {
+        openCompanion()
+        sendChat("明日の10時に友達と夕食を追加して")
+        let showDay = app.buttons["proposal.showDay"].firstMatch
+        require(showDay, "day timeline entry")
+        showDay.tap()
+        let block = app.descendants(matching: .any)["proposal.timelineBlock"].firstMatch
+        require(block, "proposal overlay")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.49))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)))
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "proposal-day-timeline-large"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let row = app.buttons["proposal.conflict.仕事"].firstMatch
+        require(row, "work conflict row")
+        row.tap()
+        require(app.navigationBars["詳細"], "event details")
+        require(app.staticTexts["仕事"].firstMatch, "work event title")
+    }
+
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
         let companion = app.buttons["miraCompanionButton"]
         require(companion, "companion", timeout: 12)

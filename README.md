@@ -66,24 +66,18 @@ Developer Programへの登録は、Simulatorでのビルド・動作確認には
 
 ### ビジュアル余白レビュー
 
-画面端・カードの隅・文字の重なりなどを、座標監査とGeminiの画像レビューで確認できます。UIは自動変更しません。
+画面端・カードの隅・文字の重なりなどは、UIを変更するたびにDevinがスクリーンショットを見て確認します。そのための入力として、代表画面のスクリーンショットと座標監査を出力します。UIは自動変更しません。
 
 ```bash
 xcodegen generate
 xcrun simctl boot 'iPhone 17 Pro' # 起動済みなら不要
 xcrun simctl privacy booted grant calendar jp.mugi.mira
 xcodebuild -project Mira.xcodeproj -scheme Mira -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO -only-testing:MiraUITests/MiraScreenshotUITests/testCaptureRepresentativeScreens -only-testing:MiraUITests/MiraLayoutAuditUITests test
-export GEMINI_API_KEY='…'
-make visual-review
-python3 scripts/test-visual-review.py
 ```
 
-入力は `/tmp/mira-screenshots/*.png`、監査ヒントは `/tmp/mira-layout-audit/*.json`、出力は `/tmp/mira-visual-review/report.md` と `report.json` です。
-CLIで入力ディレクトリ、`--out`、`--json`、`--mock response.json`、`--fail-on high|medium|none` を指定できます。
-mockは `{ "score": 10, "summary": "良好", "findings": [] }` 形式で、全画像に同じ応答を適用します。
-`GEMINI_MODEL` の既定値は `gemini-3.8-flash`。キーなしはスキップし、通常は指摘があっても失敗しない参考レポートです。
-座標監査も通常は参考情報で、厳格化する場合は `TEST_RUNNER_MIRA_LAYOUT_AUDIT_STRICT=1` をxcodebuildに渡します。
-PRの自動レビューにはリポジトリSecret **GEMINI_API_KEY** が必要です（forkには渡されません）。全文・画像・監査JSONはActions artifactに保存されます。
+スクリーンショットは `/tmp/mira-screenshots/*.png`、座標監査（画面端16pt未満・文字の重なり・はみ出し）は `/tmp/mira-layout-audit/*.json` に出力されます。
+座標監査は通常は参考情報で、厳格化する場合は `TEST_RUNNER_MIRA_LAYOUT_AUDIT_STRICT=1` をxcodebuildに渡します。
+PRでは `.github/workflows/visual-review.yml` が同じものを撮影し、Actions artifactに保存します。
 
 実機向けのTestFlight配信はGitHub Actionsで自動化しています。初回設定は [`docs/testflight.md`](docs/testflight.md) を参照してください。
 

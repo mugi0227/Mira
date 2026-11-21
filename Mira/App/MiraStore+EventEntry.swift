@@ -10,6 +10,18 @@ extension MiraStore {
         excludingItemID: UUID? = nil,
         excludingAdjustmentID: UUID? = nil
     ) -> [String] {
+        let details = eventEntryConflictDetails(for: event, excludingItemID: excludingItemID,
+            excludingAdjustmentID: excludingAdjustmentID)
+        var lines = details.prefix(2).map(\.text)
+        if details.count > 2 { lines.append("ほか\(details.count - 2)件") }
+        return lines
+    }
+
+    func eventEntryConflictDetails(
+        for event: CalendarItemSnapshot,
+        excludingItemID: UUID? = nil,
+        excludingAdjustmentID: UUID? = nil
+    ) -> [ConflictEngine.Detail] {
         let occupied = event.occupiedInterval
         let candidate = CandidateSlotSnapshot(
             startDate: occupied.start,
@@ -24,7 +36,7 @@ extension MiraStore {
         let candidateTitles = adjustments.reduce(into: [UUID: String]()) { titles, adjustment in
             for candidate in adjustment.candidates { titles[candidate.id] = adjustment.title }
         }
-        return ConflictEngine(calendar: .mira).conflictDetails(
+        return ConflictEngine(calendar: .mira).conflictDetailEntries(
             candidate: candidate,
             events: items.filter { $0.id != excludedID },
             otherCandidates: heldCandidates,
