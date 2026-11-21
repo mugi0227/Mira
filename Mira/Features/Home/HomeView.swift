@@ -15,6 +15,7 @@ struct HomeView: View {
     @State private var friendShareImage: Image?
     @State private var monthHeaderHeight: CGFloat = 88
     @State private var topFadeAmount: CGFloat = 0
+    private let scrollFadeHeight: CGFloat = MiraSpacing.lg
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +43,7 @@ struct HomeView: View {
                             items: monthItems,
                             palette: palette,
                             preferredHeight: palette.isCatSkin
-                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs
+                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - scrollFadeHeight - MiraSpacing.xs
                                 : nil,
                             weekStartDay: store.weekStartDay,
                             holidays: store.deviceHolidays,
@@ -68,9 +69,26 @@ struct HomeView: View {
                     .padding(.top, palette.isCatSkin ? MiraSpacing.md : MiraSpacing.xs)
                     .padding(.bottom, MiraSpacing.lg)
                 }
-                // Let cards continue behind the companion's fading backdrop
-                // instead of slicing them at the scroll view's lower edge.
+                // Fade inside the viewport, not in the companion's dock. A
+                // scroll view's layout frame alone does not contain its drawing.
                 .scrollClipDisabled()
+                .mask {
+                    VStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [.white.opacity(1 - topFadeAmount), .white],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: scrollFadeHeight)
+                        Color.white
+                        LinearGradient(
+                            colors: [.white, .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: scrollFadeHeight)
+                    }
+                }
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
                     let offset = geometry.contentOffset.y + geometry.contentInsets.top
                     return min(1, max(0, offset / MiraSpacing.lg))
@@ -78,10 +96,9 @@ struct HomeView: View {
                     topFadeAmount = amount
                 }
                 .accessibilityIdentifier("homeScroll")
-                .miraScreenBackground(palette)
             }
-            // Reserve a reachable resting place for Mira, but allow scrolling
-            // content to pass softly underneath it rather than behind a wall.
+            // Content is fully transparent before this separate dock begins,
+            // so Mira cannot cover a card or goal even during a partial scroll.
             if store.assistantEnabled && !isFriendView {
                 HStack {
                     Spacer(minLength: 0)
@@ -91,34 +108,10 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, screenInset)
                 .padding(.vertical, MiraSpacing.xs)
-                .background {
-                    LinearGradient(
-                        stops: [
-                            .init(color: palette.background.opacity(0), location: 0),
-                            .init(color: palette.background.opacity(0.85), location: 0.75),
-                            .init(color: palette.background, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .allowsHitTesting(false)
-                }
             }
         }
-        // Only the outer safe-area boundary clips. The internal scroll/footer
-        // boundary stays open, while dates still cannot draw under the clock.
+        // Keep both the viewport and the companion within the safe area.
         .clipped()
-        .mask {
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: [.white.opacity(1 - topFadeAmount), .white],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: MiraSpacing.lg)
-                Color.white
-            }
-        }
         .miraScreenBackground(palette)
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
