@@ -10,7 +10,6 @@ struct HomeView: View {
     @State private var selectedDayDestination: DayTimelineDestination?
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
-    @State private var showCompanion = false
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
     @State private var renderedFriendSignature: Int?
@@ -34,7 +33,7 @@ struct HomeView: View {
             GeometryReader { viewport in
                 ScrollView {
                     // The calendar leads; everything else is secondary and sits below
-                    // it, while talking to Mira lives behind the corner companion.
+                    // it, while talking to Mira lives in the tab bar.
                     VStack(spacing: MiraSpacing.lg) {
                         monthHeader
                             .padding(.horizontal, screenInset)
@@ -83,11 +82,9 @@ struct HomeView: View {
                     }
                     .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
                     .padding(.top, MiraSpacing.xs)
-                    .padding(.bottom, MiraSpacing.lg + (store.assistantEnabled && !isFriendView && !palette.isCatSkin ? 72 : 0))
+                    .padding(.bottom, MiraSpacing.lg)
                 }
-                .safeAreaPadding(.bottom, store.assistantEnabled && !isFriendView && !palette.isCatSkin ? 72 : 0)
-                // Fade inside the viewport, not in the companion's dock. A
-                // scroll view's layout frame alone does not contain its drawing.
+                // A scroll view's layout frame alone does not contain its drawing.
                 .scrollClipDisabled()
                 .mask {
                     VStack(spacing: 0) {
@@ -110,25 +107,7 @@ struct HomeView: View {
             }
             .ignoresSafeArea(.container, edges: palette.isCatSkin ? [] : .bottom)
         }
-        .overlay(alignment: .bottomTrailing) {
-            if store.assistantEnabled && !isFriendView && !palette.isCatSkin {
-                HStack {
-                    Spacer(minLength: 0)
-                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                        showCompanion = true
-                    }
-                    .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bounds) {
-                        MiraOverlayLayout(companionBounds: $0)
-                    }
-                }
-                .padding(.horizontal, screenInset)
-                .padding(.vertical, MiraSpacing.xs)
-            }
-        }
         .miraScreenBackground(palette)
-        .sheet(isPresented: $showCompanion) {
-            MiraChatView(palette: palette)
-        }
         .sheet(isPresented: $showWhitespaceExplanation) {
             NavigationStack {
                 ScrollView {
@@ -155,14 +134,6 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showFriendImagePreview) {
             if let friendShareImage {
                 FriendShareImagePreview(image: friendShareImage)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
-            showCompanion = true
-        }
-        .task {
-            if UserDefaults.standard.bool(forKey: MiraStore.openChatRequestKey) {
-                showCompanion = true
             }
         }
         .navigationTitle("余白")
@@ -370,11 +341,6 @@ struct HomeView: View {
             HStack(alignment: .center) {
                 friendViewButton
                 Spacer(minLength: MiraSpacing.sm)
-                if store.assistantEnabled && !isFriendView {
-                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                        showCompanion = true
-                    }
-                }
             }
         }
         .foregroundStyle(palette.accent)
