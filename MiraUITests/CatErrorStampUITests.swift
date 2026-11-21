@@ -55,7 +55,8 @@ final class CatErrorStampUITests: XCTestCase {
         }
         expectation(for: inside, evaluatedWith: nil)
         waitForExpectations(timeout: 8)
-        XCTAssertLessThan(stamp.frame.midX, app.frame.midX, "The stamp belongs on Mira's side, not the user's")
+        XCTAssertEqual(stamp.frame.minX, reply.frame.minX, accuracy: 1,
+                       "The stamp must share Mira's leading edge, including at large text sizes")
         capture("\(theme)-failure\(extra.isEmpty ? "" : "-large-text")")
 
         // Reset is a real dismissal path: the error must not leak into a new chat.
@@ -82,11 +83,12 @@ final class CatErrorStampUITests: XCTestCase {
     }
 
     private func sendQuestion() {
-        // Suggestions avoid keyboard occlusion and use the real send/error path.
-        let question = app.buttons["今月ちゃんと休めてる？"]
-        for _ in 0..<5 where !question.isHittable { app.swipeUp() }
-        XCTAssertTrue(question.isHittable)
-        question.tap()
+        // The chat can open below the welcome suggestions. Use the always-reachable
+        // composer and also verify the error fits above it with the keyboard up.
+        let input = app.descendants(matching: .any)["miraChatInput"].firstMatch
+        input.tap()
+        input.typeText("今月ちゃんと休めてる？")
+        app.buttons["miraChatSend"].tap()
     }
 
     private func capture(_ name: String) {
