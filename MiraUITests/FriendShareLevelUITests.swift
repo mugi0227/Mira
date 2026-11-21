@@ -4,7 +4,7 @@ final class FriendShareLevelUITests: XCTestCase {
     func testRecipientLevelUpdatesGrid() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-reset-demo", "-friend-share-test", "-friend-share-image-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments = ["-reset-demo", "-ui-theme", "pixelCat", "-friend-share-test", "-friend-share-image-preview", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         for (level, title) in [("busyTimes", "埋まりだけ"), ("titles", "予定名まで")] {
             app.launch()
             if app.staticTexts["自分のための時間を守ろう。"].waitForExistence(timeout: 5) {

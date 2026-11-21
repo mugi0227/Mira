@@ -95,11 +95,11 @@ final class MiraStyleUITests: XCTestCase {
         launchHome()
         let september = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertTrue(september.waitForExistence(timeout: 5))
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertEqual(september.label, "2026年9月、11件の予定")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(september.label, "2026年10月")
+        XCTAssertEqual(september.label, "2026年10月、4件の予定")
         app.buttons["前の月"].tap()
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertEqual(september.label, "2026年9月、11件の予定")
         // A date text's accessibility frame can expand over its event chips.
         // The explicit header button has its own, non-overlapping hit target.
         let dayHeader = app.buttons["calendar-date-2026-09-02"]
@@ -173,7 +173,7 @@ final class MiraStyleUITests: XCTestCase {
 
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["前の月"].tap()
-        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月")
+        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月、0件の予定")
         app.buttons["friendViewToggle"].tap()
         app.buttons["friendRecipientPicker"].tap()
         let recipient = app.buttons["はる"]

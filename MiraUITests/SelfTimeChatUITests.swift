@@ -7,7 +7,7 @@ final class SelfTimeChatUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments += ["-reset-demo", "-ui-theme", "pixelCat", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         if name.contains("testMarkdownAssistantReply") { app.launchArguments.append("-ui-markdown-reply") }
         app.launch()
         completeOnboardingIfNeeded()
