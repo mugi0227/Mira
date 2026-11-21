@@ -12,14 +12,17 @@ struct HomeView: View {
     @State private var showCompanion = false
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
+    @State private var monthHeaderHeight: CGFloat = 88
 
     var body: some View {
+        GeometryReader { viewport in
         ScrollView {
             // The calendar leads; everything else is secondary and sits below
             // it, while talking to Mira lives behind the corner companion.
             VStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
                 monthHeader
                     .padding(.horizontal, screenInset)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
 
                 if isFriendView {
                     friendViewBanner
@@ -35,6 +38,9 @@ struct HomeView: View {
                     ),
                     items: monthItems,
                     palette: palette,
+                    preferredHeight: palette.isCatSkin
+                        ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs
+                        : nil,
                     weekStartDay: store.weekStartDay,
                     holidays: store.deviceHolidays,
                     referenceDate: store.now,
@@ -68,8 +74,9 @@ struct HomeView: View {
                     showCompanion = true
                 }
                 .padding(.trailing, screenInset)
-                .padding(.bottom, MiraSpacing.lg + floatingTabBarClearance)
+                .padding(.bottom, MiraSpacing.sm + floatingTabBarClearance)
             }
+        }
         }
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)

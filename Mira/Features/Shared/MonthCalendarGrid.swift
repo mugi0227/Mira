@@ -7,6 +7,9 @@ struct MonthCalendarGrid: View {
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    /// Home can use spare space within day cells to keep the whole month in
+    /// view. Dense/small screens still scroll rather than shrinking text.
+    var preferredHeight: CGFloat? = nil
     var weekStartDay: WeekStartDay = .monday
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
@@ -45,7 +48,7 @@ struct MonthCalendarGrid: View {
 
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
-                let cellHeight: CGFloat = days.count > 35 ? 88 : 104
+                let cellHeight = rowHeight(dayCount: days.count)
                 ForEach(Array(days.enumerated()), id: \.offset) { index, date in
                     dayCell(date, index: index, cellHeight: cellHeight)
                 }
@@ -70,6 +73,13 @@ struct MonthCalendarGrid: View {
 
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
+    }
+
+    private func rowHeight(dayCount: Int) -> CGFloat {
+        let regular: CGFloat = dayCount > 35 ? 88 : 104
+        guard palette.isCatSkin, let preferredHeight else { return regular }
+        let chrome = 30 + MiraSpacing.md + MiraSpacing.lg
+        return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -114,7 +124,9 @@ struct MonthCalendarGrid: View {
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
-        let visibleItemLimit = holiday == nil ? 3 : 2
+        // Leave space for the overflow link instead of clipping a third chip
+        // when the calendar uses a shorter row on a compact viewport.
+        let visibleItemLimit = holiday == nil && cellHeight >= 100 ? 3 : 2
 
         VStack(alignment: .leading, spacing: 3) {
             HStack {
