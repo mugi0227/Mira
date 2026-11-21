@@ -49,7 +49,7 @@ struct MonthCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
                 let cellHeight = rowHeight(dayCount: days.count)
-                ForEach(Array(days.enumerated()), id: \.offset) { index, date in
+                ForEach(Array(days.enumerated()), id: \.element) { index, date in
                     dayCell(date, index: index, cellHeight: cellHeight)
                 }
             }
@@ -138,32 +138,41 @@ struct MonthCalendarGrid: View {
         }
 
         VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Spacer(minLength: 0)
-                ZStack {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(palette.actionGradient)
-                            .frame(width: 30, height: 30)
-                            .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                    } else if isToday {
-                        Circle()
-                            .stroke(palette.accent, lineWidth: 1.5)
-                            .frame(width: 27, height: 27)
-                    }
+            Button {
+                select(date)
+            } label: {
+                HStack {
+                    Spacer(minLength: 0)
+                    ZStack {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(palette.actionGradient)
+                                .frame(width: 30, height: 30)
+                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
+                        } else if isToday {
+                            Circle()
+                                .stroke(palette.accent, lineWidth: 1.5)
+                                .frame(width: 27, height: 27)
+                        }
 
-                    Text("\(calendar.component(.day, from: date))")
-                        .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
-                        .foregroundStyle(dateForeground(
-                            isSelected: isSelected,
-                            isInDisplayedMonth: isInDisplayedMonth,
-                            date: date,
-                            isHoliday: holiday != nil
-                        ))
+                        Text("\(calendar.component(.day, from: date))")
+                            .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
+                            .foregroundStyle(dateForeground(
+                                isSelected: isSelected,
+                                isInDisplayedMonth: isInDisplayedMonth,
+                                date: date,
+                                isHoliday: holiday != nil
+                            ))
+                    }
+                    .frame(height: 28)
+                    Spacer(minLength: 0)
                 }
-                .frame(height: 28)
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
+            .frame(height: 28)
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.japaneseShortDate)を開く")
+            .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
 
             VStack(spacing: 2) {
                 if let holiday {
