@@ -154,7 +154,7 @@ final class MiraStore {
     var currentAssistantMessage: AssistantMessage {
         if hasUnreadMiraSuggestion {
             return AssistantMessage(
-                title: theme == .pixelCat ? "来週の自分の時間、提案があります" : "来週の自分の時間の提案があります",
+                title: theme.isCat ? "来週の自分の時間、提案があります" : "来週の自分の時間の提案があります",
                 body: "トークで確認して、置くかどうか決めてね。",
                 mood: .thinking,
                 severity: 2,
@@ -199,6 +199,12 @@ final class MiraStore {
             }
 
             applySettings()
+            let arguments = ProcessInfo.processInfo.arguments
+            if let index = arguments.firstIndex(of: "-ui-theme"),
+               arguments.indices.contains(index + 1),
+               let forcedTheme = AppThemeKind(rawValue: arguments[index + 1]) {
+                theme = forcedTheme
+            }
             loadColorPreferences()
             Task { await refreshMiraAccount() }
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()

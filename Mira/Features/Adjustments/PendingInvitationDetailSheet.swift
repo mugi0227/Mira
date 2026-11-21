@@ -75,8 +75,8 @@ struct PendingInvitationDetailSheet: View {
 
     private var header: some View {
         HStack(spacing: MiraSpacing.md) {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: .thinking, size: 76)
+            if store.theme.isCat {
+                MiraCatView(mood: .thinking, size: 76)
             } else {
                 Image(systemName: "questionmark.bubble.fill")
                     .font(.system(size: 42))

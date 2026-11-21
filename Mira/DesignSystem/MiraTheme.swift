@@ -23,7 +23,7 @@ struct MiraThemePalette {
     init(kind: AppThemeKind, colorScheme: ColorScheme, colorStyle: AppColorStyle = .blue) {
         let isDark = colorScheme == .dark
         self.isDark = isDark
-        isCatSkin = kind == .pixelCat
+        isCatSkin = kind.isCat
         let colors: (background: UInt32, surface: UInt32, accent: UInt32, soft: UInt32)
         switch (colorStyle, isDark) {
         case (.blue, false):

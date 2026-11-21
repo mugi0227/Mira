@@ -9,7 +9,7 @@ struct ConversationClarificationSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: MiraSpacing.lg) {
-                PixelCatView(mood: .thinking, size: 92)
+                MiraCatView(mood: .thinking, size: 92)
                 Text(store.activeClarification?.question ?? "もう少し教えてください")
                     .font(.title2.bold())
                     .foregroundStyle(palette.primaryText)
@@ -53,7 +53,7 @@ struct DeclineDraftSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                     HStack(spacing: MiraSpacing.md) {
-                        PixelCatView(mood: .thinking, size: 74)
+                        MiraCatView(mood: .thinking, size: 74)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("嘘をつかずに、やわらかく断ります")
                                 .font(.headline)
@@ -159,7 +159,7 @@ struct ChangePreviewSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                             HStack(spacing: MiraSpacing.md) {
-                                PixelCatView(mood: preview.conflicts.isEmpty ? .thinking : .warning, size: 76)
+                                MiraCatView(mood: preview.conflicts.isEmpty ? .thinking : .warning, size: 76)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("変更内容を確認してください")
                                         .font(.title3.bold())
@@ -258,7 +258,7 @@ struct EventCreationPreviewSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                             HStack(spacing: MiraSpacing.md) {
-                                PixelCatView(mood: mood(for: preview), size: 78)
+                                MiraCatView(mood: mood(for: preview), size: 78)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(headline(for: preview))
                                         .font(.title3.bold())
@@ -378,7 +378,7 @@ struct RebalanceProposalSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                             HStack(spacing: MiraSpacing.md) {
-                                PixelCatView(mood: .thinking, size: 84)
+                                MiraCatView(mood: .thinking, size: 84)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("完成案を用意しました")
                                         .font(.title3.bold())
