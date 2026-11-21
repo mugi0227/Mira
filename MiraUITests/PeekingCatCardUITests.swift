@@ -72,7 +72,9 @@ final class PeekingCatCardUITests: XCTestCase {
         for _ in 0..<6 {
             if card.exists, card.frame.minY > scroll.frame.minY + 16,
                card.frame.maxY < scroll.frame.maxY - 12 { break }
-            scroll.swipeUp(velocity: .slow)
+            // Use the gutter: the redesigned calendar's event chips are draggable.
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.85))
+                .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.2)))
         }
         XCTAssertTrue(card.exists)
         XCTAssertGreaterThan(card.frame.minY, scroll.frame.minY)
