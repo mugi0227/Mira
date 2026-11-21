@@ -215,8 +215,9 @@ struct MonthCalendarGrid: View {
                                     .foregroundStyle(palette.secondaryText)
                                     .lineLimit(3)
                                     .lineSpacing(1)
+                                    .multilineTextAlignment(.center)
                                     .fixedSize(horizontal: false, vertical: true)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(maxWidth: .infinity)
                                     .padding(.bottom, 2)
                                     .accessibilityIdentifier("friendDayContent")
                             }
@@ -289,7 +290,7 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
-        .padding(.horizontal, 2)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .background {
