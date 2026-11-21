@@ -6,6 +6,9 @@ on:
     paths:
       - 'Mira/**'
       - 'MiraWidget/**'
+      - 'MiraOverrides/**'
+      - 'Shared/**'
+      - 'project.yml'
       - 'MiraUITests/**'
       - 'scripts/visual-review.py'
       - '.github/workflows/visual-review.yml'
