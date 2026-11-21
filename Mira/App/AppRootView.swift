@@ -5,11 +5,18 @@ extension Notification.Name {
     static let miraRetryStorage = Notification.Name("mira.retryStorage")
 }
 
-struct MiraTabBarHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 44
+struct MiraOverlayLayout {
+    var tabBarHeight: CGFloat = 44
+    var companionBounds: Anchor<CGRect>?
+}
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+struct MiraOverlayLayoutKey: PreferenceKey {
+    static var defaultValue = MiraOverlayLayout()
+
+    static func reduce(value: inout MiraOverlayLayout, nextValue: () -> MiraOverlayLayout) {
+        let next = nextValue()
+        value.tabBarHeight = max(value.tabBarHeight, next.tabBarHeight)
+        value.companionBounds = next.companionBounds ?? value.companionBounds
     }
 }
 
@@ -108,11 +115,17 @@ struct AppRootView: View {
                 }
             }
         }
-        .overlayPreferenceValue(MiraTabBarHeightKey.self) { tabBarHeight in
-            VStack {
-                Spacer(minLength: 0)
-                toastBanner(palette: palette)
-                    .padding(.bottom, tabBarHeight + MiraSpacing.xs)
+        .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
+            GeometryReader { geometry in
+                let trailingClearance = layout.companionBounds.map {
+                    max(0, geometry.size.width - geometry[$0].minX) + MiraSpacing.xs
+                } ?? 0
+                VStack {
+                    Spacer(minLength: 0)
+                    toastBanner(palette: palette)
+                        .padding(.trailing, trailingClearance)
+                        .padding(.bottom, layout.tabBarHeight + MiraSpacing.xs)
+                }
             }
             .allowsHitTesting(false)
         }

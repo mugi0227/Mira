@@ -80,6 +80,9 @@ struct HomeView: View {
                     MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
                         showCompanion = true
                     }
+                    .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bounds) {
+                        MiraOverlayLayout(companionBounds: $0)
+                    }
                 }
                 .padding(.horizontal, screenInset)
                 .padding(.vertical, MiraSpacing.xs)

@@ -21,6 +21,9 @@ struct MainTabView: View {
                 NavigationStack {
                     HomeView(palette: palette)
                 }
+                .transformPreference(MiraOverlayLayoutKey.self) { layout in
+                    if selectedTab != .home { layout.companionBounds = nil }
+                }
                 .tabItem { Label("ホーム", systemImage: "calendar") }
                 .tag(MiraTab.home)
                 .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
@@ -228,7 +231,7 @@ struct MainTabView: View {
         .accessibilityIdentifier("miraTabBar")
         .background {
             GeometryReader { geometry in
-                Color.clear.preference(key: MiraTabBarHeightKey.self, value: geometry.size.height)
+                Color.clear.preference(key: MiraOverlayLayoutKey.self, value: MiraOverlayLayout(tabBarHeight: geometry.size.height))
             }
         }
     }

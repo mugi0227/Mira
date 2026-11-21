@@ -114,6 +114,7 @@ final class MiraStyleUITests: XCTestCase {
         let tabFrame = tabs.frame
         XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
         XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
+        XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
         capture("floating-toast-full-calendar")
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
