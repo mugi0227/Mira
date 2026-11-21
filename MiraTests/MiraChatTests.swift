@@ -5,6 +5,18 @@ import XCTest
 
 @MainActor
 final class MiraChatTests: XCTestCase {
+    func testExplicitEventPreservesMinutesAndSlashDate() async throws {
+        let store = try makeStore()
+        store.chatAgent = FailingChatAgent()
+        for (request, expected) in [
+            ("明日の19時30分に夕食を追加して", store.now.addingDays(1).setting(hour: 19, minute: 30)),
+            ("12/1の19時に夕食を追加して", Calendar.mira.date(from: DateComponents(year: 2026, month: 12, day: 1, hour: 19))!)
+        ] {
+            await store.sendChat(request)
+            guard case .eventProposal(let proposal) = store.chatMessages.last?.cards.first else { return XCTFail("expected proposal") }
+            XCTAssertEqual(proposal.event.startDate, expected)
+        }
+    }
     func testExplicitEventBypassesFailingModelAndOnlyProposes() async throws {
         let store = try makeStore()
         store.chatAgent = FailingChatAgent()

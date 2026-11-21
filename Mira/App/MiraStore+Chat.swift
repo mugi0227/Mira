@@ -28,7 +28,7 @@ extension MiraStore {
             if let intent = selfTimeIntent(in: text) {
                 respondToSelfTimeRequest(intent, sink: sink)
             } else {
-                let interpreter = RuleBasedConversationInterpreter()
+                let interpreter = ProductionConversationInterpreter(base: RuleBasedConversationInterpreter())
                 let interpretation = await interpreter.interpret(
                     text: text, now: now, pinnedContext: nil, searchCandidates: [], recentTurns: []
                 )
@@ -40,7 +40,7 @@ extension MiraStore {
             }
         } catch {
             if !sink.hasCards {
-                try? await RuleBasedChatAgent(interpreter: RuleBasedConversationInterpreter())
+                try? await RuleBasedChatAgent(interpreter: ProductionConversationInterpreter(base: RuleBasedConversationInterpreter()))
                     .respond(to: text, store: self, sink: sink)
             }
         }

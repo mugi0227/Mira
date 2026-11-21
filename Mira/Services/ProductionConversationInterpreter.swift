@@ -3,11 +3,12 @@ import Foundation
 /// Production interpreter that keeps the on-device model bounded by deterministic
 /// scheduling rules and restores the previous case conditions for short follow-ups.
 struct ProductionConversationInterpreter: ConversationInterpreting {
-    private let base = RobustConversationInterpreter()
+    private let base: any ConversationInterpreting
     private let calendar: Calendar
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, base: any ConversationInterpreting = RobustConversationInterpreter()) {
         self.calendar = calendar
+        self.base = base
     }
 
     func interpret(
