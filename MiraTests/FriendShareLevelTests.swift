@@ -69,6 +69,45 @@ final class FriendShareLevelTests: XCTestCase {
         XCTAssertEqual(store.friendShareLevel(for: fetched), .freeOnly)
     }
 
+    func testBuffersAreBusyWithoutExposingTheirKinds() {
+        let day = TestFixtures.date(day: 2)
+        var event = TestFixtures.event(title: "面談", day: 2, hour: 10)
+        event.bufferBeforeMinutes = 30
+        event.bufferAfterMinutes = 60
+        var margin = TestFixtures.event(title: "秘密の読書", day: 2, hour: 13, duration: 1, kind: .margin, marginKind: .reading)
+        margin.bufferAfterMinutes = 30
+        let items = [event, margin]
+        let busy = FriendDayContent(date: day, items: items, level: .busyTimes)
+        XCTAssertEqual(busy.lines, ["09:30–14:30 予定あり"])
+        XCTAssertEqual(busy.gridLines, ["9:30–14:30"])
+        let titles = FriendDayContent(date: day, items: items, level: .titles)
+        XCTAssertEqual(titles.lines, ["09:30–10:00 予定あり", "10:00–12:00 面談", "12:00–13:00 予定あり", "13:00–14:00 予定あり", "14:00–14:30 予定あり"])
+        XCTAssertEqual(titles.gridLines, ["9:30–10", "10 面談", "12–13", "13–14", "14–14:30"])
+        for level in [FriendShareLevel.busyTimes, .titles] {
+            let text = FriendAvailabilityText.text(from: day, days: 1, items: items, level: level)
+            XCTAssertTrue(text.contains("09:30"))
+            XCTAssertTrue(text.contains("14:30"))
+            for secret in ["秘密の読書", "支度", "移動", "回復"] { XCTAssertFalse(text.contains(secret)) }
+        }
+        event.exactTimeKnown = false
+        XCTAssertEqual(FriendDayContent(date: day, items: [event], level: .busyTimes).lines, ["時間未定 予定あり"])
+    }
+
+    func testBuffersCrossingMidnightAreClippedOnBothDays() {
+        var event = TestFixtures.event(title: "深夜の面談", day: 2, hour: 23, duration: 1)
+        event.bufferBeforeMinutes = 30
+        event.bufferAfterMinutes = 60
+        var next = TestFixtures.event(title: "翌日の面談", day: 4, hour: 0, duration: 1)
+        next.bufferBeforeMinutes = 30
+        for level in [FriendShareLevel.busyTimes, .titles] {
+            let middle = FriendDayContent(date: TestFixtures.date(day: 3), items: [event, next], level: level)
+            XCTAssertEqual(middle.lines, ["00:00–01:00 予定あり", "23:30–24:00 予定あり"])
+            XCTAssertEqual(middle.gridLines, ["0–1", "23:30–24"])
+            XCTAssertTrue(FriendDayContent(date: TestFixtures.date(day: 5), items: [event, next], level: level).lines.isEmpty)
+        }
+        XCTAssertEqual(FriendDayContent(date: TestFixtures.date(day: 2), items: [event], level: .busyTimes).gridLines, ["22:30–24"])
+    }
+
     func testRenderShareCard() throws {
         let items = [
             TestFixtures.event(title: "面談", day: 2, hour: 10),
