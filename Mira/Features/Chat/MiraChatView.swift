@@ -38,7 +38,7 @@ struct MiraChatView: View {
                         }
                         Color.clear.frame(height: 1).id("chat-bottom")
                     }
-                    .padding(MiraSpacing.md)
+                    .padding(palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
                     .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: store.chatMessages.map(\.id))
                 }
                 .scrollDismissesKeyboard(.interactively)

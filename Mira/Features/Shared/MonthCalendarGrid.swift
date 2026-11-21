@@ -51,7 +51,11 @@ struct MonthCalendarGrid: View {
                 }
             }
         }
-        .padding(.vertical, palette.isCatSkin ? MiraSpacing.xs : 0)
+        // Inset the entire grid rather than every cell so all seven columns
+        // stay aligned, including the leading/trailing days near the corners.
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
+        .padding(.top, palette.isCatSkin ? MiraSpacing.md : 0)
+        .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
         .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
         .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? MiraRadius.large : 0, style: .continuous))
         .overlay {
@@ -61,6 +65,7 @@ struct MonthCalendarGrid: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("monthCalendar")
     }
 
     private var columns: [GridItem] {

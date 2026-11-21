@@ -6,7 +6,62 @@ final class MiraStyleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "pixelCat", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+    }
+
+    func testCalendarLeavesRoomAroundRoundedCorners() {
+        launchHome()
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(calendar.frame.minX - app.frame.minX, 20)
+        XCTAssertGreaterThanOrEqual(app.frame.maxX - calendar.frame.maxX, 20)
+
+        // Both edge columns must remain inside the card, not under its curve.
+        let monday = app.descendants(matching: .any)["calendar-day-2026-08-31"].firstMatch
+        let sunday = app.descendants(matching: .any)["calendar-day-2026-09-06"].firstMatch
+        XCTAssertTrue(monday.exists)
+        XCTAssertTrue(sunday.exists)
+        XCTAssertGreaterThanOrEqual(monday.frame.minX - calendar.frame.minX, 8)
+        XCTAssertGreaterThanOrEqual(calendar.frame.maxX - sunday.frame.maxX, 8)
+        XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
+        capture("roomier-calendar")
+    }
+
+    func testNextStepCardKeepsTextAwayFromCornersAndOpensEvent() {
+        launchHome()
+        let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
+        for _ in 0..<4 where !card.isHittable || card.frame.maxY > app.buttons["miraTab-home"].frame.minY {
+            app.swipeUp()
+        }
+        XCTAssertTrue(card.exists)
+        let label = card.staticTexts["次の予定"].firstMatch
+        XCTAssertTrue(label.exists)
+        XCTAssertGreaterThanOrEqual(label.frame.minX - card.frame.minX, 20)
+        XCTAssertGreaterThanOrEqual(label.frame.minY - card.frame.minY, 20)
+        let event = card.buttons.firstMatch
+        XCTAssertTrue(event.isHittable)
+        XCTAssertGreaterThanOrEqual(card.frame.maxX - event.frame.maxX, 20)
+        XCTAssertGreaterThanOrEqual(card.frame.maxY - event.frame.maxY, 20)
+        capture("roomier-next-step")
+        event.tap()
+        XCTAssertTrue(app.buttons["閉じる"].waitForExistence(timeout: 5))
+    }
+
+    func testReducedMotionKeepsSpringControlsUsable() {
+        app.launchArguments += ["-ui-testing-reduce-motion"]
+        launchHome()
+        for tab in ["margins", "adjustments", "home"] {
+            let button = app.buttons["miraTab-\(tab)"]
+            button.tap()
+            XCTAssertEqual(button.value as? String, "選択中")
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+        }
+        app.buttons["次の月"].tap()
+        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        app.buttons["miraCompanionButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["閉じる"].isHittable)
+        capture("roomier-reduced-motion-chat")
     }
 
     func testRoundedTabsKeepSelectionAndNavigation() {

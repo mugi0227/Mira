@@ -17,13 +17,13 @@ struct HomeView: View {
         ScrollView {
             // The calendar leads; everything else is secondary and sits below
             // it, while talking to Mira lives behind the corner companion.
-            VStack(spacing: MiraSpacing.sm) {
+            VStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
                 monthHeader
-                    .padding(.horizontal, MiraSpacing.md)
+                    .padding(.horizontal, screenInset)
 
                 if isFriendView {
                     friendViewBanner
-                        .padding(.horizontal, MiraSpacing.md)
+                        .padding(.horizontal, screenInset)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
@@ -45,29 +45,30 @@ struct HomeView: View {
                     onSelectDate: openDay,
                     onSelectItem: { item in if !isFriendView { selectedItem = item } }
                 )
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.md : 0)
+                .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
 
                 if !isFriendView {
                     nextStepCard
-                        .padding(.horizontal, MiraSpacing.md)
-                        .padding(.top, MiraSpacing.xs)
+                        .padding(.horizontal, screenInset)
 
                     progressSummary
-                        .padding(.horizontal, MiraSpacing.md)
+                        .padding(.horizontal, screenInset)
                 }
             }
             .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
-            .padding(.top, MiraSpacing.xs)
+            .padding(.top, palette.isCatSkin ? MiraSpacing.md : MiraSpacing.xs)
             .padding(.bottom, 96 + floatingTabBarClearance)
         }
+        // Keep scrolled dates out of the status bar's safe area.
+        .clipped()
         .miraScreenBackground(palette)
         .overlay(alignment: .bottomTrailing) {
             if store.assistantEnabled && !isFriendView {
                 MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
                     showCompanion = true
                 }
-                .padding(.trailing, MiraSpacing.md)
-                .padding(.bottom, MiraSpacing.sm + floatingTabBarClearance)
+                .padding(.trailing, screenInset)
+                .padding(.bottom, MiraSpacing.lg + floatingTabBarClearance)
             }
         }
         .sheet(isPresented: $showCompanion) {
@@ -122,6 +123,8 @@ struct HomeView: View {
         let interval = MonthKey(date: store.selectedMonth).interval
         return store.items.filter { $0.startDate < interval.end && $0.endDate > interval.start }
     }
+
+    private var screenInset: CGFloat { palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md }
 
     private var nextStepCard: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -189,7 +192,10 @@ struct HomeView: View {
         }
         .foregroundStyle(palette.primaryText)
         .tint(palette.accent)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .miraCard(palette, padding: MiraSpacing.sm)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("homeNextStepCard")
     }
 
     private var nextEvent: CalendarItemSnapshot? {

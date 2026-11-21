@@ -20,6 +20,12 @@ struct MiraApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView()
+                .transformEnvironment(\.accessibilityReduceMotion) { value in
+                    let arguments = ProcessInfo.processInfo.arguments
+                    if arguments.contains("-ui-testing") && arguments.contains("-ui-testing-reduce-motion") {
+                        value = true
+                    }
+                }
                 .fontDesign(.rounded)
                 // Pickers and system date text follow the same calendar the
                 // scheduling engines use, whatever the device region is.
