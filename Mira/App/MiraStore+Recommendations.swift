@@ -69,6 +69,12 @@ extension MiraStore {
                 return
             }
 
+            if existing.contains(where: {
+                $0.isDismissed && $0.proposal.map { rebalanceEngine.matches($0, proposal, items: items) } == true
+            }) {
+                return
+            }
+
             if let current = existing.first(where: {
                 !$0.isDismissed && $0.proposal.map { rebalanceEngine.matches($0, proposal, items: items) } == true
             }) {
