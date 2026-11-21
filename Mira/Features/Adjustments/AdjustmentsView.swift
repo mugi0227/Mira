@@ -197,7 +197,7 @@ private struct AdjustmentRow: View {
                 RoundedRectangle(cornerRadius: MiraRadius.small)
                     .fill(palette.adjustment)
                     .frame(width: 52, height: 52)
-                Image(systemName: session.status == .confirmed ? "checkmark.calendar" : "calendar.badge.clock")
+                Image(systemName: session.status == .confirmed ? "calendar.badge.checkmark" : "calendar.badge.clock")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(palette.primaryText)
             }
