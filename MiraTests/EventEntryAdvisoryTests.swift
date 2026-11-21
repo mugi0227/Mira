@@ -4,6 +4,33 @@ import XCTest
 
 @MainActor
 final class EventEntryAdvisoryTests: XCTestCase {
+    func testAllDayFormEventWithMemoOffConflictsWithMargin() async throws {
+        for memoFlag in [nil, false] as [Bool?] {
+            let store = try makeStore()
+            var draft = ManualEventDraft(date: TestFixtures.date(day: 10))
+            draft.title = "会議"
+            draft.isAllDay = true
+            draft.isMemo = memoFlag
+            XCTAssertFalse(draft.isMemo ?? false)
+            let margin = TestFixtures.event(title: "読書", day: 10, kind: .margin, marginKind: .reading)
+            store.context.insert(CalendarItemEntity(snapshot: margin))
+            try store.context.save()
+            try store.refresh()
+            let event = await store.prepareEvent(title: draft.title,
+                startDate: draft.date.setting(hour: 9), endDate: draft.date.setting(hour: 21),
+                isAllDay: draft.isAllDay, isImportant: draft.isImportant, colorTag: draft.colorTag)
+            XCTAssertEqual(event.occupiesTime, true)
+            XCTAssertTrue(event.countsAgainstWhitespace)
+            XCTAssertTrue(store.eventEntryConflicts(for: event).contains { $0.contains("読書") })
+            let impact = store.previewImpact(for: event)
+            XCTAssertEqual(impact.overlappingMargins.map(\.id), [margin.id])
+            XCTAssertTrue(store.commitEvent(event, impact: impact))
+            let saved = try XCTUnwrap(store.items.first { $0.id == event.id })
+            XCTAssertEqual(saved.occupiesTime, true)
+            XCTAssertTrue(saved.countsAgainstWhitespace)
+        }
+    }
+
     func testMemoConversionPreservesChangesMadeAfterDetailOpened() throws {
         let store = try makeStore()
         let stale = TestFixtures.event(title: "飲み会", day: 10, occupiesTime: false)

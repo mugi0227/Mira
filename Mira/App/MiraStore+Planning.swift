@@ -130,7 +130,8 @@ extension MiraStore {
             bufferAfterMinutes: evaluation.bufferAfterMinutes,
             isImportantTime: isImportant,
             sourceID: nil,
-            colorTag: colorTag
+            colorTag: colorTag,
+            occupiesTime: true
         )
     }
 
