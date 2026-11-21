@@ -11,6 +11,7 @@ struct DayTimelineView: View {
 
     let date: Date
     let palette: MiraThemePalette
+    var proposal: DayTimelineProposal? = nil
 
     @State private var selectedItem: CalendarItemSnapshot?
     @State private var draggingID: UUID?
@@ -21,6 +22,7 @@ struct DayTimelineView: View {
     private let timeLabelWidth: CGFloat = 52
 
     var body: some View {
+        GeometryReader { viewport in
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
@@ -46,18 +48,31 @@ struct DayTimelineView: View {
                 .padding(.bottom, 80)
             }
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .top, spacing: proposal == nil ? 0 : MiraSpacing.md) {
+                if let proposal {
+                    ScrollView {
+                        conflictSection(proposal)
+                            .padding(.horizontal, MiraSpacing.md)
+                            .padding(.vertical, MiraSpacing.sm)
+                    }
+                    .frame(height: min(viewport.size.height * 0.42, CGFloat(max(1, proposal.conflicts.count)) * 76 + 96))
+                    .background(palette.background)
+                }
+            }
             .onAppear {
-                store.selectedDate = date
+                if proposal == nil { store.selectedDate = date }
                 DispatchQueue.main.async {
                     proxy.scrollTo(scrollTargetID, anchor: .top)
                 }
             }
+        }
         }
         .navigationTitle(date.japaneseDayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                if proposal == nil {
                 Button {
                     store.presentedEventForm = ManualEventDraft(date: date)
                 } label: {
@@ -65,6 +80,7 @@ struct DayTimelineView: View {
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("この日に予定を追加")
+                }
             }
         }
         .sheet(item: $selectedItem) { item in
@@ -81,6 +97,40 @@ struct DayTimelineView: View {
                 if $0.isAllDay != $1.isAllDay { return $0.isAllDay }
                 return $0.startDate < $1.startDate
             }
+    }
+
+    private func conflictSection(_ proposal: DayTimelineProposal) -> some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.sm) {
+            Text("重なっている予定").font(.headline)
+            if proposal.conflicts.isEmpty {
+                Text("重なる予定はありません").foregroundStyle(palette.secondaryText)
+            }
+            ForEach(proposal.conflicts) { detail in
+                if let item = store.items.first(where: { $0.id == detail.itemID }) {
+                    Button { selectedItem = item } label: {
+                        conflictRow(detail.text, icon: item.kind == .margin ? "leaf" : "calendar", tappable: true)
+                    }
+                    .accessibilityIdentifier("proposal.conflict.\(item.title)")
+                } else {
+                    conflictRow(detail.text, icon: detail.baseRuleInterval == nil ? "calendar.badge.clock" : "nosign", tappable: false)
+                        .accessibilityIdentifier("proposal.conflict.\(detail.id)")
+                }
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(palette.critical)
+        .miraCard(palette, padding: MiraSpacing.lg)
+    }
+
+    private func conflictRow(_ text: String, icon: String, tappable: Bool) -> some View {
+        HStack(alignment: .top, spacing: MiraSpacing.xs) {
+            Image(systemName: icon).frame(width: 20).accessibilityHidden(true)
+            Text(text)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if tappable { Image(systemName: "chevron.right").accessibilityHidden(true) }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
     private var holiday: DeviceHolidaySnapshot? {
@@ -157,7 +207,7 @@ struct DayTimelineView: View {
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: timeLabelWidth, height: hourHeight, alignment: .topTrailing)
-                        .offset(y: -7)
+                        .offset(y: proposal == nil ? -7 : 0)
                         .id("hour-\(hour)")
                 }
             }
@@ -174,11 +224,21 @@ struct DayTimelineView: View {
                         }
                     }
 
+                    if let proposal {
+                        ForEach(proposal.conflicts.filter { $0.baseRuleInterval != nil }) { detail in
+                            if let interval = detail.baseRuleInterval {
+                                baseRuleBand(interval)
+                                    .frame(width: geometry.size.width)
+                            }
+                        }
+                    }
+
                     ForEach(timelinePlacements) { placement in
                         let spacing: CGFloat = 4
+                        let eventsWidth = proposal == nil ? geometry.size.width : (geometry.size.width - spacing) * 0.55
                         let laneWidth = max(
                             44,
-                            (geometry.size.width - spacing * CGFloat(placement.laneCount - 1))
+                            (eventsWidth - spacing * CGFloat(placement.laneCount - 1))
                                 / CGFloat(placement.laneCount)
                         )
                         let isDragging = draggingID == placement.item.id
@@ -202,7 +262,15 @@ struct DayTimelineView: View {
                                 y: placement.y + (isDragging ? dragOffset : 0)
                             )
                             .zIndex(isDragging ? 1 : 0)
-                            .gesture(timeDragGesture(for: placement.item))
+                            .gesture(timeDragGesture(for: placement.item), including: proposal == nil ? .all : .subviews)
+                    }
+
+                    if let proposal {
+                        proposalBlock(proposal.event)
+                            .frame(width: (geometry.size.width - 4) * 0.45)
+                            .offset(x: (geometry.size.width - 4) * 0.55 + 4,
+                                y: yOffset(for: max(Calendar.mira.startOfDay(for: date), proposal.event.startDate)))
+                            .zIndex(2)
                     }
 
                     if let currentY {
@@ -221,6 +289,7 @@ struct DayTimelineView: View {
             }
             .frame(height: hourHeight * 24)
         }
+        .padding(.trailing, proposal == nil ? 0 : MiraSpacing.md)
         .accessibilityElement(children: .contain)
     }
 
@@ -250,14 +319,81 @@ struct DayTimelineView: View {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(palette.primaryText.opacity(item.kind == .margin ? 0.20 : 0.08), lineWidth: 1)
+                    .stroke(isOverlapping(item) ? palette.critical : palette.primaryText.opacity(item.kind == .margin ? 0.20 : 0.08), lineWidth: 1)
             }
+            .overlay(alignment: .top) {
+                if let interval = overlap(for: item) {
+                    Rectangle()
+                        .fill(palette.critical.opacity(0.16))
+                        .frame(height: CGFloat(interval.duration / 3600) * hourHeight)
+                        .offset(y: CGFloat(interval.start.timeIntervalSince(max(item.startDate, Calendar.mira.startOfDay(for: date))) / 3600) * hourHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel("\(item.title)、\(item.timeDescription)")
-        .accessibilityHint("詳細を開く。長押ししてドラッグすると時間を変えられます")
-        .accessibilityAction(named: "15分早める") { shift(item, minutes: -15) }
-        .accessibilityAction(named: "15分遅らせる") { shift(item, minutes: 15) }
+        .accessibilityHint(proposal == nil ? "詳細を開く。長押ししてドラッグすると時間を変えられます" : "詳細を開く")
+        .accessibilityActions {
+            if proposal == nil {
+                Button("15分早める") { shift(item, minutes: -15) }
+                Button("15分遅らせる") { shift(item, minutes: 15) }
+            }
+        }
+    }
+
+    private func isOverlapping(_ item: CalendarItemSnapshot) -> Bool {
+        guard let proposal else { return false }
+        return !ProposalTimeline.overlappingItems([item], proposal: proposal.event).isEmpty
+    }
+
+    private func baseRuleBand(_ interval: DateInterval) -> some View {
+        let start = max(Calendar.mira.startOfDay(for: date), interval.start)
+        let end = min(Calendar.mira.startOfDay(for: date).addingDays(1), interval.end)
+        return Rectangle()
+            .fill(palette.secondaryText.opacity(0.08))
+            .overlay(alignment: .topLeading) {
+                Text("基本時間")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(4)
+                    .background(palette.background.opacity(0.90), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                    .offset(y: -20)
+            }
+            .frame(height: max(0, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight))
+            .offset(y: yOffset(for: start))
+            .allowsHitTesting(false)
+    }
+
+    private func overlap(for item: CalendarItemSnapshot) -> DateInterval? {
+        guard let proposal, item.exactTimeKnown, isOverlapping(item) else { return nil }
+        let day = DateInterval(start: Calendar.mira.startOfDay(for: date), end: Calendar.mira.startOfDay(for: date).addingDays(1))
+        guard let interval = ProposalTimeline.overlap(
+            DateInterval(start: item.startDate, end: max(item.startDate, item.endDate)),
+            DateInterval(start: proposal.event.startDate, end: max(proposal.event.startDate, proposal.event.endDate))
+        ) else { return nil }
+        return ProposalTimeline.overlap(interval, day)
+    }
+
+    private func proposalBlock(_ event: CalendarItemSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+            Text(event.title).font(.caption.bold())
+            Text(event.timeDescription).font(.caption2.monospacedDigit())
+        }
+        .foregroundStyle(palette.accent)
+        .padding(MiraSpacing.xs)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: eventHeight(for: event), alignment: .topLeading)
+        .background(palette.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous)
+                .stroke(palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("追加予定 \(event.title)、\(event.timeDescription)")
+        .accessibilityIdentifier("proposal.timelineBlock")
+        .allowsHitTesting(false)
     }
 
     /// Long-press then drag, snapping to 15 minutes, so scrolling the day
@@ -381,7 +517,9 @@ struct DayTimelineView: View {
 
     private var scrollTargetID: String {
         let hour: Int
-        if Calendar.mira.isDate(date, inSameDayAs: store.now) {
+        if let proposal {
+            hour = ProposalTimeline.scrollHour(for: proposal, on: date)
+        } else if Calendar.mira.isDate(date, inSameDayAs: store.now) {
             hour = max(0, Calendar.mira.component(.hour, from: store.now) - 1)
         } else if let first = timedItems.first {
             hour = max(0, Calendar.mira.component(.hour, from: first.startDate) - 1)
