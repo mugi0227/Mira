@@ -184,6 +184,7 @@ struct MonthCalendarGrid: View {
                                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                                 .foregroundStyle(palette.secondaryText)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.65)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .accessibilityIdentifier("friendDayContent")
                         }

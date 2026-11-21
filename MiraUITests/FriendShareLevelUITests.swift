@@ -32,8 +32,8 @@ final class FriendShareLevelUITests: XCTestCase {
             let content = app.staticTexts.matching(identifier: "friendDayContent")
             XCTAssertTrue(content.firstMatch.waitForExistence(timeout: 5))
             if level == "busyTimes" {
-            XCTAssertTrue(content.allElementsBoundByIndex.contains { $0.label.contains("–") })
-            XCTAssertFalse(content.allElementsBoundByIndex.contains { $0.label.contains("予定あり") })
+                XCTAssertTrue(content.allElementsBoundByIndex.contains { $0.label.contains("–") })
+                XCTAssertFalse(content.allElementsBoundByIndex.contains { $0.label.contains("予定あり") })
             }
             XCTAssertTrue(app.staticTexts["見せる相手"].exists)
             XCTAssertTrue(app.staticTexts["見せる範囲"].exists)
@@ -56,6 +56,10 @@ final class FriendShareLevelUITests: XCTestCase {
 
     private func captureShare(_ app: XCUIApplication, level: String) {
         attach("demo-\(level)-grid")
+        app.swipeUp()
+        attach("demo-\(level)-grid-scrolled")
+        app.swipeDown()
+        app.swipeDown()
         let share = app.buttons["friendShareImage"]
         XCTAssertTrue(share.waitForExistence(timeout: 5))
         let preview = app.buttons["friendShareExactImagePreview"]
