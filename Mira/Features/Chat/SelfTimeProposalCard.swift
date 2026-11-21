@@ -124,10 +124,7 @@ struct SelfTimeProposalCard: View {
         switch proposal.state {
         case .pending:
             let count = proposal.chosenMargins.count
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(spacing: MiraSpacing.xs))
-                : AnyLayout(HStackLayout(spacing: MiraSpacing.xs))
-            layout {
+            VStack(spacing: MiraSpacing.xs) {
                 Button {
                     withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                         _ = store.applySelfTimeCard(messageID: messageID, proposal: proposal)
@@ -136,6 +133,7 @@ struct SelfTimeProposalCard: View {
                     HStack {
                         Image(systemName: "leaf.fill").accessibilityHidden(true)
                         Text(count == 0 ? "枠を選んでね" : "この\(count)枠を置く")
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                         .font(.subheadline.weight(.bold))
@@ -161,7 +159,7 @@ struct SelfTimeProposalCard: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)

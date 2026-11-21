@@ -238,8 +238,8 @@ struct NewItemSheet: View {
     private var secretaryPreview: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
             HStack(alignment: .top, spacing: MiraSpacing.sm) {
-                if store.theme == .pixelCat {
-                    PixelCatView(mood: secretaryMood, size: 58)
+                if store.theme.isCat {
+                    MiraCatView(mood: secretaryMood, size: 58)
                 } else {
                     Image(systemName: secretarySymbol)
                         .font(.title2)

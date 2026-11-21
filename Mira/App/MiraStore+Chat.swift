@@ -39,8 +39,10 @@ extension MiraStore {
                 }
             }
         } catch {
-            if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !sink.hasCards {
-                sink.setText("AIを利用できませんでした。少し時間をおいて、もう一度お試しください。")
+            sink.setText(ChatAnswer.failure)
+            updateChatMessage(reply.id) {
+                $0.cards = []
+                $0.activities = []
             }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -90,6 +92,11 @@ extension MiraStore {
     }
 
     func currentChatAgent() -> any MiraChatAgent {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-markdown-reply") {
+            return MarkdownDemoChatAgent()
+        }
+        #endif
         if let chatAgent { return chatAgent }
         let agent = MiraChatAgentFactory.make()
         chatAgent = agent
@@ -182,7 +189,7 @@ extension MiraStore {
         let label = rangeLabel(start, end)
         let lines = found.prefix(24).map { item in
             let kind = item.kind == .margin ? "余白" : (item.kind == .birthday ? "誕生日" : "予定")
-            return "- \(item.startDate.japaneseShortDate) \(item.timeDescription) [\(kind)] \(item.title)"
+            return "- \(ChatAnswer.date(item.startDate)) \(item.timeDescription) [\(kind)] \(item.title)"
         }
         let summary = found.isEmpty
             ? "\(label)：予定も余白もありません。"
@@ -229,7 +236,7 @@ extension MiraStore {
         let summary = slots.isEmpty
             ? "\(label)に、余白や基本時間とぶつからない候補は見つかりませんでした。"
             : "\(label)の候補（余白・基本時間とぶつからない順）：\n" + slots.map {
-                "- \($0.start.japaneseShortDate) \($0.band.title) \(timeText($0.start))–\(timeText($0.end))"
+                "- \(ChatAnswer.date($0.start)) \($0.band.title) \(timeText($0.start))–\(timeText($0.end))"
             }.joined(separator: "\n")
         return MiraToolResult(
             summary: summary,
@@ -250,7 +257,7 @@ extension MiraStore {
         if !impact.overlappingMargins.isEmpty {
             notes.append("余白「\(impact.overlappingMargins.map(\.title).joined(separator: "、"))」と重なります")
         }
-        let summary = "提案カードを作成：\(event.title) \(event.startDate.japaneseShortDate) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
+        let summary = "提案カードを作成：\(event.title) \(rangeLabel(event.startDate, event.endDate)) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
             + (notes.isEmpty ? "問題なし。" : "注意：" + notes.joined(separator: "／"))
             + " まだ保存していません。本人がカードで決めます。"
         return MiraToolResult(
@@ -282,7 +289,7 @@ extension MiraStore {
         let conflicts = eventEntryConflicts(for: after, excludingItemID: item.id)
         let preview = ChangePreview(caseID: item.conversationCaseID, itemID: item.id, title: item.title,
             before: item, after: after, conflicts: conflicts, impact: impact)
-        let summary = "移動案：\(item.title) \(item.startDate.japaneseShortDate) → \(newStart.japaneseShortDate)。"
+        let summary = "移動案：\(item.title) \(ChatAnswer.date(item.startDate)) → \(ChatAnswer.date(newStart))。"
             + (conflicts.isEmpty && impact.overlappingMargins.isEmpty ? "問題なし。" : "注意：" + (conflicts + impact.overlappingMargins.map { "余白「\($0.title)」と重なる" }).joined(separator: "／"))
             + " まだ動かしていません。"
         return MiraToolResult(
@@ -302,7 +309,7 @@ extension MiraStore {
         }
         let busy = items.filter { $0.kind == .confirmed && key.interval.contains($0.startDate) }
         let heavy = busy.filter { $0.loadClass >= .heavy }.count
-        let summary = "\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
+        let summary = "対象期間：\(rangeLabel(key.interval.start, key.interval.end))。\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
             + lines.map { "\($0.title) \($0.current)/\($0.target)" }.joined(separator: "、")
         return MiraToolResult(
             summary: summary,
@@ -329,8 +336,8 @@ extension MiraStore {
     func rangeLabel(_ start: Date, _ end: Date) -> String {
         let calendar = Calendar.mira
         let lastDay = end > start ? end.addingTimeInterval(-1) : start
-        if calendar.isDate(start, inSameDayAs: lastDay) { return start.japaneseShortDate }
-        return "\(start.japaneseShortDate)〜\(lastDay.japaneseShortDate)"
+        if calendar.isDate(start, inSameDayAs: lastDay) { return ChatAnswer.date(start) }
+        return "\(ChatAnswer.date(start))〜\(ChatAnswer.date(lastDay))"
     }
 
     private func timeText(_ date: Date) -> String {

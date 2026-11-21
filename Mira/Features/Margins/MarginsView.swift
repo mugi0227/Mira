@@ -20,7 +20,7 @@ struct MarginsView: View {
                 baseRulesCard
                 futureMonthCard
             }
-            .padding(.horizontal, MiraSpacing.md)
+            .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
         }
@@ -105,8 +105,8 @@ struct MarginsView: View {
 
     private var overviewCard: some View {
         HStack(spacing: MiraSpacing.md) {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: overallMood, size: 72)
+            if store.theme.isCat {
+                MiraCatView(mood: overallMood, size: 72)
             } else {
                 Image(systemName: "leaf.circle.fill")
                     .font(.system(size: 50))
@@ -381,8 +381,8 @@ struct MarginsView: View {
 
     private var overallTitle: String {
         let deficits = store.currentMonthGoals.filter { store.progress(for: $0).current < store.progress(for: $0).target }
-        if deficits.isEmpty { return store.theme == .pixelCat ? "ちゃんと守れています" : "目標を満たしています" }
-        return store.theme == .pixelCat ? "あと少し整えられます" : "まだ置ける余白があります"
+        if deficits.isEmpty { return store.theme.isCat ? "ちゃんと守れています" : "目標を満たしています" }
+        return store.theme.isCat ? "あと少し整えられます" : "まだ置ける余白があります"
     }
 
     private var overallMessage: String {

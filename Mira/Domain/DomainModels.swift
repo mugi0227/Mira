@@ -5,6 +5,9 @@ import Foundation
 enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
     case softMinimal
     case pixelCat
+    case silhouetteCat
+
+    var isCat: Bool { self == .pixelCat || self == .silhouetteCat }
 
     var id: String { rawValue }
 
@@ -12,6 +15,7 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .softMinimal: "Soft Minimal"
         case .pixelCat: "Pixel Cat"
+        case .silhouetteCat: "くすみシルエット"
         }
     }
 }

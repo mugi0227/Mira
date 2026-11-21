@@ -1,5 +1,15 @@
 import Foundation
 
+#if DEBUG
+@MainActor
+final class MarkdownDemoChatAgent: MiraChatAgent {
+    let displayName = "Mira（デモ）"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        sink.setText("**余白を確認しました。**\n* **読書**の時間を守ろう。\n- 無理せず休んでね。")
+    }
+}
+#endif
+
 /// A chat agent answers one turn by calling Mira's tools and writing a reply
 /// into the sink. Tools only read or propose; the person approves changes.
 @MainActor
@@ -16,7 +26,15 @@ enum MiraChatAgentFactory {
             return FoundationModelsChatAgent()
         }
         #endif
-        return RuleBasedChatAgent()
+        return UnavailableChatAgent()
+    }
+}
+
+@MainActor
+private final class UnavailableChatAgent: MiraChatAgent {
+    let displayName = "Mira"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        throw CocoaError(.featureUnsupported)
     }
 }
 
@@ -199,9 +217,9 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     private func stream(_ prompt: String, into sink: ChatTurnSink) async throws {
         let session = self.session ?? makeSession()
         self.session = session
-        let responseStream = session.streamResponse(to: prompt)
+        let responseStream = session.streamResponse(to: prompt, options: GenerationOptions(maximumResponseTokens: 512))
         for try await snapshot in responseStream {
-            sink.setText(snapshot.content)
+            sink.setText(ChatAnswer.trimmed(snapshot.content))
         }
     }
 
@@ -220,9 +238,16 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     }
 
     static let instructions = """
-    あなたは「Mira」。予定と自分の時間を整える、落ち着いたアシスタント。親しみやすく自然な日本語で2〜3文、短く答える。動物の鳴き声やキャラクター口調は使わない。
+    あなたは「Mira」。予定と自分の時間を整える、落ち着いた秘書。親しみやすく自然な日本語で、利用者の判断に役立つ具体的な返事をする。動物の鳴き声やキャラクター口調は使わない。
     利用者は誘いが多く断るのが苦手。自分の休息・読書・一人時間（＝余白）を守りながら予定を入れたい。
     ルール：
+    - 回答は150〜400文字を目安に、秘書として「結論→根拠→次の一手」の順にする。
+    - 最初の1文で質問に直接答える（例：「休息の余白は確保できています」「ちょっと詰まり気味です」）。ただしツールの根拠が足りない場合は判断できないと伝える。
+    - 次に根拠を「- 」で始まる2〜4項目の箇条書きにする。各項目には、ツール結果から写した日付・曜日と、その日の予定または余白を入れる。日付付きの根拠が足りなければ、対象期間の listSchedule で確認する。項目数のために事実を作らない。
+    - 最後は具体的な提案または質問を1つだけ添える（例：ツールで確認したどの日を休息用に守るか、提案カードを作るか）。「無理しないでね」だけの一般論で埋めない。
+    - 特筆することがなければ、その旨を1〜2文で伝えるだけでよい。見出し・「まとめ」・同じ内容や節の繰り返しは禁止。
+    - 日付・曜日・件数・数値は今回のツール結果にあるものだけをそのまま使う。曜日や割合・パーセントを自分で計算しない。結果にない日や期間外の日を挙げない。不明なことは不明と伝える。
+    - 「今月休めてる？」など休息・余白の質問には monthBalance を使う。件数だけから休めていると断定しない。
     - 予定や空きについて答える前に、必ずツールでカレンダーを確認する。推測で日付や予定を言わない。
     - 予定の追加・移動は proposeEvent / proposeMove で「案」を作るだけ。保存は本人がカードで決める。保存したとは言わない。
     - 空きを聞かれたら findOpenSlots。余白や基本時間とぶつからない候補だけを勧める。

@@ -46,7 +46,62 @@ final class MiraStyleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "pixelCat", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+    }
+
+    func testCalendarLeavesRoomAroundRoundedCorners() {
+        launchHome()
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(calendar.frame.minX - app.frame.minX, 20)
+        XCTAssertGreaterThanOrEqual(app.frame.maxX - calendar.frame.maxX, 20)
+
+        // Both edge columns must remain inside the card, not under its curve.
+        let monday = app.descendants(matching: .any)["calendar-day-2026-08-31"].firstMatch
+        let sunday = app.descendants(matching: .any)["calendar-day-2026-09-06"].firstMatch
+        XCTAssertTrue(monday.exists)
+        XCTAssertTrue(sunday.exists)
+        XCTAssertGreaterThanOrEqual(monday.frame.minX - calendar.frame.minX, 24)
+        XCTAssertGreaterThanOrEqual(calendar.frame.maxX - sunday.frame.maxX, 24)
+        XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
+        let scroll = app.scrollViews["homeScroll"]
+        XCTAssertTrue(scroll.exists)
+        XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
+        capture("roomier-calendar")
+    }
+
+    func testNextStepCardKeepsTextAwayFromCornersAndOpensEvent() {
+        launchHome()
+        let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
+        for _ in 0..<4 where !card.isHittable || card.frame.maxY > app.buttons["miraTab-home"].frame.minY {
+            app.swipeUp()
+        }
+        XCTAssertTrue(card.exists)
+        let label = card.staticTexts["次の予定"].firstMatch
+        XCTAssertTrue(label.exists)
+        XCTAssertGreaterThanOrEqual(label.frame.minX - card.frame.minX, 20)
+        XCTAssertGreaterThanOrEqual(label.frame.minY - card.frame.minY, 20)
+        let event = card.buttons.firstMatch
+        XCTAssertTrue(event.isHittable)
+        XCTAssertGreaterThanOrEqual(card.frame.maxX - event.frame.maxX, 20)
+        XCTAssertGreaterThanOrEqual(card.frame.maxY - event.frame.maxY, 20)
+        capture("roomier-next-step")
+        event.tap()
+        XCTAssertTrue(app.buttons["閉じる"].waitForExistence(timeout: 5))
+    }
+
+    func testGoalPillsStayInsideScreenGutters() {
+        launchHome()
+        let summary = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
+        for _ in 0..<4 where !summary.isHittable { app.swipeUp() }
+        let pills = summary.descendants(matching: .any).matching(identifier: "homeGoalPill")
+        XCTAssertEqual(pills.count, 3)
+        for index in 0..<pills.count {
+            let pill = pills.element(boundBy: index)
+            XCTAssertGreaterThanOrEqual(pill.frame.minX - app.frame.minX, 20)
+            XCTAssertGreaterThanOrEqual(app.frame.maxX - pill.frame.maxX, 20)
+        }
+        capture("roomier-goals")
     }
 
     func testRoundedTabsKeepSelectionAndNavigation() {
@@ -107,6 +162,12 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThan(suggestions.count, 0)
         XCTAssertGreaterThanOrEqual(suggestions.firstMatch.frame.height, 44)
         XCTAssertTrue(app.buttons["閉じる"].isHittable)
+        let apply = app.buttons["selfTimeApply"].firstMatch
+        let dismiss = app.buttons["selfTimeDismiss"].firstMatch
+        for _ in 0..<6 where !dismiss.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(apply.isHittable)
+        XCTAssertTrue(dismiss.isHittable)
+        XCTAssertGreaterThanOrEqual(dismiss.frame.minY, apply.frame.maxY)
         capture("natural-chat")
     }
 
