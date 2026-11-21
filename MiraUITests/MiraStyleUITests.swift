@@ -32,7 +32,9 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(september.waitForExistence(timeout: 5))
         let day = app.descendants(matching: .any)["calendar-day-2026-09-02"].firstMatch
         XCTAssertTrue(day.exists)
-        day.tap()
+        let dayHeader = day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: 15))
+        dayHeader.tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         capture("rounded-day")
     }
