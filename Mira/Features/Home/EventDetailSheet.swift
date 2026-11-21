@@ -36,7 +36,7 @@ struct EventDetailSheet: View {
                             .miraCard(palette)
                             .onChange(of: isMemo) { _, enabled in
                                 guard enabled != (item.kind == .memo) else { return }
-                                let updated = store.memoConvertedSnapshot(for: item, enabled: enabled)
+                                guard let updated = store.memoConvertedSnapshot(for: item, enabled: enabled) else { return }
                                 var warnings = store.eventEntryConflicts(for: updated)
                                 let margins = store.previewImpact(for: updated).overlappingMargins
                                 if !margins.isEmpty {

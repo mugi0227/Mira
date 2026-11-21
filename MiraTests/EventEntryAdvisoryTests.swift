@@ -4,6 +4,42 @@ import XCTest
 
 @MainActor
 final class EventEntryAdvisoryTests: XCTestCase {
+    func testMemoConversionPreservesChangesMadeAfterDetailOpened() throws {
+        let store = try makeStore()
+        let stale = TestFixtures.event(title: "飲み会", day: 10, kind: .memo)
+        let entity = CalendarItemEntity(snapshot: stale)
+        store.context.insert(entity)
+        try store.context.save()
+        try store.refresh()
+        var current = stale
+        current.title = "オンライン通話"
+        current.startDate = TestFixtures.date(day: 11, hour: 14)
+        current.endDate = TestFixtures.date(day: 11, hour: 15)
+        current.colorTag = .purple
+        entity.apply(current)
+        try store.context.save()
+        try store.refresh()
+        let preview = try XCTUnwrap(store.memoConvertedSnapshot(for: stale, enabled: false))
+        XCTAssertEqual(preview.title, current.title)
+        XCTAssertEqual(preview.startDate, current.startDate)
+        XCTAssertEqual(preview.colorTag, .purple)
+        XCTAssertTrue(store.setMemo(stale, enabled: false))
+        XCTAssertEqual(store.items.first { $0.id == stale.id }, preview)
+    }
+
+    func testMemoConversionRejectsMissingAndNonEventItems() throws {
+        let store = try makeStore()
+        let missing = TestFixtures.event(day: 10, kind: .memo)
+        XCTAssertNil(store.memoConvertedSnapshot(for: missing, enabled: false))
+        XCTAssertFalse(store.setMemo(missing, enabled: false))
+        let margin = TestFixtures.event(day: 10, kind: .margin, marginKind: .rest)
+        store.context.insert(CalendarItemEntity(snapshot: margin))
+        try store.context.save()
+        try store.refresh()
+        XCTAssertNil(store.memoConvertedSnapshot(for: margin, enabled: true))
+        XCTAssertFalse(store.setMemo(margin, enabled: true))
+    }
+
     func testMemoConversionPreviewIncludesBufferOnlyMargin() throws {
         let store = try makeStore()
         let memo = TestFixtures.event(title: "飲み会", day: 10, hour: 18, kind: .memo)
@@ -12,7 +48,7 @@ final class EventEntryAdvisoryTests: XCTestCase {
         store.context.insert(CalendarItemEntity(snapshot: margin))
         try store.context.save()
         try store.refresh()
-        let converted = store.memoConvertedSnapshot(for: memo, enabled: false)
+        let converted = try XCTUnwrap(store.memoConvertedSnapshot(for: memo, enabled: false))
         XCTAssertGreaterThan(converted.bufferAfterMinutes, 0)
         XCTAssertFalse(memo.occupiedInterval.intersects(margin.occupiedInterval))
         let shown = store.previewImpact(for: converted).overlappingMargins

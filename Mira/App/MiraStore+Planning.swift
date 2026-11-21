@@ -258,7 +258,9 @@ extension MiraStore {
         }
     }
 
-    func memoConvertedSnapshot(for item: CalendarItemSnapshot, enabled: Bool) -> CalendarItemSnapshot {
+    func memoConvertedSnapshot(for item: CalendarItemSnapshot, enabled: Bool) -> CalendarItemSnapshot? {
+        guard let item = items.first(where: { $0.id == item.id }),
+              item.deviceEvent == nil, item.kind == .confirmed || item.kind == .memo else { return nil }
         var updated = item
         updated.kind = enabled ? .memo : .confirmed
         updated.isImportantTime = false
@@ -279,8 +281,7 @@ extension MiraStore {
 
     @discardableResult
     func setMemo(_ item: CalendarItemSnapshot, enabled: Bool) -> Bool {
-        guard item.deviceEvent == nil, item.kind == .confirmed || item.kind == .memo else { return false }
-        let updated = memoConvertedSnapshot(for: item, enabled: enabled)
+        guard let updated = memoConvertedSnapshot(for: item, enabled: enabled) else { return false }
         let impact = previewImpact(for: updated)
         let undo = captureCalendarUndo(title: "予定の変更")
         do {
@@ -292,8 +293,8 @@ extension MiraStore {
             try context.save()
             try refresh()
             finishCalendarMutation(undo)
-            updateMarginRecommendation(for: item.startDate)
-            recalculateBalance(for: item.startDate)
+            updateMarginRecommendation(for: updated.startDate)
+            recalculateBalance(for: updated.startDate)
             return true
         } catch {
             context.rollback()
