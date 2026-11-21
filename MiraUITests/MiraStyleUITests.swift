@@ -243,7 +243,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
         capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
-        XCTAssertEqual(month.label, "2026年10月")
+        XCTAssertEqual(month.label.components(separatedBy: "、").first, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
         app.terminate()

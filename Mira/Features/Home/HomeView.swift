@@ -348,7 +348,7 @@ struct HomeView: View {
         }
         .foregroundStyle(palette.primaryText)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(store.selectedMonth.japaneseMonthTitle)
+        .accessibilityLabel(store.selectedMonth.japaneseMonthTitle + "、" + monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
         .accessibilityIdentifier("homeMonthHeading")
     }
 
