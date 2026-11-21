@@ -98,6 +98,7 @@ jobs:
             -only-testing:MiraUITests/SelfTimeChatUITests \
             -only-testing:MiraUITests/MiraStyleUITests \
             -only-testing:MiraUITests/OneLineCatSkinUITests \
+            -only-testing:MiraUITests/CatErrorStampUITests \
             CODE_SIGNING_ALLOWED=NO \
             test | tee ui-tests.log
 

@@ -31,7 +31,7 @@ enum MiraChatAgentFactory {
 }
 
 @MainActor
-private final class UnavailableChatAgent: MiraChatAgent {
+final class UnavailableChatAgent: MiraChatAgent {
     let displayName = "Mira"
     func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
         throw CocoaError(.featureUnsupported)

@@ -43,6 +43,7 @@ extension MiraStore {
             updateChatMessage(reply.id) {
                 $0.cards = []
                 $0.activities = []
+                $0.failure = .aiUnavailable
             }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -93,6 +94,9 @@ extension MiraStore {
 
     func currentChatAgent() -> any MiraChatAgent {
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-chat-failure") {
+            return UnavailableChatAgent()
+        }
         if ProcessInfo.processInfo.arguments.contains("-ui-markdown-reply") {
             return MarkdownDemoChatAgent()
         }
