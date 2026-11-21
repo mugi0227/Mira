@@ -320,6 +320,7 @@ final class LoadRuleEntity {
 
 @Model
 final class ImportantPersonEntity {
+    var friendShareLevelRaw: String? = nil
     @Attribute(.unique) var id: UUID
     var name: String
     var monthlyTarget: Int?

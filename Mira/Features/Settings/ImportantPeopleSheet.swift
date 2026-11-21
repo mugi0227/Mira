@@ -43,6 +43,7 @@ struct ImportantPeopleSheet: View {
                                     .foregroundStyle(palette.important)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(person.name)
+                                    FriendLevelPicker(person: person, palette: palette)
                                     if person.targetEnabled, let target = person.monthlyTarget {
                                         Text("月 \(target)回")
                                             .font(.caption)
