@@ -80,7 +80,8 @@ final class SelfTimeChatUITests: XCTestCase {
         showDay.tap()
         let block = app.descendants(matching: .any)["proposal.timelineBlock"].firstMatch
         require(block, "proposal overlay")
-        app.navigationBars.element(boundBy: app.navigationBars.count - 1).swipeUp()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.49))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)))
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = "proposal-day-timeline-large"
         attachment.lifetime = .keepAlways
