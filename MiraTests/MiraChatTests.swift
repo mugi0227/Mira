@@ -23,7 +23,8 @@ final class MiraChatTests: XCTestCase {
 
     func testDatedQuestionsDoNotBecomeAddRequests() async {
         let interpreter = ProductionConversationInterpreter(base: RuleBasedConversationInterpreter())
-        for text in ["今日の20時の予定は？", "今日の20時に何がある", "今日の20時の予定を教えて"] {
+        for text in ["今日の20時の予定は？", "今日の20時に何がある", "今日の20時の予定を教えて",
+                     "明日の19時は空いてますか", "明日の19時はあいてる", "明日の19時は暇ですか"] {
             let result = await interpreter.interpret(text: text, now: TestFixtures.date(day: 15),
                 pinnedContext: nil, searchCandidates: [], recentTurns: [])
             XCTAssertNotEqual(result.intent, .addEvent)
