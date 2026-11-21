@@ -79,17 +79,18 @@ final class MiraStyleUITests: XCTestCase {
 
     func testMonthControlsStillOpenADay() {
         launchHome()
+        XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
         let september = app.staticTexts["2026年9月"]
         XCTAssertTrue(september.waitForExistence(timeout: 5))
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         app.buttons["前の月"].tap()
         XCTAssertTrue(september.waitForExistence(timeout: 5))
-        let day = app.descendants(matching: .any)["calendar-day-2026-09-02"].firstMatch
+        let day = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "9月", "予定なし")
+        ).firstMatch
         XCTAssertTrue(day.exists)
-        let dayHeader = day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
-            .withOffset(CGVector(dx: 0, dy: 15))
-        dayHeader.tap()
+        day.tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         capture("rounded-day")
     }

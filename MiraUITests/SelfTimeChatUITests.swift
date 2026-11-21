@@ -175,20 +175,22 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testEditingAnOlderChatCardDoesNotJumpToLatest() {
         openCompanion()
-        let proposals = app.buttons.matching(identifier: "chatApplyCard")
-        for (index, request) in [
-            "明日の19時に友達と夕食を追加して",
-            "明日の20時に友達と映画を追加して",
-            "明日の21時に友達と会う予定を追加して"
-        ].enumerated() {
+        let firstTitle = "友達と夕食"
+        for (request, title) in [
+            ("明日の19時に友達と夕食を追加して", firstTitle),
+            ("明日の20時に友達と映画を追加して", "友達と映画"),
+            ("明日の21時に友達と会う予定を追加して", "友達と会う予定")
+        ] {
             sendChat(request)
-            require(proposals.element(boundBy: index), "reply action \(index)", timeout: 20)
+            require(app.staticTexts[title].firstMatch, "proposal for \(title)", timeout: 20)
         }
 
         let history = app.scrollViews["miraChatTranscript"]
         require(history, "chat transcript")
+        let firstProposal = app.staticTexts[firstTitle].firstMatch
         let firstDismiss = app.buttons.matching(identifier: "やめる").firstMatch
-        for _ in 0..<5 where !firstDismiss.isHittable { history.swipeDown() }
+        for _ in 0..<5 where !firstProposal.isHittable || !firstDismiss.isHittable { history.swipeDown() }
+        XCTAssertTrue(firstProposal.isHittable)
         XCTAssertTrue(firstDismiss.isHittable)
         firstDismiss.tap()
 
@@ -214,6 +216,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
     func testSchedulingScrollEndsNearItsAction() {
         openTab("調整")
+        captureScrollState("adjustments")
         app.buttons["日程を探す"].tap()
         let save = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "候補でOK")).firstMatch
         require(save, "scheduling action")
@@ -222,6 +225,7 @@ final class SelfTimeChatUITests: XCTestCase {
 
         let summary = app.otherElements["schedulingSelectedSummary"]
         require(summary, "candidate summary")
+        captureScrollState("scheduling-scroll-end")
         let gap = save.frame.minY - summary.frame.maxY
         XCTAssertGreaterThan(gap, 0)
         XCTAssertLessThan(gap, 72, "The pinned action already reserves space below the candidates")
@@ -239,6 +243,7 @@ final class SelfTimeChatUITests: XCTestCase {
         for _ in 0..<4 { timeline.swipeUp(velocity: .fast) }
         let lastHour = app.staticTexts["23:00"]
         require(lastHour, "last hour")
+        captureScrollState("timeline-scroll-end")
         let gap = app.buttons["miraTab-home"].frame.minY - lastHour.frame.maxY
         XCTAssertGreaterThan(gap, 0)
         XCTAssertLessThan(gap, 110, "The final hour should not be followed by another hour of blank space")
