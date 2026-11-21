@@ -26,6 +26,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
+        XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
         XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
         capture("roomier-calendar")
     }
@@ -94,7 +95,17 @@ final class MiraStyleUITests: XCTestCase {
         capture("rounded-day")
     }
 
-    func testToastLeavesMonthControlsReachable() {
+    func testToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "pixelCat")
+    }
+
+    func testSilhouetteToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "silhouetteCat")
+    }
+
+    private func assertToastLayout(theme: String) throws {
+        let themeIndex = try XCTUnwrap(app.launchArguments.firstIndex(of: "-ui-theme"))
+        app.launchArguments[themeIndex + 1] = theme
         app.launchArguments += ["-ui-testing-persistent-toast"]
         launchHome()
         let calendarPermission = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -117,9 +128,11 @@ final class MiraStyleUITests: XCTestCase {
         let lastRowFrame = lastRow.frame
         let tabFrame = tabs.frame
         XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, app.scrollViews["homeScroll"].frame.maxY)
+        XCTAssertFalse(lastRowFrame.intersects(toastFrame))
         XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
         XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
-        capture("floating-toast-full-calendar")
+        capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         XCTAssertTrue(toast.exists)
