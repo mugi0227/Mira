@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 
 import jwt
@@ -65,8 +66,12 @@ def main():
         profile = config["profiles"][identifier]
         req = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/profiles/" + profile["id"],
                                      headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=30) as response:
-            attributes = json.load(response)["data"]["attributes"]
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                attributes = json.load(response)["data"]["attributes"]
+        except urllib.error.HTTPError as error:
+            raise RuntimeError("App Store Connect returned HTTP %d for the %s profile: %s"
+                               % (error.code, identifier, error.read().decode(errors="replace"))) from None
         if attributes["profileState"] != "ACTIVE" or attributes["profileType"] != "IOS_APP_STORE":
             raise RuntimeError("An active App Store profile is required for " + identifier)
         raw = base64.b64decode(attributes["profileContent"])
