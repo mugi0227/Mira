@@ -39,9 +39,8 @@ extension MiraStore {
                 }
             }
         } catch {
-            if !sink.hasCards {
-                try? await RuleBasedChatAgent(interpreter: ProductionConversationInterpreter(base: RuleBasedConversationInterpreter()))
-                    .respond(to: text, store: self, sink: sink)
+            if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !sink.hasCards {
+                sink.setText("AIがうまく動かなかったにゃ。少し時間をおいてもう一度試してね。")
             }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

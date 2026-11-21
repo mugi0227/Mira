@@ -7,7 +7,7 @@ import XCTest
 final class MiraChatTests: XCTestCase {
     func testPreviouslyAddedDinnerCanProduceDeclineDraft() async throws {
         let store = try makeStore()
-        store.chatAgent = FailingChatAgent()
+        store.chatAgent = RuleBasedChatAgent(interpreter: ProductionConversationInterpreter(base: RuleBasedConversationInterpreter()))
         await store.sendChat("明日の19時に追加した食事の誘いを断る文を作って")
         let reply = try XCTUnwrap(store.chatMessages.last)
         XCTAssertTrue(reply.cards.contains { if case .message = $0 { return true }; return false })
@@ -74,12 +74,27 @@ final class MiraChatTests: XCTestCase {
         XCTAssertFalse(reply.text.contains("うまく考えられなかった"))
     }
 
-    func testModelFailureFallsBackToRuleTools() async throws {
+    func testModelFailureShowsClearErrorWithoutCards() async throws {
         let store = try makeStore()
         store.chatAgent = FailingChatAgent()
         await store.sendChat("今月ちゃんと休めてる？")
-        XCTAssertFalse(try XCTUnwrap(store.chatMessages.last).text.contains("うまく考えられなかった"))
-        XCTAssertFalse(try XCTUnwrap(store.chatMessages.last).activities.isEmpty)
+        let reply = try XCTUnwrap(store.chatMessages.last)
+        XCTAssertEqual(reply.text, "AIがうまく動かなかったにゃ。少し時間をおいてもう一度試してね。")
+        XCTAssertTrue(reply.cards.isEmpty)
+        XCTAssertTrue(reply.activities.isEmpty)
+        XCTAssertFalse(reply.isStreaming)
+    }
+
+    func testModelFailurePreservesPartialTextAndCards() async throws {
+        for (text, hasCard) in [("途中の返事", false), ("", true), ("途中の返事", true)] {
+            let store = try makeStore()
+            store.chatAgent = FailingChatAgent(partialText: text, producesCard: hasCard)
+            await store.sendChat("今月ちゃんと休めてる？")
+            let reply = try XCTUnwrap(store.chatMessages.last)
+            XCTAssertEqual(reply.text, text.isEmpty ? "こんな感じでどうかにゃ？" : text)
+            XCTAssertEqual(reply.cards.count, hasCard ? 1 : 0)
+            XCTAssertFalse(reply.isStreaming)
+        }
     }
 
     func testEmptyChatDoesNothing() async throws {
@@ -221,7 +236,19 @@ final class ChatTitleTests: XCTestCase {
 @MainActor
 private final class FailingChatAgent: MiraChatAgent {
     let displayName = "Failing model"
+    let partialText: String
+    let producesCard: Bool
+
+    init(partialText: String = "", producesCard: Bool = false) {
+        self.partialText = partialText
+        self.producesCard = producesCard
+    }
+
     func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        sink.setText(partialText)
+        if producesCard {
+            sink.record(store.toolDraftMessage(purpose: "お断り", text: "また今度お願いします"))
+        }
         throw CocoaError(.coderInvalidValue)
     }
 }
