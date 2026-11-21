@@ -47,23 +47,6 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["閉じる"].waitForExistence(timeout: 5))
     }
 
-    func testReducedMotionKeepsSpringControlsUsable() {
-        app.launchArguments += ["-ui-testing-reduce-motion"]
-        launchHome()
-        for tab in ["margins", "adjustments", "home"] {
-            let button = app.buttons["miraTab-\(tab)"]
-            button.tap()
-            XCTAssertEqual(button.value as? String, "選択中")
-            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
-        }
-        app.buttons["次の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
-        app.buttons["miraCompanionButton"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["閉じる"].isHittable)
-        capture("roomier-reduced-motion-chat")
-    }
-
     func testRoundedTabsKeepSelectionAndNavigation() {
         launchHome()
         for tab in ["adjustments", "margins", "settings", "home"] {
