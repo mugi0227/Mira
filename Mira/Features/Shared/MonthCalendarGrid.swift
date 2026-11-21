@@ -144,7 +144,7 @@ struct MonthCalendarGrid: View {
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
         let isCompact = palette.isCatSkin && cellHeight < 100
-        let visibleItemLimit = if palette.isCatSkin && cellHeight < 88 {
+        let visibleItemLimit = if palette.isCatSkin && !privacyMode && cellHeight < 88 {
             // Date + one preview + overflow count still fit without crowding.
             // On holidays the holiday title uses the preview's line.
             holiday == nil ? 1 : 0
