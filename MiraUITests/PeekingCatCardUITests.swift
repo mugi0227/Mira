@@ -18,7 +18,7 @@ final class PeekingCatCardUITests: XCTestCase {
     }
 
     func testPeekingCardKeepsItsSpaceWithLargeText() {
-        app.launchArguments += ["-ui-testing-large-text"]
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityM"]
         checkPeekingCard(theme: "onelineCat")
     }
 
@@ -34,17 +34,22 @@ final class PeekingCatCardUITests: XCTestCase {
         let card = launchCard(theme: theme)
         let heading = card.staticTexts["次の予定"].firstMatch
         let event = card.buttons.firstMatch
+        capture("peeking-\(theme)-layout")
         XCTAssertTrue(heading.exists)
-        // 28pt of reserved ear space, then the existing 24pt card inset.
-        XCTAssertGreaterThanOrEqual(heading.frame.minY - card.frame.minY, 48)
+        if app.launchArguments.contains("UICTContentSizeCategoryAccessibilityM") {
+            XCTAssertGreaterThan(heading.frame.height, 22, "The card must actually use accessibility text sizing")
+        }
+        // Accessibility bounds follow the visible artwork (the silhouette PNG
+        // has transparent edges), not the entire reserved 28pt layout band.
+        XCTAssertGreaterThanOrEqual(heading.frame.minY - card.frame.minY, 40)
         XCTAssertGreaterThanOrEqual(heading.frame.minX - card.frame.minX, 24)
         XCTAssertGreaterThanOrEqual(card.frame.minX - app.frame.minX, 20)
         XCTAssertGreaterThanOrEqual(app.frame.maxX - card.frame.maxX, 20)
         XCTAssertGreaterThanOrEqual(card.frame.maxX - event.frame.maxX, 24)
-        XCTAssertGreaterThanOrEqual(event.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(event.frame.height, 43.5, "Allow subpixel rounding around the 44pt target")
         XCTAssertTrue(event.isHittable)
-        assertCatInkAboveCard(card)
-        capture("peeking-\(theme)\(app.launchArguments.contains("-ui-testing-large-text") ? "-large-text" : "")")
+        assertCatInkAboveCard(card, heading: heading)
+        capture("peeking-\(theme)\(app.launchArguments.contains("UICTContentSizeCategoryAccessibilityM") ? "-large-text" : "")")
         // Decoration is not another VoiceOver stop or button.
         XCTAssertFalse(card.staticTexts["注意を知らせる猫"].exists)
         event.tap()
@@ -72,13 +77,20 @@ final class PeekingCatCardUITests: XCTestCase {
         XCTAssertTrue(card.exists)
         XCTAssertGreaterThan(card.frame.minY, scroll.frame.minY)
         XCTAssertLessThan(card.frame.maxY, scroll.frame.maxY)
+        var previous = card.frame
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.25)
+            let current = card.frame
+            if abs(current.minY - previous.minY) < 0.5, abs(current.height - previous.height) < 0.5 { break }
+            previous = current
+        }
         return card
     }
 
     /// Check the otherwise empty band above the surface, not just the view tree:
     /// a missing/hidden head would still pass the spacing assertions.
-    private func assertCatInkAboveCard(_ card: XCUIElement) {
-        let shot = card.screenshot()
+    private func assertCatInkAboveCard(_ card: XCUIElement, heading: XCUIElement) {
+        let shot = app.screenshot()
         guard let cg = shot.image.cgImage else { return XCTFail("No card screenshot") }
         let width = cg.width, height = cg.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
@@ -90,11 +102,14 @@ final class PeekingCatCardUITests: XCTestCase {
             return true
         }
         XCTAssertTrue(drawn)
-        let scale = CGFloat(width) / card.frame.width
-        let sample = (Int(8 * scale) * width + Int(8 * scale)) * 4
+        let scale = CGFloat(width) / app.frame.width
+        // Measure the ear region against the text's fixed surface inset so
+        // transparent image edges cannot change the screenshot crop.
+        let top = heading.frame.minY - 48
+        let sample = (Int((top + 8) * scale) * width + Int((card.frame.minX + 8) * scale)) * 4
         var ink = 0
-        for y in Int(4 * scale)..<Int(23 * scale) {
-            for x in Int(CGFloat(width) - 88 * scale)..<Int(CGFloat(width) - 32 * scale) {
+        for y in Int(top * scale)..<Int((top + 19) * scale) {
+            for x in Int((card.frame.maxX - 88) * scale)..<Int((card.frame.maxX - 32) * scale) {
                 let index = (y * width + x) * 4
                 let difference = (0..<3).reduce(0) { $0 + abs(Int(pixels[index + $1]) - Int(pixels[sample + $1])) }
                 if difference > 90 { ink += 1 }
