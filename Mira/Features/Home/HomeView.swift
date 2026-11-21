@@ -339,13 +339,12 @@ struct HomeView: View {
     }
 
     private var monthHeading: some View {
-        VStack(alignment: .leading, spacing: -5) {
-            Text(DateFormatter.mira("yyyy").string(from: store.selectedMonth))
-                .font(.system(size: 18, weight: .medium, design: .serif))
-                .tracking(3)
-            Text(DateFormatter.mira("M月").string(from: store.selectedMonth))
-                .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 48 : 58, weight: .regular, design: .serif))
-                .tracking(1)
+        VStack(spacing: 2) {
+            Text(store.selectedMonth.japaneseMonthTitle)
+                .font(.system(.title2, design: .serif, weight: .medium))
+            Text(monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
         }
         .foregroundStyle(palette.primaryText)
         .accessibilityElement(children: .ignore)

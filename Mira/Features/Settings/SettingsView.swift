@@ -26,7 +26,7 @@ struct SettingsView: View {
                         .frame(width: 48, height: 64)
                         .accessibilityHidden(true)
                 }
-                .padding(.vertical, MiraSpacing.xs)
+                .listRowInsets(EdgeInsets(top: 0, leading: MiraSpacing.md, bottom: 0, trailing: MiraSpacing.md))
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -214,6 +214,7 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
         }
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, MiraSpacing.xs, for: .scrollContent)
         .miraFormStyle(palette)
         .miraScreenBackground(palette)
         .navigationTitle("設定")
