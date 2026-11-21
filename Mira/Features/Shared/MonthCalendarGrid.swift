@@ -1,10 +1,15 @@
 import SwiftUI
 
 struct MonthCalendarGrid: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var dateSelection
     let month: Date
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    /// Home can use spare space within day cells to keep the whole month in
+    /// view. Dense/small screens still scroll rather than shrinking text.
+    var preferredHeight: CGFloat? = nil
     var weekStartDay: WeekStartDay = .monday
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
@@ -27,11 +32,11 @@ struct MonthCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(weekdayColor(for: index))
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
-                            if index < weekStartDay.weekdaySymbols.count - 1 {
+                            if !palette.isCatSkin && index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
                             }
                         }
@@ -39,31 +44,42 @@ struct MonthCalendarGrid: View {
             }
             .background(palette.isCatSkin ? palette.elevatedSurface.opacity(0.7) : palette.background)
 
-            gridLine.frame(height: 0.5)
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
 
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
-                let cellHeight: CGFloat = days.count > 35 ? 88 : 104
+                let cellHeight = rowHeight(dayCount: days.count)
                 ForEach(Array(days.enumerated()), id: \.offset) { index, date in
                     dayCell(date, index: index, cellHeight: cellHeight)
                 }
             }
         }
-        .background(palette.surface.opacity(palette.isCatSkin ? 0.92 : 0.42))
-        .overlay(alignment: .top) { gridLine.frame(height: 0.5) }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 22 : 0, style: .continuous))
+        // Inset the entire grid rather than every cell so all seven columns
+        // stay aligned, including the leading/trailing days near the corners.
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.top, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? MiraRadius.large : 0, style: .continuous))
         .overlay {
             if palette.isCatSkin {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous)
+                    .strokeBorder(palette.cardBorder, lineWidth: 2)
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("monthCalendar")
     }
 
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
+    }
+
+    private func rowHeight(dayCount: Int) -> CGFloat {
+        let regular: CGFloat = dayCount > 35 ? 88 : 104
+        guard palette.isCatSkin, let preferredHeight else { return regular }
+        let chrome = 30 + MiraSpacing.lg * 2
+        return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -108,16 +124,20 @@ struct MonthCalendarGrid: View {
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
-        let visibleItemLimit = holiday == nil ? 3 : 2
+        // Leave space for the overflow link instead of clipping a third chip
+        // when the calendar uses a shorter row on a compact viewport.
+        let isCompact = palette.isCatSkin && cellHeight < 100
+        let visibleItemLimit = isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
 
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Spacer(minLength: 0)
                 ZStack {
                     if isSelected {
-                        Circle()
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(palette.actionGradient)
-                            .frame(width: 27, height: 27)
+                            .frame(width: 30, height: 30)
+                            .matchedGeometryEffect(id: "selected-date", in: dateSelection)
                     } else if isToday {
                         Circle()
                             .stroke(palette.accent, lineWidth: 1.5)
@@ -125,7 +145,7 @@ struct MonthCalendarGrid: View {
                     }
 
                     Text("\(calendar.component(.day, from: date))")
-                        .font(.caption.weight(isSelected || isToday ? .bold : .medium).monospacedDigit())
+                        .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
                         .foregroundStyle(dateForeground(
                             isSelected: isSelected,
                             isInDisplayedMonth: isInDisplayedMonth,
@@ -192,16 +212,23 @@ struct MonthCalendarGrid: View {
         .padding(.horizontal, 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
-        .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(palette.accentSoft.opacity(0.28))
+                    .padding(2)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
         .overlay(alignment: .trailing) {
-            if column < 6 { gridLine.frame(width: 0.5) }
+            if !palette.isCatSkin && column < 6 { gridLine.frame(width: 0.5) }
         }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
+        .overlay(alignment: .bottom) {
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
+        }
         .dropDestination(for: String.self) { payloads, _ in
             guard allowsDragging, !privacyMode,
                   let raw = payloads.first,
@@ -212,10 +239,17 @@ struct MonthCalendarGrid: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("calendar-day-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
         .accessibilityAction(named: "日付を開く") {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
+    }
+
+    private func select(_ date: Date) {
+        withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+            selectedDate = date
+        }
+        onSelectDate?(date)
     }
 
     private func dateForeground(
@@ -291,14 +325,14 @@ private struct CalendarEventStrip: View {
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
+            RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous)
                 .stroke(
                     item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28)
                         : (chipTag?.needsOutline == true ? palette.primaryText.opacity(0.22) : Color.clear),
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous))
     }
 
     /// Margins named after their kind read as a short word; a margin the

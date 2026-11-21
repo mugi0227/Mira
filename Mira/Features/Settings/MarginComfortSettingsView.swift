@@ -10,9 +10,9 @@ struct MarginComfortSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                 HStack(spacing: MiraSpacing.md) {
-                    PixelCatView(mood: .relaxed, size: 82)
+                    MiraCatView(mood: .relaxed, size: 82)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("休む量もMiraに任せられるにゃ")
+                        Text("休む量もMiraに任せられます")
                             .font(.title3.bold())
                         Text("その月の予定負荷を見て、必要な余白目標を自動計算します。")
                             .font(.subheadline)

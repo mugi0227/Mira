@@ -6,6 +6,7 @@ final class AppSettingsEntity {
     @Attribute(.unique) var key: String
     var onboardingCompleted: Bool
     var themeRaw: String
+    var colorStyleRaw: String?
     var assistantEnabled: Bool
     var characterNotificationsEnabled: Bool
     var notificationsEnabled: Bool

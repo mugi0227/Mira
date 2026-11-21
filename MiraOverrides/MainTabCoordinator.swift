@@ -5,6 +5,7 @@ import EventKit
 struct MainTabView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
     @State private var selectedTab: MiraTab = .home
@@ -12,6 +13,7 @@ struct MainTabView: View {
     @State private var reminderAdjustment: AdjustmentEntity?
     @State private var reminderInvitation: PendingInvitationEntity?
     @AppStorage("mira.ui.pendingReminderDestination") private var pendingReminderRawValue = ""
+    @Namespace private var tabSelection
 
     var body: some View {
         VStack(spacing: 0) {
@@ -179,24 +181,27 @@ struct MainTabView: View {
         HStack(spacing: 4) {
             ForEach(MiraTab.allCases) { tab in
                 Button {
-                    selectedTab = tab
+                    withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+                        selectedTab = tab
+                    }
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tab.symbol)
-                            .font(.system(size: 23, weight: .semibold))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .scaleEffect(selectedTab == tab && !reduceMotion ? 1.08 : 1)
                             .accessibilityHidden(true)
                         Text(tab.title)
-                            .font(.caption.weight(.semibold))
+                            .font(.caption.weight(.bold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     }
-                    .foregroundStyle(selectedTab == tab ? palette.accent : palette.secondaryText)
+                    .foregroundStyle(selectedTab == tab ? palette.onAccent : palette.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 58)
                     .padding(.vertical, 2)
                     .background {
                         if selectedTab == tab {
-                            Capsule().fill(palette.accentSoft)
-                                .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1) }
+                            Capsule().fill(palette.accent)
+                                .matchedGeometryEffect(id: "tab-selection", in: tabSelection)
                         }
                     }
                     .contentShape(Capsule())
@@ -204,16 +209,17 @@ struct MainTabView: View {
                 .buttonStyle(MiraPressStyle())
                 .accessibilityLabel(tab.title)
                 .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
+                .accessibilityValue(selectedTab == tab ? "選択中" : "")
                 .accessibilityIdentifier("miraTab-\(tab.rawValue)")
             }
         }
-        .padding(6)
+        .padding(MiraSpacing.xs)
         .background(palette.elevatedSurface, in: Capsule())
         .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
         .shadow(color: palette.shadow, radius: 20, y: 5)
-        .padding(.horizontal, MiraSpacing.md)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.horizontal, MiraSpacing.lg)
+        .padding(.top, MiraSpacing.sm)
+        .padding(.bottom, MiraSpacing.xs)
         .background {
             LinearGradient(colors: [palette.background.opacity(0), palette.background], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea(edges: .bottom)

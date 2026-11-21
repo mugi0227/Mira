@@ -38,7 +38,7 @@ extension MiraStore {
             try context.save()
             try refresh()
             autoPlaceMargins(for: recommendation.month)
-            toast = "予定負荷に合わせて余白を組んだにゃ"
+            toast = "予定負荷に合わせて余白を組みました"
         } catch {
             toast = "おすすめ余白を反映できませんでした"
         }
@@ -150,7 +150,7 @@ extension MiraStore {
             try refresh()
             finishCalendarMutation(undo)
             activeRebalanceProposal = nil
-            toast = "余白の完成案を反映したにゃ"
+            toast = "余白の完成案を反映しました"
             return true
         } catch {
             context.rollback()

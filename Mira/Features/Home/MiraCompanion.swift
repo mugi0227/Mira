@@ -27,7 +27,7 @@ struct MiraCompanionButton: View {
     }
 
     private var showsBubble: Bool {
-        needsAttention && dismissedBubbleTitle != message.title
+        message.mood == .warning && dismissedBubbleTitle != message.title
     }
 
     private var bubble: some View {
@@ -72,8 +72,8 @@ struct MiraCompanionButton: View {
                     .fill(palette.elevatedSurface)
                     .overlay { Circle().strokeBorder(palette.accent.opacity(0.25), lineWidth: 1.5) }
                     .shadow(color: palette.shadow, radius: 14, y: 5)
-                if store.theme == .pixelCat {
-                    PixelCatView(mood: message.mood, size: 54)
+                if store.theme.isCat {
+                    MiraCatView(mood: message.mood, size: store.theme == .silhouetteCat ? 36 : 54)
                         .accessibilityHidden(true)
                 } else {
                     Image(systemName: "bubble.left.and.text.bubble.right.fill")
@@ -82,7 +82,7 @@ struct MiraCompanionButton: View {
                         .accessibilityHidden(true)
                 }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: 56, height: 56)
             .overlay(alignment: .topTrailing) {
                 if needsAttention {
                     Circle()

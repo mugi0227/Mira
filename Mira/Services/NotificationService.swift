@@ -53,8 +53,8 @@ actor NotificationService {
         center.removeDeliveredNotifications(withIdentifiers: [plan.identifier])
         let content = UNMutableNotificationContent()
         content.title = plan.destination.kind == .invitation
-            ? (plan.catVoice ? "返事を決める時間だにゃ" : "誘いへの返事を確認")
-            : (plan.catVoice ? "お返事を確認するにゃ" : "日程調整の返事を確認")
+            ? (plan.catVoice ? "返事を決める時間です" : "誘いへの返事を確認")
+            : (plan.catVoice ? "お返事を確認します" : "日程調整の返事を確認")
         content.body = "「\(plan.title)」を開いて、次の一歩を決められます。"
         content.sound = .default
         content.categoryIdentifier = "mira.reminder"

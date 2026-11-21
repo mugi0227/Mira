@@ -8,8 +8,23 @@ final class SelfTimeChatUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if name.contains("testMarkdownAssistantReply") { app.launchArguments.append("-ui-markdown-reply") }
         app.launch()
         completeOnboardingIfNeeded()
+    }
+
+    func testMarkdownAssistantReply() throws {
+        openCompanion()
+        sendChat("今月ちゃんと休めてる？")
+        let reply = app.staticTexts.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chatAssistantText", "読書")).firstMatch
+        require(reply, "rendered markdown reply", timeout: 20)
+        XCTAssertFalse(reply.label.contains("**"))
+        XCTAssertFalse(reply.label.contains("* "))
+        XCTAssertTrue(reply.label.contains("•"))
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "chat-rendered-markdown"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testChatRequestShowsChipsAndAppliesInOneTap() throws {
@@ -96,7 +111,7 @@ final class SelfTimeChatUITests: XCTestCase {
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
         let companion = app.buttons["miraCompanionButton"]
         require(companion, "companion", timeout: 12)
-        let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があるにゃ"].exists
+        let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があります"].exists
         companion.tap()
         require(app.descendants(matching: .any)["miraChatInput"], "chat input")
         if hasSuggestion {
