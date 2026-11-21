@@ -1,5 +1,6 @@
 import Foundation
 
+/// Share text follows the recipient's level; margins never reveal titles or kinds.
 enum FriendAvailabilityText {
     static let bandHours: [(title: String, end: Int)] = [("朝", 12), ("昼", 18), ("夜", 24)]
 
@@ -15,11 +16,13 @@ enum FriendAvailabilityText {
         guard days > 0 else { return "" }
         if level != .freeOnly {
             let formatter = DateFormatter.mira("M/d(E)")
-            return (0..<days).map { offset in
+            let header = "この\(days / 7)週間の予定です（\(level.title)）。" + (level == .titles ? "余白は「予定あり」と表示します。" : "")
+            let lines = (0..<days).map { offset in
                 let day = calendar.startOfDay(for: now).addingDays(offset, calendar: calendar)
                 let content = FriendDayContent(date: day, items: items, baseRules: baseRules, level: level, calendar: calendar)
                 return "・\(formatter.string(from: day)) \(content.lines.isEmpty ? "予定なし" : content.lines.joined(separator: "、"))"
-            }.joined(separator: "\n")
+            }
+            return ([header] + lines).joined(separator: "\n")
         }
         let formatter = DateFormatter.mira("M/d(E)")
         let today = calendar.startOfDay(for: now)

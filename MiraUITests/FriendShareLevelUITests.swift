@@ -27,7 +27,10 @@ final class FriendShareLevelUITests: XCTestCase {
         app.buttons["埋まりだけ"].tap()
         let content = app.staticTexts.matching(identifier: "friendDayContent")
         XCTAssertTrue(content.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(content.allElementsBoundByIndex.contains { $0.label.contains("予定あり") && $0.label.contains(":") })
+        XCTAssertTrue(content.allElementsBoundByIndex.contains { $0.label.contains("–") })
+        XCTAssertFalse(content.allElementsBoundByIndex.contains { $0.label.contains("予定あり") })
+        XCTAssertTrue(app.staticTexts["見せる相手"].exists)
+        XCTAssertTrue(app.staticTexts["見せる範囲"].exists)
         XCTAssertTrue(app.buttons["friendShareText"].exists)
         attach("friend-share-card")
     }

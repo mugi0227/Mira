@@ -327,7 +327,7 @@ struct HomeView: View {
 
     private var friendViewBanner: some View {
         VStack(alignment: .leading) {
-            FriendShareControls(recipientID: $friendRecipientID)
+            FriendShareControls(recipientID: $friendRecipientID, palette: palette)
             HStack(spacing: MiraSpacing.sm) {
                 Image(systemName: "eye.slash.fill")
                     .foregroundStyle(palette.accent)

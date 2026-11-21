@@ -24,13 +24,15 @@ enum FriendShareLevel: String, CaseIterable {
 
 struct FriendDayContent {
     let lines: [String]
+    let gridLines: [String]
 
     init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], level: FriendShareLevel = .freeOnly, calendar: Calendar = .mira) {
-        guard level != .hidden else { lines = []; return }
+        guard level != .hidden else { lines = []; gridLines = []; return }
         if level == .freeOnly {
             let availability = FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar)
             lines = availability.hasAllDayEvent || availability.bands.allSatisfy { !$0.isBusy }
                 ? [availability.summary] : availability.bands.map(\.label)
+            gridLines = lines
             return
         }
         let start = calendar.startOfDay(for: date)
@@ -39,17 +41,58 @@ struct FriendDayContent {
         func range(_ from: Date, _ to: Date) -> String {
             "\(formatter.string(from: max(start, from)))–\(to >= end ? "24:00" : formatter.string(from: to))"
         }
-        var entries: [(Date, String)] = items.filter {
+        func compactTime(_ date: Date) -> String {
+            let minute = calendar.component(.minute, from: date)
+            return minute == 0 ? String(calendar.component(.hour, from: date)) : DateFormatter.mira("H:mm").string(from: date)
+        }
+        func compactRange(_ interval: DateInterval) -> String {
+            "\(compactTime(interval.start))–\(interval.end >= end ? "24" : compactTime(interval.end))"
+        }
+        let relevant = items.filter {
             $0.kind != .birthday && $0.overlapsDay(date, calendar: calendar)
-        }.map { item in
-            let title = level == .titles && item.kind == .confirmed ? item.title : "予定あり"
-            return (item.startDate, "\(item.isAllDay ? "終日" : range(item.startDate, item.endDate)) \(title)")
         }
-        for rule in baseRules where rule.weekday == calendar.component(.weekday, from: start) {
-            let from = start.addingTimeInterval(Double(rule.startMinute) * 60)
-            let to = start.addingTimeInterval(Double(rule.endMinute) * 60)
-            entries.append((from, "\(range(from, to)) 予定あり"))
+        func clipped(_ from: Date, _ to: Date) -> DateInterval {
+            DateInterval(start: max(start, from), end: min(end, to))
         }
-        lines = entries.sorted { $0.0 < $1.0 }.map(\.1)
+        let eventRanges = relevant.map { $0.isAllDay ? DateInterval(start: start, end: end) : clipped($0.startDate, $0.endDate) }
+        let work = baseRules.filter {
+            $0.weekday == calendar.component(.weekday, from: start) && $0.endMinute > $0.startMinute
+        }.map {
+            clipped(start.addingTimeInterval(Double($0.startMinute) * 60), start.addingTimeInterval(Double($0.endMinute) * 60))
+        }
+        func merged(_ intervals: [DateInterval]) -> [DateInterval] {
+            intervals.sorted { $0.start < $1.start }.reduce(into: []) { result, interval in
+                if let last = result.last, last.end >= interval.start {
+                    result[result.count - 1] = DateInterval(start: last.start, end: max(last.end, interval.end))
+                } else {
+                    result.append(interval)
+                }
+            }
+        }
+        if level == .busyTimes {
+            if relevant.contains(where: \.isAllDay) {
+                lines = ["終日 予定あり"]
+                gridLines = ["終日"]
+            } else {
+                let intervals = merged(eventRanges + work)
+                lines = intervals.map { "\(range($0.start, $0.end)) 予定あり" }
+                gridLines = intervals.map(compactRange)
+            }
+            return
+        }
+        var entries: [(date: Date, text: String, grid: String)] = zip(relevant, eventRanges).map { item, interval in
+            let title = item.kind == .confirmed ? item.title : "予定あり"
+            let grid = item.kind == .confirmed
+                ? "\(item.isAllDay ? "終日" : compactTime(interval.start)) \(title)"
+                : (item.isAllDay ? "終日 予定あり" : compactRange(interval))
+            return (interval.start, "\(item.isAllDay ? "終日" : range(interval.start, interval.end)) \(title)", grid)
+        }
+        let covered = merged(eventRanges)
+        for interval in merged(work) where !covered.contains(where: { $0.start <= interval.start && $0.end >= interval.end }) {
+            entries.append((interval.start, "\(range(interval.start, interval.end)) 予定あり", compactRange(interval)))
+        }
+        entries.sort { $0.date < $1.date }
+        lines = entries.map(\.text)
+        gridLines = entries.map(\.grid)
     }
 }

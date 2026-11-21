@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// A recipient-specific card showing only content permitted by their share level.
 struct FriendShareCard: View {
     let month: Date
     let items: [CalendarItemSnapshot]

@@ -48,15 +48,68 @@ final class FriendShareLevelTests: XCTestCase {
     }
 
     func testRenderShareCard() throws {
-        let card = FriendShareCard(month: TestFixtures.september,
-            items: [TestFixtures.event(title: "面談", day: 2, hour: 10), TestFixtures.event(title: "秘密", day: 3, kind: .margin, marginKind: .reading)],
-            palette: MiraThemePalette(kind: .softMinimal, colorScheme: .light), weekStartDay: .monday,
-            referenceDate: TestFixtures.date(day: 1), level: .busyTimes, recipientName: "はる")
-        let renderer = ImageRenderer(content: card)
-        let image = try XCTUnwrap(renderer.uiImage)
-        let attachment = XCTAttachment(image: image)
-        attachment.name = "friend-share-rendered-card"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        let items = [
+            TestFixtures.event(title: "面談", day: 2, hour: 10),
+            TestFixtures.event(title: "企画会議", day: 2, hour: 13, duration: 1),
+            TestFixtures.event(title: "カフェ", day: 2, hour: 18, duration: 1),
+            TestFixtures.event(title: "夕食", day: 2, hour: 20, duration: 1),
+            TestFixtures.event(title: "秘密の読書会", day: 3, hour: 19, kind: .margin, marginKind: .reading),
+            TestFixtures.event(title: "歯科", day: 4, hour: 10, duration: 1),
+            TestFixtures.event(title: "友人とランチ", day: 5, hour: 12)
+        ]
+        let work = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: TestFixtures.date(day: 2)), startMinute: 540, endMinute: 1080)
+        for level in [FriendShareLevel.busyTimes, .titles] {
+            let card = FriendShareCard(month: TestFixtures.september,
+                items: items,
+                palette: MiraThemePalette(kind: .softMinimal, colorScheme: .light), weekStartDay: .monday,
+                referenceDate: TestFixtures.date(day: 1), baseRules: [work], level: level, recipientName: "はる")
+            let renderer = ImageRenderer(content: card)
+            let image = try XCTUnwrap(renderer.uiImage)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "friend-share-rendered-\(level.rawValue)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    func testBusyRangesMergeAcrossEventsMarginsAndWork() {
+        let day = TestFixtures.date(day: 2)
+        let items = [TestFixtures.event(title: "面談", day: 2, hour: 10),
+                     TestFixtures.event(title: "秘密", day: 2, hour: 12, duration: 2, kind: .margin, marginKind: .reading),
+                     TestFixtures.event(title: "夕食", day: 2, hour: 19, duration: 1)]
+        let work = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: day), startMinute: 540, endMinute: 660)
+        let content = FriendDayContent(date: day, items: items, baseRules: [work], level: .busyTimes)
+        XCTAssertEqual(content.lines, ["09:00–14:00 予定あり", "19:00–20:00 予定あり"])
+        XCTAssertEqual(content.gridLines, ["9–14", "19–20"])
+        let text = FriendAvailabilityText.text(from: day, items: items, level: .busyTimes)
+        XCTAssertTrue(text.hasPrefix("この2週間の予定です（埋まりだけ）。"))
+    }
+
+    func testAllDaySuppressesOtherBusyRangesAndCoveredWork() {
+        let day = TestFixtures.date(day: 2)
+        var allDay = TestFixtures.event(title: "出張", day: 2)
+        allDay.isAllDay = true
+        let work = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: day), startMinute: 540, endMinute: 1080)
+        let items = [allDay, TestFixtures.event(title: "面談", day: 2, hour: 10)]
+        let busy = FriendDayContent(date: day, items: items, baseRules: [work], level: .busyTimes)
+        XCTAssertEqual(busy.lines, ["終日 予定あり"])
+        XCTAssertEqual(busy.gridLines, ["終日"])
+        let titles = FriendDayContent(date: day, items: items, baseRules: [work], level: .titles)
+        XCTAssertEqual(titles.gridLines, ["終日 出張", "10 面談"])
+        XCTAssertEqual(titles.lines.count, 2)
+    }
+
+    func testCompactFormattingAndCoveredBaseRule() {
+        let day = TestFixtures.date(day: 2)
+        var event = TestFixtures.event(title: "面談", day: 2, hour: 10, duration: 2)
+        event.startDate = event.startDate.addingTimeInterval(1800)
+        let margin = TestFixtures.event(title: "秘密", day: 2, hour: 19, kind: .margin, marginKind: .reading)
+        let work = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: day), startMinute: 630, endMinute: 720)
+        let content = FriendDayContent(date: day, items: [event, margin], baseRules: [work], level: .titles)
+        XCTAssertEqual(content.gridLines, ["10:30 面談", "19–21"])
+        XCTAssertEqual(content.lines, ["10:30–12:00 面談", "19:00–21:00 予定あり"])
+        XCTAssertEqual(FriendDayContent(date: day, items: [event], level: .busyTimes).gridLines, ["10:30–12"])
+        XCTAssertTrue(FriendDayContent(date: day, items: [event], level: .hidden).gridLines.isEmpty)
+        XCTAssertTrue(FriendAvailabilityText.text(from: day, items: [event], level: .titles).contains("余白は「予定あり」"))
     }
 }

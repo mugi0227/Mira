@@ -9,6 +9,7 @@ struct MonthCalendarGrid: View {
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
+    /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
     var friendLevel: FriendShareLevel = .freeOnly
     var baseRules: [BaseAvailabilityRule] = []
@@ -150,10 +151,20 @@ struct MonthCalendarGrid: View {
                 if privacyMode {
                     if friendLevel != .freeOnly {
                         let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
-                        Text(content.lines.joined(separator: "\n"))
-                            .font(.system(size: 9, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.secondaryText)
-                            .accessibilityIdentifier("friendDayContent")
+                        ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityIdentifier("friendDayContent")
+                        }
+                        if content.gridLines.count > visibleItemLimit {
+                            Text("ほか \(content.gridLines.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(1)
+                        }
                     } else {
                         let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
                         if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
@@ -244,7 +255,7 @@ struct MonthCalendarGrid: View {
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
         let suffix = privacyMode
-            ? FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar).summary
+            ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar).lines.joined(separator: "、")
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
         return "\(formatter.string(from: date))、\(suffix)"
     }
