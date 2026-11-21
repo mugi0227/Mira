@@ -43,7 +43,7 @@ final class EventEntryAdvisoryTests: XCTestCase {
     func testMemoConversionPreviewIncludesBufferOnlyMargin() throws {
         let store = try makeStore()
         let memo = TestFixtures.event(title: "飲み会", day: 10, hour: 18, kind: .memo)
-        let margin = TestFixtures.event(title: "読書", day: 10, hour: 20, kind: .margin, marginKind: .reading)
+        let margin = TestFixtures.event(title: "読書", day: 10, hour: 21, kind: .margin, marginKind: .reading)
         store.context.insert(CalendarItemEntity(snapshot: memo))
         store.context.insert(CalendarItemEntity(snapshot: margin))
         try store.context.save()
