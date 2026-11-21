@@ -50,7 +50,7 @@ struct MonthCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
                 let cellHeight = rowHeight(dayCount: days.count)
-                ForEach(Array(days.enumerated()), id: \.offset) { index, date in
+                ForEach(Array(days.enumerated()), id: \.element) { index, date in
                     dayCell(date, index: index, cellHeight: cellHeight)
                 }
             }
@@ -83,9 +83,11 @@ struct MonthCalendarGrid: View {
         let hasOverflow = cells.contains { date in
             let count = items.filter { $0.overlapsDay(date, calendar: calendar) }.count
             let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
-            return count > (hasHoliday ? 1 : 2)
+            return count > (privacyMode ? (hasHoliday ? 1 : 2) : (hasHoliday ? 0 : 1))
         }
-        let minimum: CGFloat = hasOverflow ? 88 : 76
+        // Keep the ring, two-line title and overflow link inside each row;
+        // friend mode instead reserves room for availability bands.
+        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : (hasOverflow ? 92 : 76)
         return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -145,34 +147,41 @@ struct MonthCalendarGrid: View {
         let visibleItemLimit = isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
 
         VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Spacer(minLength: 0)
-                ZStack {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(palette.actionGradient)
-                            .frame(width: 30, height: 30)
-                            .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                    } else if isToday {
-                        Circle()
-                            .stroke(palette.accent, lineWidth: 1.5)
-                            .frame(width: 27, height: 27)
-                    }
+            Button {
+                select(date)
+            } label: {
+                HStack {
+                    Spacer(minLength: 0)
+                    ZStack {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(palette.actionGradient)
+                                .frame(width: 30, height: 30)
+                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
+                        } else if isToday {
+                            Circle()
+                                .stroke(palette.accent, lineWidth: 1.5)
+                                .frame(width: 27, height: 27)
+                        }
 
-                    Text("\(calendar.component(.day, from: date))")
-                        .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
-                        .foregroundStyle(dateForeground(
-                            isSelected: isSelected,
-                            isInDisplayedMonth: isInDisplayedMonth,
-                            date: date,
-                            isHoliday: holiday != nil
-                        ))
+                        Text("\(calendar.component(.day, from: date))")
+                            .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
+                            .foregroundStyle(dateForeground(
+                                isSelected: isSelected,
+                                isInDisplayedMonth: isInDisplayedMonth,
+                                date: date,
+                                isHoliday: holiday != nil
+                            ))
+                    }
+                    .frame(height: 26)
+                    Spacer(minLength: 0)
                 }
-                .frame(height: 26)
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { select(date) }
+            .frame(height: 26)
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.japaneseShortDate)を開く")
+            .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
 
             if !privacyMode {
                 let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
@@ -244,11 +253,20 @@ struct MonthCalendarGrid: View {
                     }
 
                     if dayItems.count > visibleItemLimit {
-                        Text("ほか \(dayItems.count - visibleItemLimit)件")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+                        Button {
+                            select(date)
+                        } label: {
+                            Text("ほか \(dayItems.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .frame(maxWidth: .infinity, minHeight: 14, alignment: .leading)
+                                .padding(.horizontal, 2)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("ほか\(dayItems.count - visibleItemLimit)件の予定を表示")
+                        .accessibilityHint("この日の予定をすべて開く")
+                        .accessibilityIdentifier("calendar-overflow-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
                     }
                 }
             }

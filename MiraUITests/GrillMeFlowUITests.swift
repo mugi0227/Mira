@@ -33,9 +33,19 @@ final class GrillMeFlowUITests: XCTestCase {
 
     func testChatSuggestionAnswersFromTheCalendar() throws {
         openCompanion()
-        let suggestion = app.buttons["chatSuggestion"].firstMatch
+        let suggestion = app.buttons["今週の予定は？"]
         XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        let conversation = app.scrollViews.containing(.button, identifier: "chatSuggestion").firstMatch
+        let navigationBar = app.navigationBars["Mira"]
+        // A proactive card opens the conversation at the bottom. Its first
+        // suggestion can exist behind the navigation bar without being visible.
+        for _ in 0..<4 where !suggestion.isHittable || suggestion.frame.minY < navigationBar.frame.maxY + 8 {
+            conversation.swipeDown()
+        }
+        XCTAssertTrue(suggestion.isHittable)
+        XCTAssertGreaterThanOrEqual(suggestion.frame.minY, navigationBar.frame.maxY + 8)
         suggestion.tap()
+        XCTAssertTrue(suggestion.waitForNonExistence(timeout: 5), "The prompt must actually be sent")
         XCTAssertTrue(waitForAssistantReply())
         capture("03-chat-schedule-answer")
     }

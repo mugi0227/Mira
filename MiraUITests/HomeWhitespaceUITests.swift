@@ -19,7 +19,7 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["前の月"].tap()
         let day = element("calendar-day-2026-09-06")
         XCTAssertTrue(day.waitForExistence(timeout: 5))
-        day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
+        app.buttons["calendar-date-2026-09-06"].tap()
         XCTAssertTrue(app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", "9月6日")).firstMatch.waitForExistence(timeout: 5))
         capture("whitespace-day-navigation")
     }
