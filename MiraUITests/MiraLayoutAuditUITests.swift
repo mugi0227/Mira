@@ -3,6 +3,7 @@ import XCTest
 /// Geometry hints, not a substitute for reviewing the attached screenshots.
 final class MiraLayoutAuditUITests: XCTestCase {
     func testAuditRepresentativeScreens() throws {
+        try? FileManager.default.removeItem(atPath: "/tmp/mira-layout-audit")
         continueAfterFailure = true
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing", "-reset-demo"]
