@@ -81,12 +81,13 @@ final class MiraStyleUITests: XCTestCase {
 
     func testMonthControlsStillOpenADay() {
         launchHome()
-        let september = app.staticTexts["2026年9月"]
+        let september = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertTrue(september.waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年9月")
         app.buttons["次の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年10月")
         app.buttons["前の月"].tap()
-        XCTAssertTrue(september.waitForExistence(timeout: 5))
+        XCTAssertEqual(september.label, "2026年9月")
         let day = app.descendants(matching: .any)["calendar-day-2026-09-02"].firstMatch
         XCTAssertTrue(day.exists)
         let dayHeader = day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
@@ -102,7 +103,7 @@ final class MiraStyleUITests: XCTestCase {
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
-        let month = app.staticTexts["2026年9月"]
+        let month = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertGreaterThanOrEqual(month.frame.minY, toastFrame.maxY)
         for label in ["前の月", "次の月", "追加メニュー"] {
             let button = app.buttons[label]
@@ -111,7 +112,7 @@ final class MiraStyleUITests: XCTestCase {
         }
         capture("toast-clear-header")
         app.buttons["次の月"].tap()
-        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        XCTAssertEqual(month.label, "2026年10月")
         XCTAssertTrue(toast.exists)
     }
 

@@ -347,7 +347,7 @@ struct HomeView: View {
                 .accessibilityLabel(store.selectedMonth.japaneseMonthTitle)
                 .accessibilityIdentifier("homeMonthHeading")
                 Spacer(minLength: 0)
-                HStack(spacing: 0) {
+                HStack(spacing: MiraSpacing.xs) {
                     Button { changeMonth(by: -1) } label: {
                         Image(systemName: "chevron.left").frame(width: 44, height: 48)
                     }
