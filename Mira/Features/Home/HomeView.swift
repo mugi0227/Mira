@@ -470,7 +470,8 @@ struct HomeView: View {
                 referenceDate: store.now,
                 baseRules: store.fetchBaseRules(),
                 level: friendLevel,
-                recipientName: friendRecipient?.name
+                recipientName: friendRecipient?.name,
+                workDays: store.workDayResolver
             ))
             renderedFriendSignature = signature
         }
@@ -485,6 +486,9 @@ struct HomeView: View {
         hasher.combine(store.items)
         hasher.combine(store.weekStartDay)
         hasher.combine(store.theme)
+        hasher.combine(store.workDayOverrides)
+        hasher.combine(store.excludeHolidaysFromWorkDays)
+        hasher.combine(store.workDayResolver.holidays)
         for rule in store.fetchBaseRules() {
             hasher.combine(rule.weekday)
             hasher.combine(rule.startMinute)
