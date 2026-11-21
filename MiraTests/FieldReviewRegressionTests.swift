@@ -141,6 +141,7 @@ final class FieldReviewRegressionTests: XCTestCase {
 
     func testImportedCalendarAppearsInThisWeeksChatDayAndWidgetWithoutNextWeeksEvents() async throws {
         let store = try makeStore()
+        store.chatAgent = RuleBasedChatAgent()
         store.clock = DemoClock(now: TestFixtures.date(day: 16, hour: 10))
         let thisWeek = deviceEvent("iPhoneの面談", start: TestFixtures.date(day: 17, hour: 13))
         let nextWeek = deviceEvent("来週の面談", start: TestFixtures.date(day: 21, hour: 13))

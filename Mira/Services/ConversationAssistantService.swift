@@ -109,7 +109,7 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
         searchCandidates: [ContextSearchResult],
         recentTurns: [ConversationTurnSnapshot]
     ) async -> ConversationInterpretation {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = Self.removingNegatedDays(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return .unknown(text) }
 
         let intent = inferIntent(from: normalized, hasContext: pinnedContext != nil || !searchCandidates.isEmpty)
@@ -147,6 +147,10 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
             confidence: needsClarification ? 0.42 : 0.72,
             source: "ルールベース"
         )
+    }
+
+    static func removingNegatedDays(_ text: String) -> String {
+        text.replacingOccurrences(of: "(?:明後日|明日|今日)(?:ではなく|じゃなくて)", with: "", options: .regularExpression)
     }
 
     func defaultSearchRange(text: String, now: Date) -> DateInterval {
@@ -239,6 +243,9 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
     private func parseDates(from text: String, now: Date) -> [Date] {
         var result: [Date] = []
         let currentYear = calendar.component(.year, from: now)
+        for (word, offset) in [("明後日", 2), ("明日", 1), ("今日", 0)] where text.contains(word) {
+            result.append(calendar.startOfDay(for: now).addingDays(offset, calendar: calendar))
+        }
 
         if let regex = try? NSRegularExpression(pattern: "(?:(\\d{1,2})月)?(\\d{1,2})日") {
             let nsText = text as NSString
@@ -286,10 +293,10 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
     }
 
     private func parseExactTime(from text: String, dates: [Date], range: DateInterval) -> DateInterval? {
-        guard let regex = try? NSRegularExpression(pattern: "(\\d{1,2})時(半)?"),
+        guard let regex = try? NSRegularExpression(pattern: "(?<![0-9])(\\d{1,2})時(?!間)(半)?"),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let hourRange = Range(match.range(at: 1), in: text),
-              let hour = Int(text[hourRange]) else { return nil }
+              let hour = Int(text[hourRange]), (0...23).contains(hour) else { return nil }
         let minute = match.range(at: 2).location == NSNotFound ? 0 : 30
         let day = dates.first ?? range.start
         let start = day.setting(hour: hour, minute: minute, calendar: calendar)

@@ -3,11 +3,12 @@ import Foundation
 /// Production interpreter that keeps the on-device model bounded by deterministic
 /// scheduling rules and restores the previous case conditions for short follow-ups.
 struct ProductionConversationInterpreter: ConversationInterpreting {
-    private let base = RobustConversationInterpreter()
+    private let base: any ConversationInterpreting
     private let calendar: Calendar
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, base: any ConversationInterpreting = RobustConversationInterpreter()) {
         self.calendar = calendar
+        self.base = base
     }
 
     func interpret(
@@ -17,7 +18,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         searchCandidates: [ContextSearchResult],
         recentTurns: [ConversationTurnSnapshot]
     ) async -> ConversationInterpretation {
-        let normalized = normalize(text)
+        let normalized = RuleBasedConversationInterpreter.removingNegatedDays(normalize(text))
         var result = await base.interpret(
             text: normalized,
             now: now,
@@ -28,7 +29,25 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
 
         applySupplementalDates(from: normalized, now: now, to: &result)
         applyExactTime(from: normalized, now: now, pinnedContext: pinnedContext, to: &result)
+        if [.unknown, .askAboutExisting].contains(result.intent),
+           !result.candidateDates.isEmpty, result.exactStartDate != nil,
+           !normalized.hasSuffix("か"),
+           !["?", "？", "教えて", "何が", "何か", "予定は", "予定を", "ある", "確認", "見せて", "調べて", "空き", "空いて", "あいて", "空い", "空けられ", "暇", "ひま"].contains(where: normalized.contains) {
+            let title = RuleBasedChatAgent.planTitle(from: normalized)
+            if title != "予定", !title.isEmpty {
+                result.intent = .addEvent
+                result.title = title
+                result.needsClarification = false
+                result.clarificationQuestion = nil
+                result.clarificationOptions = []
+            }
+        }
         applyColloquialDefaults(text: normalized, to: &result)
+        if normalized.range(of: "追加(?:して(?:ください|ほしい)?|する|をお願い)(?:ね|よ|な|です|ます|[。！!\\s])*$", options: .regularExpression) != nil,
+           !["断る", "断り", "返信", "文を作って", "文を作成"].contains(where: normalized.contains),
+           !result.candidateDates.isEmpty, result.exactStartDate != nil {
+            result.intent = .addEvent
+        }
         applyExplicitExclusionPhrases(from: normalized, to: &result)
 
         let resolvedContext = pinnedContext ?? uniquelyResolvedContext(searchCandidates)
@@ -243,7 +262,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
     private func exactClockTime(in text: String) -> (Int, Int)? {
         let patterns = [
             "(?<![0-9])([0-9]{1,2}):([0-9]{2})(?![0-9])",
-            "(?<![0-9])([0-9]{1,2})時(半|[0-9]{1,2}分)?"
+            "(?<![0-9])([0-9]{1,2})時(?!間)(半|[0-9]{1,2}分)?"
         ]
         let nsText = text as NSString
         for pattern in patterns {
