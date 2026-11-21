@@ -80,6 +80,14 @@ enum DemoSeeder {
         }
 
         try seedAdjustments(in: context, base: base, calendar: clock.calendar)
+        if ProcessInfo.processInfo.arguments.contains("-seed-confirmed-adjustment") {
+            var slot = candidate(on: base.addingDays(37, calendar: clock.calendar), time: .afternoon, calendar: clock.calendar)
+            slot.status = .confirmed
+            context.insert(AdjustmentEntity(
+                title: "確定したランチ", contactName: "友達", status: .confirmed,
+                candidates: [slot], generatedMessage: "日程が決まりました"
+            ))
+        }
         try context.save()
     }
 

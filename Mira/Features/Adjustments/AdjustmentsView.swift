@@ -41,8 +41,8 @@ struct AdjustmentsView: View {
 
             ScrollView {
                 LazyVStack(spacing: MiraSpacing.sm) {
-                    if segment == .adjustments {
-                        manualSchedulingCard
+                    if segment != .pending {
+                        if segment == .adjustments { manualSchedulingCard }
                         adjustmentList
                     } else {
                         invitationList
@@ -56,25 +56,27 @@ struct AdjustmentsView: View {
         .navigationTitle("調整")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    if segment == .adjustments {
-                        store.startManualScheduling()
-                    } else {
-                        showPendingCreate = true
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(palette.isCatSkin ? .body.weight(.semibold) : .body)
-                        .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
-                        .frame(width: 44, height: 44)
-                        .background {
-                            if palette.isCatSkin {
-                                Circle().fill(palette.actionGradient)
-                            }
+            if segment != .confirmed {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if segment == .adjustments {
+                            store.startManualScheduling()
+                        } else {
+                            showPendingCreate = true
                         }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(palette.isCatSkin ? .body.weight(.semibold) : .body)
+                            .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
+                            .frame(width: 44, height: 44)
+                            .background {
+                                if palette.isCatSkin {
+                                    Circle().fill(palette.actionGradient)
+                                }
+                            }
+                    }
+                    .accessibilityLabel(segment == .adjustments ? "日程を探す" : "検討中の誘いを追加")
                 }
-                .accessibilityLabel(segment == .adjustments ? "日程を探す" : "検討中の誘いを追加")
             }
         }
         .sheet(isPresented: $showPendingCreate) {
@@ -119,12 +121,12 @@ struct AdjustmentsView: View {
 
     @ViewBuilder
     private var adjustmentList: some View {
-        let active = store.adjustments.filter { $0.status != .cancelled }
+        let active = store.adjustments.filter { segment.includes($0.status) }
         if active.isEmpty {
             EmptyStateView(
                 symbol: "calendar.badge.plus",
-                title: "調整中の日程はありません",
-                message: "候補日を仮押さえして、ダブルブッキングを防げます。",
+                title: segment == .confirmed ? "確定済みの日程はありません" : "調整中の日程はありません",
+                message: segment == .confirmed ? "確定した日程はここで確認できます。" : "候補日を仮押さえして、ダブルブッキングを防げます。",
                 palette: palette
             )
             .miraCard(palette)
@@ -162,12 +164,27 @@ struct AdjustmentsView: View {
     }
 }
 
-private enum AdjustmentSegment: String, CaseIterable, Identifiable {
+enum AdjustmentSegment: String, CaseIterable, Identifiable {
     case adjustments
     case pending
+    case confirmed
 
     var id: String { rawValue }
-    var title: String { self == .adjustments ? "調整中" : "検討中" }
+    var title: String {
+        switch self {
+        case .adjustments: "調整中"
+        case .pending: "検討中"
+        case .confirmed: "確定済み"
+        }
+    }
+
+    func includes(_ status: AdjustmentStatus) -> Bool {
+        switch self {
+        case .adjustments: status == .draft || status == .waiting
+        case .confirmed: status == .confirmed
+        case .pending: false
+        }
+    }
 }
 
 private struct AdjustmentRow: View {
@@ -180,7 +197,7 @@ private struct AdjustmentRow: View {
                 RoundedRectangle(cornerRadius: MiraRadius.small)
                     .fill(palette.adjustment)
                     .frame(width: 52, height: 52)
-                Image(systemName: session.status == .confirmed ? "checkmark.calendar" : "calendar.badge.clock")
+                Image(systemName: session.status == .confirmed ? "calendar.badge.checkmark" : "calendar.badge.clock")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(palette.primaryText)
             }
@@ -188,9 +205,15 @@ private struct AdjustmentRow: View {
                 Text(session.title)
                     .font(.headline)
                     .foregroundStyle(palette.primaryText)
-                Text("候補 \(session.candidates.filter { $0.status == .held }.count)件" + contactSuffix)
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
+                if session.status != .confirmed {
+                    Text("候補 \(session.candidates.filter { $0.status == .held }.count)件" + contactSuffix)
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                } else if let name = session.contactName, !name.isEmpty {
+                    Text(name)
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
                 if session.status == .draft {
                     Label("自分が送る番・未送信", systemImage: "paperplane")
                         .font(.caption2.weight(.semibold))
