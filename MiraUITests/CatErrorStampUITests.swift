@@ -55,6 +55,7 @@ final class CatErrorStampUITests: XCTestCase {
         }
         expectation(for: inside, evaluatedWith: nil)
         waitForExpectations(timeout: 8)
+        XCTAssertLessThan(stamp.frame.midX, app.frame.midX, "The stamp belongs on Mira's side, not the user's")
         capture("\(theme)-failure\(extra.isEmpty ? "" : "-large-text")")
 
         // Reset is a real dismissal path: the error must not leak into a new chat.

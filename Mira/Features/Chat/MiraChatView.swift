@@ -241,11 +241,10 @@ private struct ChatBubble: View {
                     }
                     if message.failure != nil && !message.isStreaming && store.theme.isCat {
                         HStack {
-                            Spacer(minLength: 0)
                             CatErrorStamp(theme: store.theme, palette: palette)
+                            Spacer(minLength: 0)
                         }
                         .padding(.top, MiraSpacing.xs)
-                        .padding(.trailing, MiraSpacing.sm)
                     }
                     ForEach(message.cards) { card in
                         ChatCardView(card: card, messageID: message.id, palette: palette)
