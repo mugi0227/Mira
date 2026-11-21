@@ -610,9 +610,10 @@ struct NewItemSheet: View {
 
         if isMemo {
             return CalendarItemSnapshot(id: UUID(), title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                startDate: start, endDate: end, isAllDay: isAllDay, kind: .memo,
+                startDate: start, endDate: end, isAllDay: isAllDay, kind: .confirmed,
                 marginKind: nil, loadClass: .light, loadReason: "", bufferBeforeMinutes: 0,
-                bufferAfterMinutes: 0, isImportantTime: false, sourceID: nil, colorTag: colorTag)
+                bufferAfterMinutes: 0, isImportantTime: false, sourceID: nil, colorTag: colorTag,
+                occupiesTime: false)
         }
 
         return await store.prepareEvent(

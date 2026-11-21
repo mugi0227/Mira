@@ -4,23 +4,29 @@ struct EventDetailSheet: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    let item: CalendarItemSnapshot
+    private let originalItem: CalendarItemSnapshot
     let palette: MiraThemePalette
+
+    private var item: CalendarItemSnapshot {
+        store.items.first { $0.id == originalItem.id } ?? originalItem
+    }
 
     @State private var selectedLoad: LoadClass
     @State private var rememberSimilar = false
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
-    @State private var isMemo: Bool
     @State private var showOccupancyConfirmation = false
     @State private var occupancyWarning = ""
+    @State private var occupancyPreview: CalendarItemSnapshot?
+    @State private var previewedMarginIDs: Set<UUID> = []
     @State private var marginMinutes: Int
+    @State private var occupiesTime: Bool
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
-        self.item = item
+        self.originalItem = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
-        _isMemo = State(initialValue: item.kind == .memo)
+        _occupiesTime = State(initialValue: item.countsAgainstWhitespace)
         _colorTag = State(initialValue: item.colorTag)
         _marginMinutes = State(initialValue: max(30, Int(item.endDate.timeIntervalSince(item.startDate) / 60)))
     }
@@ -31,22 +37,47 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
-                    if item.deviceEvent == nil && (item.kind == .confirmed || item.kind == .memo) {
-                        Toggle("時間を取らない予定", isOn: $isMemo)
-                            .miraCard(palette)
-                            .onChange(of: isMemo) { _, enabled in
-                                guard enabled != (item.kind == .memo) else { return }
-                                guard let updated = store.memoConvertedSnapshot(for: item, enabled: enabled) else { return }
-                                var warnings = store.eventEntryConflicts(for: updated)
-                                let margins = store.previewImpact(for: updated).overlappingMargins
-                                if !margins.isEmpty {
-                                    warnings.append("消費する余白：" + margins.map(\.title).joined(separator: "、"))
-                                }
-                                occupancyWarning = warnings.joined(separator: "\n")
-                                if !enabled {
+                    if item.kind == .confirmed {
+                        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+                            Button {
+                                let enabled = !occupiesTime
+                                guard let updated = store.occupancyConvertedSnapshot(for: item, occupiesTime: enabled) else { return }
+                                if enabled {
+                                    let margins = store.previewImpact(for: updated).overlappingMargins
+                                    var warnings = store.eventEntryConflicts(for: updated)
+                                    if !margins.isEmpty {
+                                        warnings.append("消費する余白：" + margins.map(\.title).joined(separator: "、"))
+                                    }
+                                    occupancyWarning = warnings.joined(separator: "\n")
+                                    occupancyPreview = updated
+                                    previewedMarginIDs = Set(margins.map(\.id))
                                     showOccupancyConfirmation = true
-                                } else if store.setMemo(item, enabled: enabled) { dismiss() }
+                                } else if store.setOccupiesTime(itemID: item.id, to: false) {
+                                    occupiesTime = false
+                                    selectedLoad = item.loadClass
+                                }
+                            } label: {
+                                HStack(spacing: MiraSpacing.md) {
+                                    Text("時間を使う予定")
+                                        .font(.headline)
+                                    Spacer(minLength: 0)
+                                    Label(occupiesTime ? "使う" : "メモ", systemImage: occupiesTime ? "checkmark.circle.fill" : "circle")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                .foregroundStyle(palette.accent)
+                                .padding(MiraSpacing.sm)
+                                .frame(minHeight: 48)
+                                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
                             }
+                            .buttonStyle(MiraPressStyle())
+                            .accessibilityLabel("時間を使う予定")
+                            .accessibilityValue(occupiesTime ? "オン" : "オフ")
+                            .accessibilityIdentifier("eventOccupiesTime")
+                            Text("オフにすると、メモとして表示し、日ごとの余白を減らしません。")
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        .miraCard(palette)
                     }
                     if item.kind != .margin {
                         colorCard
@@ -55,7 +86,7 @@ struct EventDetailSheet: View {
                         quickMoveCard
                     }
                     DeviceCalendarActionView(item: item, palette: palette)
-                    if item.kind == .confirmed {
+                    if occupiesTime {
                         loadCard
                     }
                     if item.kind == .margin {
@@ -77,9 +108,13 @@ struct EventDetailSheet: View {
             }
             .confirmationDialog("時間を取る予定に変更しますか？", isPresented: $showOccupancyConfirmation) {
                 Button("影響を承認して変更") {
-                    if store.setMemo(item, enabled: false) { dismiss() }
+                    if store.setOccupiesTime(itemID: item.id, to: true,
+                        previewedSnapshot: occupancyPreview, previewedMarginIDs: previewedMarginIDs) {
+                        occupiesTime = true
+                        selectedLoad = item.loadClass
+                    }
                 }
-                Button("キャンセル", role: .cancel) { isMemo = true }
+                Button("キャンセル", role: .cancel) {}
             } message: {
                 Text(occupancyWarning.isEmpty ? "空き時間の計算に含まれます。前後の余裕を含めて重なる余白は消費されます。" : occupancyWarning)
             }
@@ -306,7 +341,7 @@ struct EventDetailSheet: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
-        if item.kind == .memo { return "note.text" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"

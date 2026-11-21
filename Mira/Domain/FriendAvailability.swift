@@ -19,7 +19,7 @@ struct FriendAvailability: Sendable {
     init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], calendar: Calendar = .mira) {
         let day = calendar.startOfDay(for: date)
         let nextDay = day.addingDays(1, calendar: calendar)
-        let relevant = items.filter { $0.occupiesTime && $0.startDate < nextDay && $0.endDate > day }
+        let relevant = items.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) && $0.startDate < nextDay && $0.endDate > day }
         hasAllDayEvent = relevant.contains { $0.isAllDay }
         let allDay = hasAllDayEvent
         let weekday = calendar.component(.weekday, from: day)

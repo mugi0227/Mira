@@ -258,51 +258,6 @@ extension MiraStore {
         }
     }
 
-    func memoConvertedSnapshot(for item: CalendarItemSnapshot, enabled: Bool) -> CalendarItemSnapshot? {
-        guard let item = items.first(where: { $0.id == item.id }),
-              item.deviceEvent == nil, item.kind == .confirmed || item.kind == .memo else { return nil }
-        var updated = item
-        updated.kind = enabled ? .memo : .confirmed
-        updated.isImportantTime = false
-        updated.bufferBeforeMinutes = 0
-        updated.bufferAfterMinutes = 0
-        updated.loadClass = .light
-        updated.loadReason = ""
-        if !enabled {
-            let evaluation = loadEngine.evaluate(title: item.title, startDate: item.startDate,
-                endDate: item.endDate, isAllDay: item.isAllDay, explicitRules: fetchLoadRules())
-            updated.loadClass = evaluation.loadClass
-            updated.loadReason = evaluation.reason
-            updated.bufferBeforeMinutes = evaluation.bufferBeforeMinutes
-            updated.bufferAfterMinutes = evaluation.bufferAfterMinutes
-        }
-        return updated
-    }
-
-    @discardableResult
-    func setMemo(_ item: CalendarItemSnapshot, enabled: Bool) -> Bool {
-        guard let updated = memoConvertedSnapshot(for: item, enabled: enabled) else { return false }
-        let impact = previewImpact(for: updated)
-        let undo = captureCalendarUndo(title: "予定の変更")
-        do {
-            guard let entity = try entity(id: item.id) else { return false }
-            for margin in impact.overlappingMargins {
-                if let occupied = try self.entity(id: margin.id) { context.delete(occupied) }
-            }
-            entity.apply(updated)
-            try context.save()
-            try refresh()
-            finishCalendarMutation(undo)
-            updateMarginRecommendation(for: updated.startDate)
-            recalculateBalance(for: updated.startDate)
-            return true
-        } catch {
-            context.rollback()
-            toast = "予定を変更できませんでした"
-            return false
-        }
-    }
-
     func correctLoad(itemID: UUID, to load: LoadClass, rememberKeyword: Bool) {
         do {
             guard let entity = try entity(id: itemID) else { return }
@@ -332,7 +287,7 @@ extension MiraStore {
         let key = MonthKey(year: goal.year, month: goal.month)
         let current: Int
         if goal.kind == .importantPeople {
-            current = items.filter { $0.occupiesTime && $0.isImportantTime && key.interval.contains($0.startDate) }.count
+            current = items.filter { ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.isImportantTime && key.interval.contains($0.startDate) }.count
         } else if goal.kind == .freeEvening {
             let engine = FreeEveningEngine()
             let days = daysInMonth(key.firstDay)

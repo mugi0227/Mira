@@ -14,6 +14,7 @@ struct MiraWidgetSnapshot: Codable, Hashable, Sendable {
         var kind: Kind
         var tintHex: UInt32
         var symbol: String
+        var countsAgainstWhitespace: Bool? = nil
     }
 
     var generatedAt: Date
@@ -49,7 +50,7 @@ struct MiraWidgetSnapshot: Codable, Hashable, Sendable {
     }
 
     func nextPlan(after date: Date) -> Entry? {
-        entries.first { $0.kind == .plan && !$0.isAllDay && $0.end > date }
+        entries.first { $0.kind == .plan && ($0.countsAgainstWhitespace ?? !$0.isAllDay) && $0.end > date }
     }
 
     static let placeholder: MiraWidgetSnapshot = {

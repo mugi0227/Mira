@@ -14,7 +14,7 @@ struct ProtectionEngine: Sendable {
         goals: [MarginGoalSnapshot],
         relocationCandidates: [Date]
     ) -> ScheduleImpact {
-        guard proposedEvent.occupiesTime else { return .none }
+        guard proposedEvent.kind != .confirmed || proposedEvent.countsAgainstWhitespace else { return .none }
         let monthKey = MonthKey(date: month, calendar: calendar)
         let overlapping = items.filter {
             $0.kind == .margin && $0.occupiedInterval.intersects(proposedEvent.occupiedInterval)
@@ -106,7 +106,7 @@ struct ConflictEngine: Sendable {
         baseRules: [BaseAvailabilityRule] = []
     ) -> [String] {
         var result: [String] = []
-        if events.contains(where: { $0.kind == .confirmed && $0.occupiedInterval.intersects(candidate.interval) }) {
+        if events.contains(where: { $0.countsAgainstWhitespace && $0.occupiedInterval.intersects(candidate.interval) }) {
             result.append("確定予定と重なっています")
         }
         if events.contains(where: { $0.kind == .margin && $0.occupiedInterval.intersects(candidate.interval) }) {
@@ -153,7 +153,7 @@ struct ConflictEngine: Sendable {
         baseRules: [BaseAvailabilityRule] = []
     ) -> [Detail] {
         var details: [Detail] = []
-        for event in events where (event.kind == .confirmed || event.kind == .margin)
+        for event in events where (event.countsAgainstWhitespace || event.kind == .margin)
             && event.occupiedInterval.intersects(candidate.interval) {
             let kind = event.kind == .margin ? "守っている余白" : "確定予定"
             let title = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -247,7 +247,7 @@ struct FreeEveningEngine: Sendable {
         let start = date.setting(hour: 18, calendar: calendar)
         let end = date.addingDays(1, calendar: calendar).setting(hour: 0, calendar: calendar)
         let evening = DateInterval(start: start, end: end)
-        let confirmedItems = items.filter { $0.kind == .confirmed }
+        let confirmedItems = items.filter { $0.countsAgainstWhitespace }
         let occupiedSeconds = confirmedItems
             .filter { $0.occupiedInterval.intersects(evening) }
             .reduce(0.0) { partial, item in
@@ -288,7 +288,7 @@ struct AssistantEngine: Sendable {
             )
         }
 
-        let heavyDays = Set(items.filter { $0.occupiesTime && $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
+        let heavyDays = Set(items.filter { ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
             .map { calendar.startOfDay(for: $0.startDate) }).count
         if heavyDays >= 5 {
             return AssistantMessage(

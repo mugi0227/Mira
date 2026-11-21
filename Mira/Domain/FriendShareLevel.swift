@@ -48,7 +48,7 @@ struct FriendDayContent {
         func compactRange(_ interval: DateInterval) -> String {
             "\(compactTime(interval.start))–\(interval.end >= end ? "24" : compactTime(interval.end))"
         }
-        let dayItems = items.filter { $0.kind != .birthday && $0.overlapsFriendShareDay(date, calendar: calendar) }
+        let dayItems = items.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) && $0.overlapsFriendShareDay(date, calendar: calendar) }
         let relevant = dayItems.filter(\.exactTimeKnown)
         let bodyItems = relevant.filter { $0.overlapsDay(date, calendar: calendar) }
         let undetermined = dayItems.filter { !$0.exactTimeKnown }

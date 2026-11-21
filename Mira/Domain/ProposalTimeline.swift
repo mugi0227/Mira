@@ -22,8 +22,9 @@ enum ProposalTimeline {
     }
 
     static func overlappingItems(_ items: [CalendarItemSnapshot], proposal: CalendarItemSnapshot) -> [CalendarItemSnapshot] {
-        items.filter {
-            $0.id != proposal.id && ($0.kind == .confirmed || $0.kind == .margin)
+        guard proposal.kind != .confirmed || proposal.countsAgainstWhitespace else { return [] }
+        return items.filter {
+            $0.id != proposal.id && ($0.countsAgainstWhitespace || $0.kind == .margin)
                 && overlap($0.occupiedInterval, proposal.occupiedInterval) != nil
         }
     }

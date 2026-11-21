@@ -2,6 +2,17 @@ import XCTest
 @testable import Mira
 
 final class WidgetSnapshotTests: XCTestCase {
+    func testMemoIsVisibleButNotTheNextBusyPlan() {
+        let now = TestFixtures.date(day: 1, hour: 10)
+        let memo = TestFixtures.event(title: "メモ", day: 1, hour: 11, occupiesTime: false)
+        let busy = TestFixtures.event(title: "予定", day: 1, hour: 12)
+        let snapshot = MiraStore.widgetSnapshot(items: [memo, busy], now: now)
+        XCTAssertEqual(snapshot.today(at: now).map(\.title), ["メモ", "予定"])
+        XCTAssertEqual(snapshot.entries.first?.symbol, "note.text")
+        XCTAssertEqual(snapshot.nextPlan(after: now)?.id, busy.id)
+        XCTAssertNil(MiraStore.widgetSnapshot(items: [memo], now: now).nextPlan(after: now))
+    }
+
     func testSnapshotCoversTwoWeeksInOrderWithShortMarginNames() {
         let now = TestFixtures.date(day: 1, hour: 10)
         var colored = TestFixtures.event(title: "友達とご飯", day: 3, hour: 19)

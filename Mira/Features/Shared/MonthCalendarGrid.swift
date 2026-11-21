@@ -83,11 +83,11 @@ struct MonthCalendarGrid: View {
         let hasOverflow = cells.contains { date in
             let count = items.filter { $0.overlapsDay(date, calendar: calendar) }.count
             let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
-            return count > (hasHoliday ? 1 : 2)
+            return count > (privacyMode ? (hasHoliday ? 1 : 2) : (hasHoliday ? 0 : 1))
         }
-        // Keep room for the friend's availability bands. The personal grid can
-        // trade preview chips for a visible card edge without shrinking text.
-        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : 72
+        // Keep the ring, two-line title and overflow link inside each row;
+        // friend mode instead reserves room for availability bands.
+        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : (hasOverflow ? 92 : 76)
         return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -143,16 +143,10 @@ struct MonthCalendarGrid: View {
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
-        let isCompact = palette.isCatSkin && cellHeight < 100
-        let visibleItemLimit = if palette.isCatSkin && cellHeight < 88 {
-            // Date + one preview + overflow count still fit without crowding.
-            // On holidays the holiday title uses the preview's line.
-            holiday == nil ? 1 : 0
-        } else {
-            isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
-        }
+        let isCompact = cellHeight < 104
+        let visibleItemLimit = isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
 
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             Button {
                 select(date)
             } label: {
@@ -171,7 +165,7 @@ struct MonthCalendarGrid: View {
                         }
 
                         Text("\(calendar.component(.day, from: date))")
-                            .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
+                            .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
                             .foregroundStyle(dateForeground(
                                 isSelected: isSelected,
                                 isInDisplayedMonth: isInDisplayedMonth,
@@ -179,15 +173,26 @@ struct MonthCalendarGrid: View {
                                 isHoliday: holiday != nil
                             ))
                     }
-                    .frame(height: 28)
+                    .frame(height: 26)
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
-            .frame(height: 28)
+            .frame(height: 26)
             .buttonStyle(.plain)
             .accessibilityLabel("\(date.japaneseShortDate)を開く")
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+
+            if !privacyMode {
+                let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
+                WhitespaceRing(fraction: whitespace.fraction, palette: palette)
+                    .frame(width: 13, height: 13)
+                    .frame(maxWidth: .infinity)
+                    .opacity(isInDisplayedMonth ? 1 : 0.3)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
+                    .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+            }
 
             VStack(spacing: 2) {
                 if let holiday {
@@ -332,7 +337,22 @@ struct MonthCalendarGrid: View {
         let suffix = privacyMode
             ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar).lines.joined(separator: "、")
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
-        return "\(formatter.string(from: date))、\(suffix)"
+        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar)
+        return "\(formatter.string(from: date))、\(suffix)" + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
+    }
+}
+
+private struct WhitespaceRing: View {
+    let fraction: Double
+    let palette: MiraThemePalette
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(palette.accent.opacity(0.12), lineWidth: 2.5)
+            Circle().trim(from: 0, to: min(1, max(0, fraction)))
+                .stroke(palette.accent.opacity(0.75), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
     }
 }
 
@@ -363,22 +383,23 @@ private struct CalendarEventStrip: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            if let symbol {
+            if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
             }
 
             Text(chipTitle)
-                .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .lineLimit(palette.isCatSkin ? 2 : 1)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
-        .foregroundStyle(item.kind == .memo ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
-        .opacity(item.kind == .memo ? 0.7 : 1)
-        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
-        .padding(.trailing, 3)
-        .frame(minHeight: 18, alignment: .leading)
+        .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
+        .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
+        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 2)
+        .padding(.trailing, palette.isCatSkin ? 1 : 3)
+        .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .leading)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {
@@ -414,7 +435,7 @@ private struct CalendarEventStrip: View {
 
     private var symbol: String? {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
-        if item.kind == .memo { return "note.text" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return nil
