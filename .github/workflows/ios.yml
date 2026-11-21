@@ -90,6 +90,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.run_ui_tests != false
         run: |
           set -o pipefail
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl privacy "$SIMULATOR_UDID" grant calendar jp.mugi.mira
           xcodebuild \
             -project Mira.xcodeproj \
