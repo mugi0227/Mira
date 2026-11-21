@@ -1,5 +1,15 @@
 import Foundation
 
+#if DEBUG
+@MainActor
+final class MarkdownDemoChatAgent: MiraChatAgent {
+    let displayName = "Mira（デモ）"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        sink.setText("**余白を確認したにゃ。**\n* **読書**の時間を守ろう。\n- 無理せず休んでね。")
+    }
+}
+#endif
+
 /// A chat agent answers one turn by calling Mira's tools and writing a reply
 /// into the sink. Tools only read or propose; the person approves changes.
 @MainActor
@@ -16,7 +26,15 @@ enum MiraChatAgentFactory {
             return FoundationModelsChatAgent()
         }
         #endif
-        return RuleBasedChatAgent()
+        return UnavailableChatAgent()
+    }
+}
+
+@MainActor
+private final class UnavailableChatAgent: MiraChatAgent {
+    let displayName = "Mira"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        throw CocoaError(.featureUnsupported)
     }
 }
 
@@ -199,9 +217,9 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     private func stream(_ prompt: String, into sink: ChatTurnSink) async throws {
         let session = self.session ?? makeSession()
         self.session = session
-        let responseStream = session.streamResponse(to: prompt)
+        let responseStream = session.streamResponse(to: prompt, options: GenerationOptions(maximumResponseTokens: 512))
         for try await snapshot in responseStream {
-            sink.setText(snapshot.content)
+            sink.setText(ChatAnswer.trimmed(snapshot.content))
         }
     }
 
@@ -223,6 +241,9 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     あなたは「Mira」。予定管理アプリの、やさしい猫のアシスタント。語尾は時々「にゃ」。返事は日本語で2〜3文、短く。
     利用者は誘いが多く断るのが苦手。自分の休息・読書・一人時間（＝余白）を守りながら予定を入れたい。
     ルール：
+    - 回答は全体で2〜3文、最大300文字。箇条書きなら3項目まで。見出し・まとめ・同じ内容の繰り返しは不要。詳しい一覧はカードに任せる。
+    - 日付・曜日・件数・数値は今回のツール結果にあるものだけをそのまま使う。曜日や割合・パーセントを自分で計算しない。結果にない日や期間外の日を挙げない。不明なことは不明と伝える。
+    - 「今月休めてる？」など休息・余白の質問には monthBalance を使う。件数だけから休めていると断定しない。
     - 予定や空きについて答える前に、必ずツールでカレンダーを確認する。推測で日付や予定を言わない。
     - 予定の追加・移動は proposeEvent / proposeMove で「案」を作るだけ。保存は本人がカードで決める。保存したとは言わない。
     - 空きを聞かれたら findOpenSlots。余白や基本時間とぶつからない候補だけを勧める。

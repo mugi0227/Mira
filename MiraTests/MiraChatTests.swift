@@ -85,14 +85,15 @@ final class MiraChatTests: XCTestCase {
         XCTAssertFalse(reply.isStreaming)
     }
 
-    func testModelFailurePreservesPartialTextAndCards() async throws {
+    func testModelFailureReplacesPartialTextAndCards() async throws {
         for (text, hasCard) in [("途中の返事", false), ("", true), ("途中の返事", true)] {
             let store = try makeStore()
             store.chatAgent = FailingChatAgent(partialText: text, producesCard: hasCard)
             await store.sendChat("今月ちゃんと休めてる？")
             let reply = try XCTUnwrap(store.chatMessages.last)
-            XCTAssertEqual(reply.text, text.isEmpty ? "こんな感じでどうかにゃ？" : text)
-            XCTAssertEqual(reply.cards.count, hasCard ? 1 : 0)
+            XCTAssertEqual(reply.text, ChatAnswer.failure)
+            XCTAssertTrue(reply.cards.isEmpty)
+            XCTAssertTrue(reply.activities.isEmpty)
             XCTAssertFalse(reply.isStreaming)
         }
     }

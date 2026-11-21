@@ -8,8 +8,23 @@ final class SelfTimeChatUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if name.contains("testMarkdownAssistantReply") { app.launchArguments.append("-ui-markdown-reply") }
         app.launch()
         completeOnboardingIfNeeded()
+    }
+
+    func testMarkdownAssistantReply() throws {
+        openCompanion()
+        sendChat("今月ちゃんと休めてる？")
+        let reply = app.staticTexts.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chatAssistantText", "読書")).firstMatch
+        require(reply, "rendered markdown reply", timeout: 20)
+        XCTAssertFalse(reply.label.contains("**"))
+        XCTAssertFalse(reply.label.contains("* "))
+        XCTAssertTrue(reply.label.contains("•"))
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "chat-rendered-markdown"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testChatRequestShowsChipsAndAppliesInOneTap() throws {
