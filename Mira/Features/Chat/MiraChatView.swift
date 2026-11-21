@@ -222,7 +222,7 @@ private struct ChatBubble: View {
                     if message.text.isEmpty && message.isStreaming {
                         TypingIndicator(palette: palette)
                     } else if !message.text.isEmpty {
-                        Text(message.text)
+                        Text(ChatAnswer.markdown(message.text))
                             .font(.body)
                             .foregroundStyle(palette.primaryText)
                             .padding(.horizontal, 16)
