@@ -494,11 +494,14 @@ struct SchedulingModeView: View {
         .padding(.top, MiraSpacing.sm)
         .padding(.bottom, MiraSpacing.xs)
         .background {
-            if palette.isCatSkin {
-                palette.surface
-            } else {
-                Rectangle().fill(.regularMaterial)
+            Group {
+                if palette.isCatSkin {
+                    palette.surface
+                } else {
+                    Rectangle().fill(.regularMaterial)
+                }
             }
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 
