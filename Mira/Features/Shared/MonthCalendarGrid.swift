@@ -30,12 +30,12 @@ struct MonthCalendarGrid: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            LazyVGrid(columns: columns, spacing: 0) {
+            HStack(spacing: 0) {
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(weekdayColor(for: index))
-                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
                             if !palette.isCatSkin && index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
@@ -47,11 +47,17 @@ struct MonthCalendarGrid: View {
 
             if !palette.isCatSkin { gridLine.frame(height: 0.5) }
 
-            LazyVGrid(columns: columns, spacing: 0) {
+            VStack(spacing: 0) {
                 let days = cells
                 let cellHeight = rowHeight(dayCount: days.count)
-                ForEach(Array(days.enumerated()), id: \.element) { index, date in
-                    dayCell(date, index: index, cellHeight: cellHeight)
+                let weeks = stride(from: 0, to: days.count, by: 7).map { Array(days[$0..<($0 + 7)]) }
+                ForEach(Array(weeks.enumerated()), id: \.element) { weekIndex, week in
+                    HStack(spacing: 0) {
+                        ForEach(Array(week.enumerated()), id: \.element) { dayIndex, date in
+                            dayCell(date, index: weekIndex * 7 + dayIndex, cellHeight: cellHeight)
+                                .frame(minWidth: 0, maxWidth: .infinity)
+                        }
+                    }
                 }
             }
         }
@@ -70,10 +76,6 @@ struct MonthCalendarGrid: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("monthCalendar")
-    }
-
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
     private var friendTitlePreviewLimit: Int {
