@@ -226,6 +226,11 @@ struct MainTabView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("miraTabBar")
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: MiraTabBarHeightKey.self, value: geometry.size.height)
+            }
+        }
     }
 
     private var schedulingPresented: Binding<Bool> {

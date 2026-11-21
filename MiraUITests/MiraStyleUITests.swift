@@ -101,16 +101,32 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
         let month = app.staticTexts["2026年9月"]
-        XCTAssertGreaterThanOrEqual(month.frame.minY, toastFrame.maxY)
+        XCTAssertFalse(month.frame.intersects(toastFrame))
         for label in ["前の月", "次の月", "追加メニュー"] {
             let button = app.buttons[label]
             XCTAssertTrue(button.isHittable)
             XCTAssertFalse(button.frame.intersects(toastFrame))
         }
-        capture("toast-clear-header")
+        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
+        let monthFrame = month.frame
+        let lastRowFrame = lastRow.frame
+        let tabFrame = tabs.frame
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
+        XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
+        capture("floating-toast-full-calendar")
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         XCTAssertTrue(toast.exists)
+        app.buttons["前の月"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" || $0 == "-ui-testing-persistent-toast" }
+        launchHome()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: toast)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed)
+        XCTAssertEqual(month.frame.minY, monthFrame.minY, accuracy: 1)
+        XCTAssertEqual(lastRow.frame.maxY, lastRowFrame.maxY, accuracy: 1)
+        XCTAssertEqual(tabs.frame.minY, tabFrame.minY, accuracy: 1)
     }
 
     func testChatUsesNaturalVoiceAndAccessibleControls() {

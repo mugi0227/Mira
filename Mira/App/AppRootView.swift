@@ -5,6 +5,14 @@ extension Notification.Name {
     static let miraRetryStorage = Notification.Name("mira.retryStorage")
 }
 
+struct MiraTabBarHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 44
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct AppRootView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
@@ -14,8 +22,8 @@ struct AppRootView: View {
     var body: some View {
         let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme, colorStyle: store.colorStyle)
 
-        VStack(spacing: 0) {
-            toastBanner(palette: palette)
+        ZStack {
+            MiraScreenBackground(palette: palette)
             Group {
                 if store.isEmergencyStorage {
                     VStack(spacing: MiraSpacing.lg) {
@@ -41,7 +49,6 @@ struct AppRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background { MiraScreenBackground(palette: palette) }
         .task {
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
@@ -101,6 +108,14 @@ struct AppRootView: View {
                 }
             }
         }
+        .overlayPreferenceValue(MiraTabBarHeightKey.self) { tabBarHeight in
+            VStack {
+                Spacer(minLength: 0)
+                toastBanner(palette: palette)
+                    .padding(.bottom, tabBarHeight + MiraSpacing.xs)
+            }
+            .allowsHitTesting(false)
+        }
         .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
     }
@@ -109,18 +124,16 @@ struct AppRootView: View {
     private func toastBanner(palette: MiraThemePalette) -> some View {
         if let toast = store.toast {
             Text(toast)
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, MiraSpacing.md)
-                .padding(.vertical, MiraSpacing.sm)
+                .padding(.vertical, MiraSpacing.xs)
                 .background(.ultraThinMaterial, in: Capsule())
                 .shadow(color: palette.shadow, radius: 12, y: 5)
                 .padding(.horizontal, MiraSpacing.md)
-                .padding(.top, 8)
-                .padding(.bottom, MiraSpacing.xs)
                 .accessibilityIdentifier("appToast")
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: toast) {
                     let arguments = ProcessInfo.processInfo.arguments
                     guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
