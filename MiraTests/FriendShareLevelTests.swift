@@ -5,6 +5,28 @@ import XCTest
 
 @MainActor
 final class FriendShareLevelTests: XCTestCase {
+    func testUndeterminedTimesNeverExposeRepresentativeTimes() {
+        let day = TestFixtures.date(day: 2)
+        var event = TestFixtures.event(title: "面談", day: 2, hour: 10)
+        event.exactTimeKnown = false
+        var margin = TestFixtures.event(title: "秘密の読書", day: 2, hour: 19, kind: .margin, marginKind: .reading)
+        margin.exactTimeKnown = false
+        for level in [FriendShareLevel.busyTimes, .titles] {
+            let expected = level == .busyTimes ? ["時間未定 予定あり"] : ["時間未定 面談", "時間未定 予定あり"]
+            let content = FriendDayContent(date: day, items: [event, margin], level: level)
+            XCTAssertEqual(content.lines, expected)
+            XCTAssertEqual(content.gridLines, expected)
+            let text = FriendAvailabilityText.text(from: day, days: 1, items: [event, margin], level: level)
+            for line in expected { XCTAssertTrue(text.contains(line)) }
+            XCTAssertFalse(text.contains("10:00"))
+            XCTAssertFalse(text.contains("19:00"))
+            XCTAssertFalse(text.contains("秘密の読書"))
+            let mixed = FriendDayContent(date: day, items: [event, TestFixtures.event(title: "会議", day: 2, hour: 14)], level: level)
+            XCTAssertTrue(mixed.lines.contains("14:00–16:00 \(level == .titles ? "会議" : "予定あり")"))
+            XCTAssertTrue(mixed.lines.contains(expected[0]))
+        }
+    }
+
     func testLevels() {
         let day = TestFixtures.date(day: 2)
         let items = [TestFixtures.event(title: "秘密の面談", day: 2, hour: 10),

@@ -48,9 +48,11 @@ struct FriendDayContent {
         func compactRange(_ interval: DateInterval) -> String {
             "\(compactTime(interval.start))–\(interval.end >= end ? "24" : compactTime(interval.end))"
         }
-        let relevant = items.filter {
+        let dayItems = items.filter {
             $0.kind != .birthday && $0.overlapsDay(date, calendar: calendar)
         }
+        let relevant = dayItems.filter(\.exactTimeKnown)
+        let undetermined = dayItems.filter { !$0.exactTimeKnown }
         func clipped(_ from: Date, _ to: Date) -> DateInterval {
             DateInterval(start: max(start, from), end: min(end, to))
         }
@@ -70,13 +72,14 @@ struct FriendDayContent {
             }
         }
         if level == .busyTimes {
+            let unknown = undetermined.isEmpty ? [] : ["時間未定 予定あり"]
             if relevant.contains(where: \.isAllDay) {
-                lines = ["終日 予定あり"]
-                gridLines = ["終日"]
+                lines = ["終日 予定あり"] + unknown
+                gridLines = ["終日"] + unknown
             } else {
                 let intervals = merged(eventRanges + work)
-                lines = intervals.map { "\(range($0.start, $0.end)) 予定あり" }
-                gridLines = intervals.map(compactRange)
+                lines = intervals.map { "\(range($0.start, $0.end)) 予定あり" } + unknown
+                gridLines = intervals.map(compactRange) + unknown
             }
             return
         }
@@ -92,7 +95,8 @@ struct FriendDayContent {
             entries.append((interval.start, "\(range(interval.start, interval.end)) 予定あり", compactRange(interval)))
         }
         entries.sort { $0.date < $1.date }
-        lines = entries.map(\.text)
-        gridLines = entries.map(\.grid)
+        let unknown = undetermined.map { "時間未定 \($0.kind == .confirmed ? $0.title : "予定あり")" }
+        lines = entries.map(\.text) + unknown
+        gridLines = entries.map(\.grid) + unknown
     }
 }
