@@ -8,6 +8,12 @@ struct DayTimelineProposal: Identifiable {
 }
 
 enum ProposalTimeline {
+    static func scrollHour(for proposal: DayTimelineProposal, on date: Date, calendar: Calendar = .mira) -> Int {
+        let earliest = ([proposal.event.startDate] + proposal.conflicts.map(\.start)).min() ?? proposal.event.startDate
+        let start = max(calendar.startOfDay(for: date), earliest)
+        return max(0, calendar.component(.hour, from: start) - 1)
+    }
+
     static func overlap(_ lhs: DateInterval, _ rhs: DateInterval) -> DateInterval? {
         let start = max(lhs.start, rhs.start)
         let end = min(lhs.end, rhs.end)

@@ -27,7 +27,6 @@ struct DayTimelineView: View {
                 LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
                     dayHeader
 
-
                     if let holiday {
                         Label(holiday.title, systemImage: "flag.fill")
                             .font(.subheadline.weight(.semibold))
@@ -48,19 +47,22 @@ struct DayTimelineView: View {
                 .padding(.bottom, 80)
             }
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let proposal {
+                    ScrollView {
+                        conflictSection(proposal)
+                            .padding(.horizontal, MiraSpacing.md)
+                            .padding(.vertical, MiraSpacing.xs)
+                    }
+                    .frame(height: min(200, CGFloat(max(1, proposal.conflicts.count)) * 64 + 64))
+                    .background(palette.background)
+                }
+            }
             .onAppear {
                 if proposal == nil { store.selectedDate = date }
                 DispatchQueue.main.async {
                     proxy.scrollTo(scrollTargetID, anchor: .top)
                 }
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if let proposal {
-                conflictSection(proposal)
-                    .padding(.horizontal, MiraSpacing.md)
-                    .padding(.vertical, MiraSpacing.xs)
-                    .background(palette.background)
             }
         }
         .navigationTitle(date.japaneseDayTitle)
@@ -104,12 +106,11 @@ struct DayTimelineView: View {
             ForEach(proposal.conflicts) { detail in
                 if let item = store.items.first(where: { $0.id == detail.itemID }) {
                     Button { selectedItem = item } label: {
-                        Label(detail.text, systemImage: "chevron.right")
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        conflictRow(detail.text, icon: item.kind == .margin ? "leaf" : "calendar", tappable: true)
                     }
                     .accessibilityIdentifier("proposal.conflict.\(item.title)")
                 } else {
-                    Text(detail.text)
+                    conflictRow(detail.text, icon: detail.baseRuleInterval == nil ? "calendar.badge.clock" : "nosign", tappable: false)
                         .accessibilityIdentifier("proposal.conflict.\(detail.id)")
                 }
             }
@@ -117,6 +118,15 @@ struct DayTimelineView: View {
         .font(.subheadline)
         .foregroundStyle(palette.critical)
         .miraCard(palette, padding: MiraSpacing.sm)
+    }
+
+    private func conflictRow(_ text: String, icon: String, tappable: Bool) -> some View {
+        HStack(alignment: .top, spacing: MiraSpacing.xs) {
+            Image(systemName: icon).frame(width: 20).accessibilityHidden(true)
+            Text(text).frame(maxWidth: .infinity, alignment: .leading)
+            if tappable { Image(systemName: "chevron.right").accessibilityHidden(true) }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
     private var holiday: DeviceHolidaySnapshot? {
@@ -210,11 +220,21 @@ struct DayTimelineView: View {
                         }
                     }
 
+                    if let proposal {
+                        ForEach(proposal.conflicts.filter { $0.baseRuleInterval != nil }) { detail in
+                            if let interval = detail.baseRuleInterval {
+                                baseRuleBand(interval)
+                                    .frame(width: geometry.size.width)
+                            }
+                        }
+                    }
+
                     ForEach(timelinePlacements) { placement in
                         let spacing: CGFloat = 4
+                        let eventsWidth = proposal == nil ? geometry.size.width : (geometry.size.width - spacing) * 0.55
                         let laneWidth = max(
                             44,
-                            (geometry.size.width - spacing * CGFloat(placement.laneCount - 1))
+                            (eventsWidth - spacing * CGFloat(placement.laneCount - 1))
                                 / CGFloat(placement.laneCount)
                         )
                         let isDragging = draggingID == placement.item.id
@@ -243,8 +263,9 @@ struct DayTimelineView: View {
 
                     if let proposal {
                         proposalBlock(proposal.event)
-                            .frame(width: geometry.size.width)
-                            .offset(y: yOffset(for: max(Calendar.mira.startOfDay(for: date), proposal.event.startDate)))
+                            .frame(width: (geometry.size.width - 4) * 0.45)
+                            .offset(x: (geometry.size.width - 4) * 0.55 + 4,
+                                y: yOffset(for: max(Calendar.mira.startOfDay(for: date), proposal.event.startDate)))
                             .zIndex(2)
                     }
 
@@ -304,6 +325,7 @@ struct DayTimelineView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
         }
         .buttonStyle(MiraPressStyle())
         .accessibilityLabel("\(item.title)、\(item.timeDescription)")
@@ -321,10 +343,31 @@ struct DayTimelineView: View {
         return !ProposalTimeline.overlappingItems([item], proposal: proposal.event).isEmpty
     }
 
+    private func baseRuleBand(_ interval: DateInterval) -> some View {
+        let start = max(Calendar.mira.startOfDay(for: date), interval.start)
+        let end = min(Calendar.mira.startOfDay(for: date).addingDays(1), interval.end)
+        return Rectangle()
+            .fill(palette.secondaryText.opacity(0.08))
+            .overlay(alignment: .topLeading) {
+                Text("基本時間")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(4)
+                    .background(palette.background.opacity(0.90), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                    .offset(y: -20)
+            }
+            .frame(height: max(0, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight))
+            .offset(y: yOffset(for: start))
+            .allowsHitTesting(false)
+    }
+
     private func overlap(for item: CalendarItemSnapshot) -> DateInterval? {
         guard let proposal, item.exactTimeKnown, isOverlapping(item) else { return nil }
         let day = DateInterval(start: Calendar.mira.startOfDay(for: date), end: Calendar.mira.startOfDay(for: date).addingDays(1))
-        guard let interval = ProposalTimeline.overlap(item.occupiedInterval, proposal.event.occupiedInterval) else { return nil }
+        guard let interval = ProposalTimeline.overlap(
+            DateInterval(start: item.startDate, end: max(item.startDate, item.endDate)),
+            DateInterval(start: proposal.event.startDate, end: max(proposal.event.startDate, proposal.event.endDate))
+        ) else { return nil }
         return ProposalTimeline.overlap(interval, day)
     }
 
@@ -470,7 +513,7 @@ struct DayTimelineView: View {
     private var scrollTargetID: String {
         let hour: Int
         if let proposal {
-            hour = Calendar.mira.component(.hour, from: proposal.event.startDate)
+            hour = ProposalTimeline.scrollHour(for: proposal, on: date)
         } else if Calendar.mira.isDate(date, inSameDayAs: store.now) {
             hour = max(0, Calendar.mira.component(.hour, from: store.now) - 1)
         } else if let first = timedItems.first {

@@ -2,6 +2,24 @@ import XCTest
 @testable import Mira
 
 final class ProposalTimelineTests: XCTestCase {
+    func testScrollStartsBeforeEarliestConflictAndClampsAtMidnight() {
+        let event = TestFixtures.event(title: "追加", day: 12, hour: 10)
+        let conflict = ConflictEngine.Detail(start: TestFixtures.date(day: 12, hour: 9), text: "仕事")
+        XCTAssertEqual(ProposalTimeline.scrollHour(for: DayTimelineProposal(event: event, conflicts: [conflict]), on: event.startDate), 8)
+        XCTAssertEqual(ProposalTimeline.scrollHour(for: DayTimelineProposal(event: event, conflicts: []), on: event.startDate), 9)
+        let earlier = ConflictEngine.Detail(start: TestFixtures.date(day: 11, hour: 23), text: "夜")
+        XCTAssertEqual(ProposalTimeline.scrollHour(for: DayTimelineProposal(event: event, conflicts: [earlier]), on: event.startDate), 0)
+    }
+
+    func testBaseRuleDetailsExposeTheWholeBand() {
+        let start = TestFixtures.date(day: 12, hour: 10)
+        let candidate = CandidateSlotSnapshot(startDate: start, endDate: start.addingTimeInterval(3600), timeOfDay: .morning)
+        let rule = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: start), startMinute: 540, endMinute: 1080)
+        let detail = ConflictEngine().conflictDetailEntries(candidate: candidate, events: [], otherCandidates: [], baseRules: [rule]).first
+        XCTAssertEqual(detail?.baseRuleInterval, DateInterval(start: TestFixtures.date(day: 12, hour: 9), end: TestFixtures.date(day: 12, hour: 18)))
+        XCTAssertNil(detail?.itemID)
+    }
+
     func testOverlapClipsToSharedInterval() {
         let start = TestFixtures.date(day: 12, hour: 10)
         let end = TestFixtures.date(day: 12, hour: 12)

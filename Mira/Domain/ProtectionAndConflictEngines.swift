@@ -127,6 +127,7 @@ struct ConflictEngine: Sendable {
         let start: Date
         let text: String
         var itemID: UUID? = nil
+        var baseRuleInterval: DateInterval? = nil
     }
 
     func conflictDetails(
@@ -173,7 +174,7 @@ struct ConflictEngine: Sendable {
                 guard let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       start < end, start < candidate.endDate, candidate.startDate < end else { continue }
-                details.append(Detail(start: start, text: "\(timeRange(start, end))『基本時間（予定を入れない時間）』と重なっています"))
+                details.append(Detail(start: start, text: "\(timeRange(start, end))『基本時間（予定を入れない時間）』と重なっています", baseRuleInterval: DateInterval(start: start, end: end)))
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
             day = next
