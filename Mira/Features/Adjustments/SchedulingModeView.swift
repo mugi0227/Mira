@@ -29,8 +29,9 @@ struct SchedulingModeView: View {
                         schedulingGrid(draft)
                         selectedSummary(draft)
                     }
-                    .padding(.bottom, 120)
+                    .padding(.bottom, MiraSpacing.md)
                 }
+                .scrollBounceBehavior(.basedOnSize)
                 .miraScreenBackground(palette)
                 .safeAreaInset(edge: .bottom) {
                     bottomAction(draft)
@@ -463,6 +464,8 @@ struct SchedulingModeView: View {
         }
         .miraCard(palette)
         .padding(.horizontal, MiraSpacing.md)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("schedulingSelectedSummary")
     }
 
     private func bottomAction(_ draft: SchedulingDraft) -> some View {
@@ -491,11 +494,14 @@ struct SchedulingModeView: View {
         .padding(.top, MiraSpacing.sm)
         .padding(.bottom, MiraSpacing.xs)
         .background {
-            if palette.isCatSkin {
-                palette.surface
-            } else {
-                Rectangle().fill(.regularMaterial)
+            Group {
+                if palette.isCatSkin {
+                    palette.surface
+                } else {
+                    Rectangle().fill(.regularMaterial)
+                }
             }
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 

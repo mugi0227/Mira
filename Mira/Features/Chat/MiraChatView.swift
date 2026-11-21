@@ -11,6 +11,7 @@ struct MiraChatView: View {
     let palette: MiraThemePalette
 
     @State private var draft = ""
+    @State private var followsLatest = true
     @FocusState private var isInputFocused: Bool
 
     private let suggestions = [
@@ -24,33 +25,52 @@ struct MiraChatView: View {
     var body: some View {
         let arguments = ProcessInfo.processInfo.arguments
         let usesLargeText = arguments.contains("-ui-testing") && arguments.contains("-ui-testing-large-text")
+        let transcriptInset = palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
-                        if !store.chatMessages.contains(where: { $0.role == .user }) {
-                            welcome
+                    VStack(spacing: 0) {
+                        LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
+                            if lastUserMessageID == nil {
+                                welcome
+                            }
+                            ForEach(store.chatMessages) { message in
+                                ChatBubble(message: message, palette: palette)
+                                    .id(message.id)
+                                    .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
+                            }
                         }
-                        ForEach(store.chatMessages) { message in
-                            ChatBubble(message: message, palette: palette)
-                                .id(message.id)
-                                .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
-                        }
-                        Color.clear.frame(height: 1).id("chat-bottom")
+                        .padding([.top, .horizontal], transcriptInset)
+
+                        Color.clear.frame(height: transcriptInset).id("chat-bottom")
                     }
-                    .padding(palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
                     .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: store.chatMessages.map(\.id))
+                    .id("chat-content")
                 }
+                .accessibilityIdentifier("miraChatTranscript")
+                .scrollBounceBehavior(.basedOnSize)
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: store.chatMessages) { _, _ in
-                    withAnimation(reduceMotion ? nil : MiraMotion.quick) {
+                .defaultScrollAnchor(store.chatMessages.isEmpty ? .top : .bottom, for: .initialOffset)
+                .defaultScrollAnchor(followsLatest && !store.chatMessages.isEmpty ? .bottom : nil, for: .sizeChanges)
+                .onScrollPhaseChange { previous, phase, context in
+                    if phase == .interacting {
+                        followsLatest = false
+                    } else if phase == .idle, previous == .interacting || previous == .decelerating {
+                        let geometry = context.geometry
+                        followsLatest = geometry.contentSize.height - geometry.visibleRect.maxY <= MiraSpacing.md
+                    }
+                }
+                .onChange(of: lastUserMessageID) { _, id in
+                    followsLatest = true
+                    if id == nil {
+                        proxy.scrollTo("chat-content", anchor: .top)
+                    } else {
                         proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }
                 }
                 .onAppear {
                     store.restoreChatIfNeeded()
                     store.markMiraSuggestionsRead()
-                    proxy.scrollTo("chat-bottom", anchor: .bottom)
                 }
                 .task {
                     await store.refreshProactiveSelfTimeSuggestion()
@@ -162,6 +182,10 @@ struct MiraChatView: View {
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isChatResponding
+    }
+
+    private var lastUserMessageID: UUID? {
+        store.chatMessages.last(where: { $0.role == .user })?.id
     }
 
     private func send(_ text: String) {

@@ -45,7 +45,7 @@ struct DayTimelineView: View {
                 }
                 .padding(.horizontal, MiraSpacing.md)
                 .padding(.top, MiraSpacing.sm)
-                .padding(.bottom, 80)
+                .padding(.bottom, MiraSpacing.md)
             }
             .miraScreenBackground(palette)
             .safeAreaInset(edge: .top, spacing: proposal == nil ? 0 : MiraSpacing.md) {
