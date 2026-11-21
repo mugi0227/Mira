@@ -209,11 +209,33 @@ struct NewItemSheet: View {
                         colorChosenByUser = true
                     }
                 }
-                DatePicker("日付", selection: $date, displayedComponents: .date)
                 Toggle("終日", isOn: $isAllDay)
                 if !isAllDay {
                     DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("eventStartTime")
                     DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("eventEndTime")
+                }
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
+                EventRoomCalendar(
+                    selectedDate: $date,
+                    durationMinutes: requestedMinutes,
+                    items: store.items,
+                    baseRules: store.fetchBaseRules(),
+                    referenceDate: store.now,
+                    weekStartDay: store.weekStartDay,
+                    palette: palette,
+                    loadMonth: { await store.refreshDeviceCalendar(around: $0) }
+                )
+            } header: {
+                HStack {
+                    Text("日付")
+                    Spacer()
+                    Text(date.japaneseShortDate)
+                        .accessibilityIdentifier("eventSelectedDate")
                 }
             }
             .listRowBackground(palette.surface)
@@ -407,6 +429,15 @@ struct NewItemSheet: View {
 
     private var canSave: Bool {
         mode == .margin || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Same rule as the saved event: an end at or before the start runs past midnight.
+    private var requestedMinutes: Int? {
+        guard !isAllDay else { return nil }
+        let start = Calendar.mira.dateComponents([.hour, .minute], from: startTime)
+        let end = Calendar.mira.dateComponents([.hour, .minute], from: endTime)
+        let minutes = ((end.hour ?? 0) * 60 + (end.minute ?? 0)) - ((start.hour ?? 0) * 60 + (start.minute ?? 0))
+        return minutes > 0 ? minutes : minutes + 1440
     }
 
     private var secretaryInputKey: String {
