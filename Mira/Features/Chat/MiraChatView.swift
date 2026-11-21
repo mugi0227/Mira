@@ -182,7 +182,7 @@ struct MiraAvatar: View {
         ZStack {
             Circle().fill(palette.elevatedSurface)
             if store.theme.isCat {
-                MiraCatView(mood: mood, size: size * 0.9)
+                MiraCatView(mood: mood, size: size * (store.theme == .silhouetteCat ? 0.6 : 0.9))
             } else {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: size * 0.42, weight: .semibold))
