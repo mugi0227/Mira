@@ -39,6 +39,25 @@ final class MiraStyleUITests: XCTestCase {
         capture("rounded-day")
     }
 
+    func testToastLeavesMonthControlsReachable() {
+        app.launchArguments += ["-ui-testing-persistent-toast"]
+        launchHome()
+        let toast = app.staticTexts["appToast"]
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        let toastFrame = toast.frame
+        let month = app.staticTexts["2026年9月"]
+        XCTAssertGreaterThanOrEqual(month.frame.minY, toastFrame.maxY)
+        for label in ["前の月", "次の月", "追加メニュー"] {
+            let button = app.buttons[label]
+            XCTAssertTrue(button.isHittable)
+            XCTAssertFalse(button.frame.intersects(toastFrame))
+        }
+        capture("toast-clear-header")
+        app.buttons["次の月"].tap()
+        XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.exists)
+    }
+
     func testChatUsesNaturalVoiceAndAccessibleControls() {
         launchHome()
         app.buttons["miraCompanionButton"].tap()
