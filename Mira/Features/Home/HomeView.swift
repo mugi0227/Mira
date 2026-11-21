@@ -97,12 +97,6 @@ struct HomeView: View {
                         )
                         .frame(height: scrollFadeHeight)
                         Color.white
-                        LinearGradient(
-                            colors: [.white, .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: scrollFadeHeight)
                     }
                 }
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
