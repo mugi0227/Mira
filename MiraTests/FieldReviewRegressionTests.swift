@@ -85,6 +85,15 @@ final class FieldReviewRegressionTests: XCTestCase {
         XCTAssertEqual(impact.protectionLevel, .finalDefense)
     }
 
+    func testDismissedRebalanceStaysDismissedWhenNothingChanged() throws {
+        let store = try makeStore()
+        XCTAssertTrue(store.addCustomGoal(title: "ギター", target: 1, durationMinutes: 30, month: TestFixtures.september))
+        let proposal = try XCTUnwrap(store.activeRebalanceProposal)
+        store.dismissRebalanceProposal(proposal)
+        store.recalculateBalance(for: TestFixtures.september)
+        XCTAssertNil(store.activeRebalanceProposal)
+    }
+
     func testSelectedMonthCannotPickUpTheLatestProposalFromAnotherMonth() throws {
         let store = try makeStore()
         let october = TestFixtures.september.addingMonths(1)
