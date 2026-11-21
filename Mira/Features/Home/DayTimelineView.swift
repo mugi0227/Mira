@@ -145,7 +145,7 @@ struct DayTimelineView: View {
                     .background(palette.color(for: item), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
                 }
                 .buttonStyle(MiraPressStyle())
-                .accessibilityLabel("\(item.title)、終日")
+                .accessibilityLabel("\(item.title)、\(item.timeDescription)\(item.kind == .memo ? "、メモ" : "")")
             }
         }
     }

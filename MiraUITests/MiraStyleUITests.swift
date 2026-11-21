@@ -20,7 +20,8 @@ final class MiraStyleUITests: XCTestCase {
         let title = app.textFields["例：友達とご飯"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         title.tap()
-        title.typeText("友だちの出張メモ")
+        let memoTitle = "家族と友だちの長い出張予定を残すためのメモ"
+        title.typeText(memoTitle)
         title.typeText("\n")
         let toggle = app.switches["時間を取らない予定"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
@@ -33,7 +34,7 @@ final class MiraStyleUITests: XCTestCase {
         add(form)
         app.navigationBars["予定を追加"].buttons["追加"].tap()
         XCTAssertTrue(menu.waitForExistence(timeout: 8))
-        let memo = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "友だちの出張メモ")).firstMatch
+        let memo = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", memoTitle)).firstMatch
         XCTAssertTrue(memo.waitForExistence(timeout: 5))
         let calendar = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         calendar.name = "memo-calendar"
