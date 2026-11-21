@@ -44,7 +44,7 @@ struct HomeView: View {
                         get: { store.selectedDate },
                         set: { store.selectedDate = $0 }
                     ),
-                    items: monthItems,
+                    items: isFriendView ? store.items : monthItems,
                     palette: palette,
                     weekStartDay: store.weekStartDay,
                     holidays: store.deviceHolidays,
@@ -386,7 +386,7 @@ struct HomeView: View {
             let signature = friendShareSignature
             friendShareImage = FriendShareRenderer.image(for: FriendShareCard(
                 month: store.selectedMonth,
-                items: monthItems,
+                items: store.items,
                 palette: palette,
                 weekStartDay: store.weekStartDay,
                 referenceDate: store.now,
@@ -404,7 +404,7 @@ struct HomeView: View {
         hasher.combine(friendRecipient?.name)
         hasher.combine(friendLevel)
         hasher.combine(MonthKey(date: store.selectedMonth))
-        hasher.combine(monthItems)
+        hasher.combine(store.items)
         hasher.combine(store.weekStartDay)
         hasher.combine(store.theme)
         for rule in store.fetchBaseRules() {

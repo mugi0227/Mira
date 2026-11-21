@@ -48,11 +48,7 @@ struct FriendDayContent {
         func compactRange(_ interval: DateInterval) -> String {
             "\(compactTime(interval.start))–\(interval.end >= end ? "24" : compactTime(interval.end))"
         }
-        let dayItems = items.filter {
-            guard $0.kind != .birthday else { return false }
-            if !$0.exactTimeKnown || $0.isAllDay { return $0.overlapsDay(date, calendar: calendar) }
-            return $0.occupiedInterval.start < end && $0.occupiedInterval.end > start
-        }
+        let dayItems = items.filter { $0.kind != .birthday && $0.overlapsFriendShareDay(date, calendar: calendar) }
         let relevant = dayItems.filter(\.exactTimeKnown)
         let bodyItems = relevant.filter { $0.overlapsDay(date, calendar: calendar) }
         let undetermined = dayItems.filter { !$0.exactTimeKnown }
@@ -113,5 +109,14 @@ struct FriendDayContent {
         let unknown = undetermined.map { "時間未定 \($0.kind == .confirmed ? $0.title : "予定あり")" }
         lines = entries.map(\.text) + unknown
         gridLines = entries.map(\.grid) + unknown
+    }
+}
+
+extension CalendarItemSnapshot {
+    func overlapsFriendShareDay(_ date: Date, calendar: Calendar = .mira) -> Bool {
+        if !exactTimeKnown || isAllDay { return overlapsDay(date, calendar: calendar) }
+        let start = calendar.startOfDay(for: date)
+        let end = start.addingDays(1, calendar: calendar)
+        return occupiedInterval.start < end && occupiedInterval.end > start
     }
 }

@@ -97,14 +97,22 @@ struct MonthCalendarGrid: View {
         }
     }
 
-    @ViewBuilder
-    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
-        let dayItems = items
-            .filter { $0.overlapsDay(date, calendar: calendar) }
+    func itemsForDay(_ date: Date) -> [CalendarItemSnapshot] {
+        items
+            .filter {
+                privacyMode && friendLevel != .freeOnly
+                    ? $0.overlapsFriendShareDay(date, calendar: calendar)
+                    : $0.overlapsDay(date, calendar: calendar)
+            }
             .sorted { lhs, rhs in
                 if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
                 return lhs.startDate < rhs.startDate
             }
+    }
+
+    @ViewBuilder
+    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
+        let dayItems = itemsForDay(date)
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)

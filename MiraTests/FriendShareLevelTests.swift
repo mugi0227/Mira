@@ -108,6 +108,34 @@ final class FriendShareLevelTests: XCTestCase {
         XCTAssertEqual(FriendDayContent(date: TestFixtures.date(day: 2), items: [event], level: .busyTimes).gridLines, ["22:30–24"])
     }
 
+    func testShareGridDayFilterKeepsBuffersAcrossMonthBoundaries() throws {
+        let day = TestFixtures.date(day: 1)
+        var previous = TestFixtures.event(title: "前月の面談", day: 1, hour: 23, duration: 1)
+        previous.startDate = TestFixtures.date(2026, 8, 31, 23)
+        previous.endDate = Calendar.mira.startOfDay(for: day)
+        previous.bufferAfterMinutes = 60
+        let palette = MiraThemePalette(kind: .softMinimal, colorScheme: .light)
+        for level in [FriendShareLevel.busyTimes, .titles] {
+            let grid = MonthCalendarGrid(month: day, selectedDate: .constant(day), items: [previous], palette: palette, privacyMode: true, friendLevel: level)
+            let filtered = grid.itemsForDay(day)
+            XCTAssertEqual(filtered.map(\.id), [previous.id])
+            let content = FriendDayContent(date: day, items: filtered, level: level)
+            XCTAssertEqual(content.lines, ["00:00–01:00 予定あり"])
+            XCTAssertEqual(content.gridLines, ["0–1"])
+            XCTAssertTrue(grid.itemsForDay(TestFixtures.date(day: 2)).isEmpty)
+            let text = FriendAvailabilityText.text(from: day, days: 1, items: [previous], level: level)
+            XCTAssertTrue(text.contains("00:00–01:00 予定あり"))
+            let card = FriendShareCard(month: day, items: [previous], palette: palette, weekStartDay: .monday, referenceDate: day, level: level)
+            let renderer = ImageRenderer(content: card)
+            let attachment = XCTAttachment(image: try XCTUnwrap(renderer.uiImage))
+            attachment.name = "friend-share-fixture-month-boundary-\(level.rawValue)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let normal = MonthCalendarGrid(month: day, selectedDate: .constant(day), items: [previous], palette: palette)
+        XCTAssertTrue(normal.itemsForDay(day).isEmpty)
+    }
+
     func testRenderShareCard() throws {
         let items = [
             TestFixtures.event(title: "面談", day: 2, hour: 10),
