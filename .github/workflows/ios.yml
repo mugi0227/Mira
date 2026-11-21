@@ -101,6 +101,7 @@ jobs:
             -only-testing:MiraUITests/FriendShareLevelUITests \
             -only-testing:MiraUITests/MiraStyleUITests \
             -only-testing:MiraUITests/OneLineCatSkinUITests \
+            -only-testing:MiraUITests/CatErrorStampUITests \
             -only-testing:MiraUITests/HomeWhitespaceUITests \
             CODE_SIGNING_ALLOWED=NO \
             test | tee ui-tests.log
