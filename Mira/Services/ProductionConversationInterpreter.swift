@@ -42,6 +42,9 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
             }
         }
         applyColloquialDefaults(text: normalized, to: &result)
+        if normalized.contains("追加"), !result.candidateDates.isEmpty, result.exactStartDate != nil {
+            result.intent = .addEvent
+        }
         applyExplicitExclusionPhrases(from: normalized, to: &result)
 
         let resolvedContext = pinnedContext ?? uniquelyResolvedContext(searchCandidates)
