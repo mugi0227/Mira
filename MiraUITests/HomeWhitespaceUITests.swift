@@ -99,6 +99,8 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["friendViewToggle"].tap()
         XCTAssertFalse(element("whitespace-2026-09-01").exists)
         XCTAssertFalse(app.buttons["monthWhitespaceSummary"].exists)
+        XCTAssertFalse(element("workDayMark-2026-09-01").exists)
+        XCTAssertFalse(app.buttons["calendar-date-2026-09-01"].label.contains("仕事の日"))
         capture("whitespace-friend-privacy")
     }
 

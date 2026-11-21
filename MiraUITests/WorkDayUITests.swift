@@ -19,9 +19,17 @@ final class WorkDayUITests: XCTestCase {
         XCTAssertTrue(element("workDayMark-2026-09-01").exists)
         XCTAssertFalse(element("workDayMark-2026-09-06").exists)
         XCTAssertFalse(app.buttons["calendar-date-2026-09-06"].label.contains("仕事の日"))
+        for day in ["21", "22", "23"] {
+            XCTAssertFalse(element("workDayMark-2026-09-\(day)").exists)
+            XCTAssertFalse(app.buttons["calendar-date-2026-09-\(day)"].label.contains("仕事の日"))
+        }
         for day in ["01", "10", "17", "24"] {
             let ring = element("whitespace-2026-09-\(day)").frame
             let mark = element("workDayMark-2026-09-\(day)").frame
+            let cell = element("calendar-day-2026-09-\(day)").frame
+            XCTAssertGreaterThanOrEqual(mark.width, 11)
+            XCTAssertGreaterThanOrEqual(cell.maxX - mark.maxX, 6)
+            XCTAssertGreaterThanOrEqual(cell.maxY - mark.maxY, 6)
             let dx = max(mark.minX - ring.midX, ring.midX - mark.maxX, 0)
             let dy = max(mark.minY - ring.midY, ring.midY - mark.maxY, 0)
             XCTAssertGreaterThanOrEqual(hypot(dx, dy) - ring.width / 2, 3, "Work mark must clear the ring on September \(day)")

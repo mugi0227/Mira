@@ -206,7 +206,7 @@ struct MonthCalendarGrid: View {
             }
             .frame(height: privacyMode ? 26 : 34)
             .buttonStyle(.plain)
-            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             .overlay {
                 if !privacyMode {
@@ -319,14 +319,14 @@ struct MonthCalendarGrid: View {
         .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .bottomTrailing) {
             if !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) {
                 Image(systemName: WorkDayToggle.symbol(isWorkDay: true))
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 7, height: 6)
-                    .foregroundStyle(palette.secondaryText.opacity(isInDisplayedMonth ? 0.65 : 0.25))
-                    .padding(1)
+                    .frame(width: 12, height: 11)
+                    .foregroundStyle(palette.secondaryText.opacity(isInDisplayedMonth ? 1 : 0.45))
+                    .padding(6)
                     .allowsHitTesting(false)
                     .accessibilityLabel("仕事の日")
                     .accessibilityIdentifier("workDayMark-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
