@@ -232,7 +232,7 @@ final class MiraStyleUITests: XCTestCase {
 
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
-        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let lastRow = app.buttons["calendar-date-2026-09-30"]
         let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
         XCTAssertTrue(lastRow.waitForExistence(timeout: 5))
         XCTAssertTrue(tabs.waitForExistence(timeout: 5))
@@ -244,6 +244,7 @@ final class MiraStyleUITests: XCTestCase {
         }, object: toast)
         XCTAssertEqual(XCTWaiter.wait(for: [toastSettled], timeout: 5), .completed,
                        "Toast \(toast.frame) must settle clear of the last row \(lastRow.frame) and tabs \(tabs.frame)")
+        XCTAssertTrue(lastRow.isHittable)
         let toastFrame = toast.frame
         let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
         XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
