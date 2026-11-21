@@ -24,6 +24,36 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("whitespace-day-navigation")
     }
 
+    func testSilhouetteCatKnobsStayInsideCells() {
+        checkKnobs(theme: "silhouetteCat")
+    }
+
+    func testOnelineCatKnobsStayInsideCells() {
+        checkKnobs(theme: "onelineCat")
+    }
+
+    func testSoftMinimalKeepsPlainMeters() {
+        launchHome(theme: "softMinimal")
+        XCTAssertTrue(element("whitespace-2026-09-01").exists)
+        XCTAssertFalse(element("whitespace-cat-knob").exists)
+        capture("whitespace-softMinimal")
+    }
+
+    private func checkKnobs(theme: String) {
+        launchHome(theme: theme)
+        for day in 1...30 {
+            let date = String(format: "2026-09-%02d", day)
+            let cell = element("calendar-day-\(date)")
+            let meter = element("whitespace-\(date)")
+            let knob = cell.descendants(matching: .any)["whitespace-cat-knob"].firstMatch
+            XCTAssertTrue(knob.exists, date)
+            XCTAssertTrue(meter.frame.insetBy(dx: -0.5, dy: -0.5).contains(knob.frame), "meter \(date): \(meter.frame), \(knob.frame)")
+            XCTAssertTrue(cell.frame.contains(knob.frame), date)
+            XCTAssertFalse(element("calendar-date-\(date)").frame.intersects(knob.frame), date)
+        }
+        capture("whitespace-\(theme)")
+    }
+
     func testNonOccupyingEventUpdatesRingAndPersistsAcrossLaunch() {
         launchHome(theme: "onelineCat")
         let ring = element("whitespace-2026-09-05")

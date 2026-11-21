@@ -7,6 +7,7 @@ struct MonthCalendarGrid: View {
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    var theme: AppThemeKind = .softMinimal
     /// Home can use spare space within day cells to keep the whole month in
     /// view. Dense/small screens still scroll rather than shrinking text.
     var preferredHeight: CGFloat? = nil
@@ -185,11 +186,11 @@ struct MonthCalendarGrid: View {
 
             if !privacyMode {
                 let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
-                WhitespaceRing(fraction: whitespace.fraction, palette: palette)
-                    .frame(width: 13, height: 13)
+                WhitespaceRing(fraction: whitespace.fraction, palette: palette, theme: theme)
+                    .frame(width: theme.isCat ? 23 : 13, height: theme.isCat ? 23 : 13)
                     .frame(maxWidth: .infinity)
                     .opacity(isInDisplayedMonth ? 1 : 0.3)
-                    .accessibilityElement(children: .ignore)
+                    .accessibilityElement(children: .contain)
                     .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
                     .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             }
@@ -343,8 +344,13 @@ struct MonthCalendarGrid: View {
 }
 
 private struct WhitespaceRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
     let fraction: Double
     let palette: MiraThemePalette
+    let theme: AppThemeKind
+
+    private var progress: Double { min(1, max(0, fraction)) }
 
     var body: some View {
         ZStack {
@@ -352,6 +358,47 @@ private struct WhitespaceRing: View {
             Circle().trim(from: 0, to: min(1, max(0, fraction)))
                 .stroke(palette.accent.opacity(0.75), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+        }
+        .frame(width: 13, height: 13)
+        .accessibilityHidden(true)
+        .overlay {
+            if theme.isCat {
+                let angle = (progress * 360 - 90) * .pi / 180
+                MeterCatHead()
+                    .fill(theme == .onelineCat ? palette.surface : palette.accent.opacity(0.85))
+                    .overlay {
+                        if theme == .onelineCat {
+                            MeterCatHead().stroke(palette.accent, style: StrokeStyle(lineWidth: 0.85, lineJoin: .round))
+                        }
+                    }
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(appeared ? 1 : 0.65)
+                    .offset(x: cos(angle) * 6.5, y: sin(angle) * 6.5)
+                    .accessibilityIdentifier("whitespace-cat-knob")
+                    .accessibilityHidden(!ProcessInfo.processInfo.arguments.contains("-ui-testing"))
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.78), value: progress)
+        .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.65), value: appeared)
+        .onAppear { appeared = true }
+    }
+}
+
+private struct MeterCatHead: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+            }
+            path.move(to: point(0.12, 0.55))
+            path.addLine(to: point(0.12, 0.06))
+            path.addLine(to: point(0.39, 0.28))
+            path.addQuadCurve(to: point(0.61, 0.28), control: point(0.5, 0.23))
+            path.addLine(to: point(0.88, 0.06))
+            path.addLine(to: point(0.88, 0.55))
+            path.addCurve(to: point(0.12, 0.55), control1: point(0.94, 1.08), control2: point(0.06, 1.08))
+            path.closeSubpath()
         }
     }
 }

@@ -54,6 +54,7 @@ struct HomeView: View {
                             ),
                             items: store.items,
                             palette: palette,
+                            theme: store.theme,
                             preferredHeight: palette.isCatSkin
                                 ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - scrollFadeHeight - MiraSpacing.xs
                                 : nil,
