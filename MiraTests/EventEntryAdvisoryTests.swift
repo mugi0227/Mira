@@ -69,6 +69,7 @@ final class EventEntryAdvisoryTests: XCTestCase {
         try store.refresh()
         var memo = TestFixtures.event(title: "人の予定", day: 10, hour: 18, kind: .memo)
         XCTAssertTrue(store.eventEntryConflicts(for: memo).isEmpty)
+        XCTAssertTrue(store.eventEntryConflictDetails(for: memo).isEmpty)
         XCTAssertEqual(store.previewImpact(for: memo), .none)
         XCTAssertTrue(store.worsenedGoalDeficits(afterAdding: memo).isEmpty)
         XCTAssertTrue(store.commitEvent(memo))

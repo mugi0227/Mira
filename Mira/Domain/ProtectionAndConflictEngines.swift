@@ -123,6 +123,14 @@ struct ConflictEngine: Sendable {
         return result
     }
 
+    struct Detail: Identifiable {
+        var id: String { "\(start.timeIntervalSince1970)-\(text)-\(itemID?.uuidString ?? "")" }
+        let start: Date
+        let text: String
+        var itemID: UUID? = nil
+        var baseRuleInterval: DateInterval? = nil
+    }
+
     func conflictDetails(
         candidate: CandidateSlotSnapshot,
         events: [CalendarItemSnapshot],
@@ -130,7 +138,21 @@ struct ConflictEngine: Sendable {
         candidateTitles: [UUID: String] = [:],
         baseRules: [BaseAvailabilityRule] = []
     ) -> [String] {
-        var details: [(Date, String)] = []
+        let details = conflictDetailEntries(candidate: candidate, events: events,
+            otherCandidates: otherCandidates, candidateTitles: candidateTitles, baseRules: baseRules)
+        var lines = details.prefix(2).map(\.text)
+        if details.count > 2 { lines.append("ほか\(details.count - 2)件") }
+        return lines
+    }
+
+    func conflictDetailEntries(
+        candidate: CandidateSlotSnapshot,
+        events: [CalendarItemSnapshot],
+        otherCandidates: [CandidateSlotSnapshot],
+        candidateTitles: [UUID: String] = [:],
+        baseRules: [BaseAvailabilityRule] = []
+    ) -> [Detail] {
+        var details: [Detail] = []
         for event in events where (event.kind == .confirmed || event.kind == .margin)
             && event.occupiedInterval.intersects(candidate.interval) {
             let kind = event.kind == .margin ? "守っている余白" : "確定予定"
@@ -138,14 +160,14 @@ struct ConflictEngine: Sendable {
             let label = title.isEmpty ? kind : title
             let time = !event.exactTimeKnown ? event.timeDescription
                 : (event.isAllDay ? "終日" : timeRange(event.startDate, event.endDate))
-            details.append((event.startDate, "\(time)『\(label)』（\(kind)）"))
+            details.append(Detail(start: event.startDate, text: "\(time)『\(label)』（\(kind)）と重なっています", itemID: event.id))
         }
         for other in otherCandidates where other.status == .held && other.id != candidate.id
             && coarseCandidatesConflict(other, candidate) {
             let title = candidateTitles[other.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
             let label = title.flatMap { $0.isEmpty ? nil : $0 } ?? "別の日程調整"
             let time = other.exactTimeKnown == false ? other.displayTimeBand.title : timeRange(other.startDate, other.endDate)
-            details.append((other.startDate, "\(time)『\(label)』（仮押さえ）"))
+            details.append(Detail(start: other.startDate, text: "\(time)『\(label)』（仮押さえ）と重なっています"))
         }
         var day = calendar.startOfDay(for: candidate.startDate)
         while day < candidate.endDate {
@@ -153,15 +175,12 @@ struct ConflictEngine: Sendable {
                 guard let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       start < end, start < candidate.endDate, candidate.startDate < end else { continue }
-                details.append((start, "\(timeRange(start, end))『基本時間（予定を入れない時間）』"))
+                details.append(Detail(start: start, text: "\(timeRange(start, end))『基本時間（予定を入れない時間）』と重なっています", baseRuleInterval: DateInterval(start: start, end: end)))
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
             day = next
         }
-        let sorted = details.sorted { $0.0 == $1.0 ? $0.1 < $1.1 : $0.0 < $1.0 }
-        var lines = sorted.prefix(2).map { "\($0.1)と重なっています" }
-        if sorted.count > 2 { lines.append("ほか\(sorted.count - 2)件") }
-        return lines
+        return details.sorted { $0.start == $1.start ? $0.text < $1.text : $0.start < $1.start }
     }
 
     private func timeRange(_ start: Date, _ end: Date) -> String {
