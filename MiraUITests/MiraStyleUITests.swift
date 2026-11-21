@@ -1,6 +1,132 @@
 import XCTest
 
 final class MiraStyleUITests: XCTestCase {
+    func testNewItemFormClearsDraftDeleteButton() {
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        launchHome()
+        app.buttons["追加メニュー"].tap()
+        app.buttons["予定・余白を追加"].tap()
+        let memo = app.switches["時間を取らない予定"]
+        XCTAssertTrue(memo.waitForExistence(timeout: 5))
+        memo.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let discard = app.buttons["下書きを削除"]
+        XCTAssertTrue(discard.isHittable)
+        capture("event-form-rest")
+        for _ in 0..<3 { app.swipeUp() }
+        let calendarLegend = app.descendants(matching: .any)["eventRoomLegend"].firstMatch
+        XCTAssertTrue(calendarLegend.isHittable)
+        XCTAssertLessThan(calendarLegend.frame.maxY, discard.frame.minY)
+        capture("event-form-max-scroll")
+        for _ in 0..<3 where !app.segmentedControls.buttons["余白"].isHittable { app.swipeDown() }
+        app.segmentedControls.buttons["余白"].tap()
+        capture("margin-form-rest")
+        for _ in 0..<3 { app.swipeUp() }
+        let duration = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "所要時間：")).firstMatch
+        XCTAssertTrue(duration.isHittable)
+        XCTAssertLessThan(duration.frame.maxY, discard.frame.minY)
+        capture("margin-form-max-scroll")
+    }
+
+    func testCreateNonOccupyingMemo() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch()
+        let next = app.buttons["おすすめを確認"]
+        if next.waitForExistence(timeout: 4) {
+            next.tap()
+            let start = app.buttons["余白を置いて始める"]
+            XCTAssertTrue(start.waitForExistence(timeout: 3))
+            start.tap()
+        }
+        let menu = app.buttons["追加メニュー"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.tap()
+        app.buttons["予定・余白を追加"].tap()
+        let title = app.textFields["例：友達とご飯"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let sheetBar = app.navigationBars["予定を追加"]
+        sheetBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertTrue(menu.isHittable)
+        XCTAssertFalse(app.buttons["下書き一覧"].exists)
+        menu.tap()
+        app.buttons["予定・余白を追加"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        let memoTitle = "家族と友だちの長い出張予定を残すためのメモ"
+        title.typeText(memoTitle)
+        title.typeText("\n")
+        let toggle = app.switches["時間を取らない予定"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: toggle)
+        waitForExpectations(timeout: 3)
+        let form = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        form.name = "memo-form-toggle-on"
+        form.lifetime = .keepAlways
+        add(form)
+        for _ in 0..<3 { app.swipeUp() }
+        let formBottom = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        formBottom.name = "memo-form-max-scroll"
+        formBottom.lifetime = .keepAlways
+        add(formBottom)
+        app.navigationBars["予定を追加"].buttons["追加"].tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 8))
+        let memo = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", memoTitle)).firstMatch
+        XCTAssertTrue(memo.waitForExistence(timeout: 5))
+        let calendar = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        calendar.name = "memo-calendar-before-conversion"
+        calendar.lifetime = .keepAlways
+        add(calendar)
+        app.buttons["calendar-date-2026-09-01"].tap()
+        XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
+        let memoRows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", memoTitle + "、"))
+        let memoRow = memoRows.firstMatch
+        XCTAssertTrue(memoRow.waitForExistence(timeout: 5))
+        XCTAssertEqual(memoRows.count, 1)
+        for _ in 0..<4 where !memoRow.isHittable { app.swipeDown() }
+        XCTAssertTrue(memoRow.isHittable)
+        XCTAssertTrue(memoRow.label.contains("18:00–20:00"))
+        XCTAssertTrue(memoRow.label.hasSuffix("、メモ"))
+        let day = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        day.name = "memo-day"
+        day.lifetime = .keepAlways
+        add(day)
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(memoRow.isHittable)
+        XCTAssertEqual(memoRows.count, 1)
+        memoRow.tap()
+        let occupancy = app.buttons["eventOccupiesTime"]
+        XCTAssertTrue(occupancy.waitForExistence(timeout: 5))
+        XCTAssertEqual(occupancy.value as? String, "オフ")
+        let detail = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        detail.name = "memo-detail"
+        detail.lifetime = .keepAlways
+        add(detail)
+        occupancy.tap()
+        let approve = app.buttons["影響を承認して変更"]
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        let cancel = app.buttons["キャンセル"]
+        if cancel.exists {
+            cancel.tap()
+        } else {
+            app.buttons["閉じる"].firstMatch.tap()
+        }
+        XCTAssertEqual(occupancy.value as? String, "オフ")
+        occupancy.tap()
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        approve.tap()
+        XCTAssertEqual(occupancy.value as? String, "オン", app.debugDescription)
+        occupancy.tap()
+        XCTAssertEqual(occupancy.value as? String, "オフ")
+        app.buttons["閉じる"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        capture("memo-calendar")
+    }
+
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {

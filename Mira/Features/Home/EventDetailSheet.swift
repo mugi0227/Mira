@@ -4,18 +4,26 @@ struct EventDetailSheet: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    let item: CalendarItemSnapshot
+    private let originalItem: CalendarItemSnapshot
     let palette: MiraThemePalette
+
+    private var item: CalendarItemSnapshot {
+        store.items.first { $0.id == originalItem.id } ?? originalItem
+    }
 
     @State private var selectedLoad: LoadClass
     @State private var rememberSimilar = false
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
+    @State private var showOccupancyConfirmation = false
+    @State private var occupancyWarning = ""
+    @State private var occupancyPreview: CalendarItemSnapshot?
+    @State private var previewedMarginIDs: Set<UUID> = []
     @State private var marginMinutes: Int
     @State private var occupiesTime: Bool
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
-        self.item = item
+        self.originalItem = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
         _occupiesTime = State(initialValue: item.countsAgainstWhitespace)
@@ -32,8 +40,22 @@ struct EventDetailSheet: View {
                     if item.kind == .confirmed {
                         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
                             Button {
-                                occupiesTime.toggle()
-                                store.setOccupiesTime(itemID: item.id, to: occupiesTime)
+                                let enabled = !occupiesTime
+                                guard let updated = store.occupancyConvertedSnapshot(for: item, occupiesTime: enabled) else { return }
+                                if enabled {
+                                    let margins = store.previewImpact(for: updated).overlappingMargins
+                                    var warnings = store.eventEntryConflicts(for: updated)
+                                    if !margins.isEmpty {
+                                        warnings.append("消費する余白：" + margins.map(\.title).joined(separator: "、"))
+                                    }
+                                    occupancyWarning = warnings.joined(separator: "\n")
+                                    occupancyPreview = updated
+                                    previewedMarginIDs = Set(margins.map(\.id))
+                                    showOccupancyConfirmation = true
+                                } else if store.setOccupiesTime(itemID: item.id, to: false) {
+                                    occupiesTime = false
+                                    selectedLoad = item.loadClass
+                                }
                             } label: {
                                 HStack(spacing: MiraSpacing.md) {
                                     Text("時間を使う予定")
@@ -64,7 +86,7 @@ struct EventDetailSheet: View {
                         quickMoveCard
                     }
                     DeviceCalendarActionView(item: item, palette: palette)
-                    if item.kind != .margin && item.kind != .birthday {
+                    if occupiesTime {
                         loadCard
                     }
                     if item.kind == .margin {
@@ -83,6 +105,18 @@ struct EventDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+            .confirmationDialog("時間を取る予定に変更しますか？", isPresented: $showOccupancyConfirmation) {
+                Button("影響を承認して変更") {
+                    if store.setOccupiesTime(itemID: item.id, to: true,
+                        previewedSnapshot: occupancyPreview, previewedMarginIDs: previewedMarginIDs) {
+                        occupiesTime = true
+                        selectedLoad = item.loadClass
+                    }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text(occupancyWarning.isEmpty ? "空き時間の計算に含まれます。前後の余裕を含めて重なる余白は消費されます。" : occupancyWarning)
             }
             .confirmationDialog("この項目を削除しますか？", isPresented: $showDeleteConfirmation) {
                 Button("削除", role: .destructive) {
@@ -307,6 +341,7 @@ struct EventDetailSheet: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"

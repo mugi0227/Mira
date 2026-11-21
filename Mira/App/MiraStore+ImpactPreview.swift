@@ -50,6 +50,7 @@ extension MiraStore {
         for event: CalendarItemSnapshot,
         excludingItemID: UUID?
     ) -> ScheduleImpact {
+        guard event.kind != .confirmed || event.countsAgainstWhitespace else { return .none }
         let sourceItems = items.filter { $0.id != excludingItemID }
         let overlapping = sourceItems.filter {
             $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)

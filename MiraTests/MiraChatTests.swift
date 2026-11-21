@@ -124,6 +124,25 @@ final class MiraChatTests: XCTestCase {
         XCTAssertEqual(store.items.filter { $0.title == "友達とご飯" }.count, 1)
     }
 
+    func testAllDayChatProposalExplicitlyOccupiesTimeAndReviewsMargins() async throws {
+        let store = try makeStore()
+        let margin = TestFixtures.event(title: "読書", day: 15, kind: .margin, marginKind: .reading)
+        store.context.insert(CalendarItemEntity(snapshot: margin))
+        try store.context.save()
+        try store.refresh()
+        let result = await store.toolProposeEvent(title: "会議",
+            start: TestFixtures.date(day: 15, hour: 9),
+            end: TestFixtures.date(day: 15, hour: 21), isAllDay: true)
+        guard case .eventProposal(let proposal) = try XCTUnwrap(result.card) else {
+            return XCTFail("Expected an event proposal")
+        }
+        XCTAssertEqual(proposal.event.occupiesTime, true)
+        XCTAssertTrue(proposal.event.countsAgainstWhitespace)
+        XCTAssertTrue(proposal.conflicts.contains { $0.contains("読書") })
+        XCTAssertEqual(proposal.impact.overlappingMargins.map(\.id), [margin.id])
+        XCTAssertEqual(store.items.map(\.id), [margin.id])
+    }
+
     func testOpenSlotsAvoidProtectedMargins() throws {
         let store = try makeStore()
         let margin = TestFixtures.event(day: 15, hour: 9, duration: 14, kind: .margin, marginKind: .rest)

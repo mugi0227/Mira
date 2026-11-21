@@ -15,8 +15,8 @@ final class EventRoomCalendarUITests: XCTestCase {
     func testCalendarLightsOnlyDaysWithOneSlotLongEnough() {
         openEventForm()
         let calendar = element("eventRoomCalendar")
-        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
         reveal(calendar)
+        XCTAssertTrue(calendar.waitForExistence(timeout: 5))
         capture("event-room-two-hours")
 
         // Default 18:00–20:00 fits a workday's 18–23 evening; 8/31 is past.
@@ -25,11 +25,11 @@ final class EventRoomCalendarUITests: XCTestCase {
         XCTAssertNotEqual(day("2026-08-31").value as? String, "空きあり")
 
         setHour("12", picker: "eventStartTime")
+        reveal(calendar)
         // 8h: a workday only has 7–9 and 18–23 left, so only free weekends light up.
         XCTAssertTrue(waitForValue(day("2026-09-02"), notEqual: "空きあり"))
         XCTAssertEqual(day("2026-09-06").value as? String, "空きあり")
         XCTAssertEqual(day("2026-09-12").value as? String, "空きあり")
-        reveal(calendar)
         capture("event-room-eight-hours")
 
         day("2026-09-06").tap()

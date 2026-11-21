@@ -62,7 +62,7 @@ struct SelfTimePlanner: Sendable {
         trend: TimeTrend?,
         count: Int
     ) -> [SuggestedMargin] {
-        let occupied = items.filter { $0.kind != .birthday }.map(\.occupiedInterval)
+        let occupied = items.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }.map(\.occupiedInterval)
         let candidates = week.days.flatMap { day in
             windows(on: day, eveningsOnly: eveningsOnly, occupied: occupied, baseRules: baseRules, notBefore: now)
                 .map { (day, $0.0, $0.1) }
@@ -208,10 +208,10 @@ struct SelfTimePlanner: Sendable {
         value += min(interval.duration / 3600, 4)
 
         let previousDay = interval.start.addingDays(-1, calendar: calendar)
-        if items.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && $0.loadClass >= .heavy }) {
+        if items.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy }) {
             value += 15
         }
-        if items.contains(where: { calendar.isDate($0.startDate, inSameDayAs: interval.start) && $0.kind == .confirmed }) {
+        if items.contains(where: { calendar.isDate($0.startDate, inSameDayAs: interval.start) && $0.countsAgainstWhitespace }) {
             value -= 10
         }
         if let trend { value += trend.bonus(for: interval, band: band, calendar: calendar) }
@@ -332,7 +332,7 @@ struct SuggestionEngine: Sendable {
 
     /// Margins that would now collide with something already on the calendar are dropped before applying.
     func applicableMargins(of suggestion: Suggestion, items: [CalendarItemSnapshot]) -> [SuggestedMargin] {
-        let occupied = items.filter { $0.kind != .birthday }.map(\.occupiedInterval)
+        let occupied = items.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }.map(\.occupiedInterval)
         // Touching ends (a margin until 21:00, a slot from 21:00) is not a collision.
         return suggestion.margins.filter { margin in
             !occupied.contains { $0.start < margin.endDate && margin.startDate < $0.end }
