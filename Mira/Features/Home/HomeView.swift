@@ -474,7 +474,7 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        let values = store.selectedDayItems.filter { $0.occupiesTime }
         guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
@@ -608,6 +608,7 @@ private struct AgendaRow: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .memo { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }

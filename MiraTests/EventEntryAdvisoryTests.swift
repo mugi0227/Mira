@@ -4,6 +4,44 @@ import XCTest
 
 @MainActor
 final class EventEntryAdvisoryTests: XCTestCase {
+    func testMemoCommitPreservesMarginGoalsAndRejectsInvalidEntry() throws {
+        let store = try makeStore()
+        let margin = TestFixtures.event(day: 10, hour: 18, kind: .margin, marginKind: .rest)
+        let goal = TestFixtures.goal(.rest, count: 1)
+        store.context.insert(CalendarItemEntity(snapshot: margin))
+        store.context.insert(MarginGoalEntity(snapshot: goal))
+        try store.context.save()
+        try store.refresh()
+        var memo = TestFixtures.event(title: "人の予定", day: 10, hour: 18, kind: .memo)
+        XCTAssertTrue(store.eventEntryConflicts(for: memo).isEmpty)
+        XCTAssertEqual(store.previewImpact(for: memo), .none)
+        XCTAssertTrue(store.worsenedGoalDeficits(afterAdding: memo).isEmpty)
+        XCTAssertTrue(store.commitEvent(memo))
+        XCTAssertTrue(store.items.contains { $0.id == margin.id })
+        XCTAssertEqual(store.progress(for: goal).current, 1)
+        XCTAssertFalse(store.commitEvent(memo), "duplicate entry is rejected")
+        memo = TestFixtures.event(title: "", day: 11, kind: .memo)
+        XCTAssertFalse(store.commitEvent(memo))
+    }
+
+    func testChangingConfirmedEventToMemoClearsLoadBuffersAndImportance() throws {
+        let store = try makeStore()
+        var event = TestFixtures.event(day: 10, load: .veryHeavy)
+        event.isImportantTime = true
+        event.bufferAfterMinutes = 120
+        store.context.insert(CalendarItemEntity(snapshot: event))
+        try store.context.save()
+        try store.refresh()
+        XCTAssertTrue(store.setMemo(event, enabled: true))
+        let memo = try XCTUnwrap(store.items.first { $0.id == event.id })
+        XCTAssertEqual(memo.kind, .memo)
+        XCTAssertFalse(memo.isImportantTime)
+        XCTAssertEqual(memo.bufferAfterMinutes, 0)
+        XCTAssertTrue(store.eventEntryConflicts(for: memo).isEmpty)
+        XCTAssertTrue(store.setMemo(memo, enabled: false))
+        XCTAssertEqual(store.items.first { $0.id == event.id }?.kind, .confirmed)
+    }
+
     func testBaseHoursWarnButDoNotPreventExplicitCommit() throws {
         let store = try makeStore()
         let start = date(year: 2026, month: 9, day: 1, hour: 15)

@@ -296,7 +296,8 @@ private struct CalendarEventStrip: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
-        .foregroundStyle(chipTag.map(palette.chipText(for:)) ?? palette.primaryText)
+        .foregroundStyle(item.kind == .memo ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
+        .opacity(item.kind == .memo ? 0.7 : 1)
         .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
         .padding(.trailing, 3)
         .frame(minHeight: 18, alignment: .leading)
@@ -335,6 +336,7 @@ private struct CalendarEventStrip: View {
 
     private var symbol: String? {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .memo { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return nil

@@ -1,6 +1,48 @@
 import XCTest
 
 final class MiraStyleUITests: XCTestCase {
+    func testCreateNonOccupyingMemo() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-ui-testing", "-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch()
+        let next = app.buttons["おすすめを確認"]
+        if next.waitForExistence(timeout: 4) {
+            next.tap()
+            let start = app.buttons["余白を置いて始める"]
+            XCTAssertTrue(start.waitForExistence(timeout: 3))
+            start.tap()
+        }
+        let menu = app.buttons["追加メニュー"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.tap()
+        app.buttons["予定・余白を追加"].tap()
+        let title = app.textFields["例：友達とご飯"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("友だちの出張メモ")
+        title.typeText("\n")
+        app.swipeUp()
+        app.switches["終日"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let toggle = app.switches["時間を取らない予定"]
+        if !toggle.isHittable { app.swipeUp() }
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        XCTAssertTrue(NSPredicate(format: "value == '1'").evaluate(with: toggle))
+        let form = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        form.name = "memo-form-toggle-on"
+        form.lifetime = .keepAlways
+        add(form)
+        app.navigationBars["予定を追加"].buttons["追加"].tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 8))
+        let memo = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "友だちの出張メモ")).firstMatch
+        XCTAssertTrue(memo.waitForExistence(timeout: 5))
+        let calendar = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        calendar.name = "memo-calendar"
+        calendar.lifetime = .keepAlways
+        add(calendar)
+    }
+
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {

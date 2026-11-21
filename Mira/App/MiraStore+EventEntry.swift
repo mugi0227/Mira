@@ -10,6 +10,7 @@ extension MiraStore {
         excludingItemID: UUID? = nil,
         excludingAdjustmentID: UUID? = nil
     ) -> [String] {
+        guard event.occupiesTime else { return [] }
         let occupied = event.occupiedInterval
         let candidate = CandidateSlotSnapshot(
             startDate: occupied.start,
@@ -42,7 +43,7 @@ extension MiraStore {
     func projectedGoalDeficits(afterAdding event: CalendarItemSnapshot) -> [MarginKind: Int] {
         let occupiedMarginIDs = Set(
             items.filter {
-                $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
+                event.occupiesTime && $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
             }.map(\.id)
         )
         var hypothetical = items.filter { !occupiedMarginIDs.contains($0.id) && $0.id != event.id }
@@ -196,7 +197,7 @@ extension MiraStore {
             switch goal.kind {
             case .importantPeople:
                 current = sourceItems.filter {
-                    $0.isImportantTime && key.interval.contains($0.startDate)
+                    $0.occupiesTime && $0.isImportantTime && key.interval.contains($0.startDate)
                 }.count
             case .freeEvening:
                 let engine = FreeEveningEngine()

@@ -14,6 +14,7 @@ struct ProtectionEngine: Sendable {
         goals: [MarginGoalSnapshot],
         relocationCandidates: [Date]
     ) -> ScheduleImpact {
+        guard proposedEvent.occupiesTime else { return .none }
         let monthKey = MonthKey(date: month, calendar: calendar)
         let overlapping = items.filter {
             $0.kind == .margin && $0.occupiedInterval.intersects(proposedEvent.occupiedInterval)
@@ -268,7 +269,7 @@ struct AssistantEngine: Sendable {
             )
         }
 
-        let heavyDays = Set(items.filter { $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
+        let heavyDays = Set(items.filter { $0.occupiesTime && $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
             .map { calendar.startOfDay(for: $0.startDate) }).count
         if heavyDays >= 5 {
             return AssistantMessage(

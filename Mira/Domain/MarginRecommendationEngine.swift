@@ -111,7 +111,7 @@ struct RebalanceEngine: Sendable {
         let key = MonthKey(date: month, calendar: calendar)
         let monthItems = items.filter { key.interval.contains($0.startDate) }
         let margins = monthItems.filter { $0.kind == .margin }
-        let events = items.filter { $0.kind != .margin }
+        let events = items.filter { $0.occupiesTime && $0.kind != .margin }
         let monthGoals = goals.filter { $0.year == key.year && $0.month == key.month }
         let deficits = goalDeficits(goals: monthGoals, items: monthItems, month: key)
         let overloadedMargins = margins.filter { margin in
@@ -251,7 +251,7 @@ struct RebalanceEngine: Sendable {
             let current: Int
             switch goal.kind {
             case .importantPeople:
-                current = items.filter { $0.isImportantTime }.count
+                current = items.filter { $0.occupiesTime && $0.isImportantTime }.count
             case .freeEvening:
                 let engine = FreeEveningEngine()
                 let days = daysInMonth(month)
@@ -259,7 +259,7 @@ struct RebalanceEngine: Sendable {
                     total + engine.value(
                         for: date,
                         items: items.filter {
-                            calendar.isDate($0.startDate, inSameDayAs: date) && $0.kind != .margin
+                            calendar.isDate($0.startDate, inSameDayAs: date) && $0.occupiesTime && $0.kind != .margin
                         }
                     )
                 }.rounded(.down))

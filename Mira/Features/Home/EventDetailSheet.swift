@@ -11,12 +11,16 @@ struct EventDetailSheet: View {
     @State private var rememberSimilar = false
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
+    @State private var isMemo: Bool
+    @State private var showOccupancyConfirmation = false
+    @State private var occupancyWarning = ""
     @State private var marginMinutes: Int
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
         self.item = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
+        _isMemo = State(initialValue: item.kind == .memo)
         _colorTag = State(initialValue: item.colorTag)
         _marginMinutes = State(initialValue: max(30, Int(item.endDate.timeIntervalSince(item.startDate) / 60)))
     }
@@ -27,6 +31,19 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
+                    if item.deviceEvent == nil && (item.kind == .confirmed || item.kind == .memo) {
+                        Toggle("時間を取らない予定", isOn: $isMemo)
+                            .miraCard(palette)
+                            .onChange(of: isMemo) { _, enabled in
+                                guard enabled != (item.kind == .memo) else { return }
+                                var updated = item
+                                updated.kind = enabled ? .memo : .confirmed
+                                occupancyWarning = store.eventEntryConflicts(for: updated).joined(separator: "\n")
+                                if !enabled {
+                                    showOccupancyConfirmation = true
+                                } else if store.setMemo(item, enabled: enabled) { dismiss() }
+                            }
+                    }
                     if item.kind != .margin {
                         colorCard
                     }
@@ -34,7 +51,7 @@ struct EventDetailSheet: View {
                         quickMoveCard
                     }
                     DeviceCalendarActionView(item: item, palette: palette)
-                    if item.kind != .margin && item.kind != .birthday {
+                    if item.kind == .confirmed {
                         loadCard
                     }
                     if item.kind == .margin {
@@ -53,6 +70,14 @@ struct EventDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+            .confirmationDialog("時間を取る予定に変更しますか？", isPresented: $showOccupancyConfirmation) {
+                Button("影響を承認して変更") {
+                    if store.setMemo(item, enabled: false) { dismiss() }
+                }
+                Button("キャンセル", role: .cancel) { isMemo = true }
+            } message: {
+                Text(occupancyWarning.isEmpty ? "空き時間の計算に含まれます。前後の余裕を含めて重なる余白は消費されます。" : occupancyWarning)
             }
             .confirmationDialog("この項目を削除しますか？", isPresented: $showDeleteConfirmation) {
                 Button("削除", role: .destructive) {
@@ -277,6 +302,7 @@ struct EventDetailSheet: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .memo { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"

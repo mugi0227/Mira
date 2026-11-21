@@ -57,6 +57,7 @@ extension MiraStore {
 
     nonisolated private static func widgetSymbol(for item: CalendarItemSnapshot) -> String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .memo { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return "calendar"

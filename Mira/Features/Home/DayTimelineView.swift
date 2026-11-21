@@ -88,11 +88,11 @@ struct DayTimelineView: View {
     }
 
     private var allDayItems: [CalendarItemSnapshot] {
-        dayItems.filter { $0.isAllDay || $0.kind == .birthday }
+        dayItems.filter { $0.isAllDay || !$0.occupiesTime }
     }
 
     private var timedItems: [CalendarItemSnapshot] {
-        dayItems.filter { !$0.isAllDay && $0.kind != .birthday }
+        dayItems.filter { !$0.isAllDay && $0.occupiesTime }
     }
 
     private var dayHeader: some View {
@@ -122,7 +122,7 @@ struct DayTimelineView: View {
 
     private var allDaySection: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
-            Text("終日")
+            Text("終日・メモ")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
 
@@ -134,6 +134,7 @@ struct DayTimelineView: View {
                         Image(systemName: symbol(for: item))
                             .accessibilityHidden(true)
                         Text(item.title)
+                            .foregroundStyle(item.kind == .memo ? palette.secondaryText : palette.primaryText)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(2)
                         Spacer(minLength: 0)
@@ -230,6 +231,7 @@ struct DayTimelineView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
+                            .foregroundStyle(item.kind == .memo ? palette.secondaryText : palette.primaryText)
                     .font(.caption.weight(.semibold))
                     .lineLimit(height >= 62 ? 2 : 1)
                 Text(item.timeDescription)
@@ -393,6 +395,7 @@ struct DayTimelineView: View {
 
     private func symbol(for item: CalendarItemSnapshot) -> String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .memo { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return "calendar"
