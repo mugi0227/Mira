@@ -29,6 +29,12 @@ final class MiraStyleUITests: XCTestCase {
         let companion = app.buttons["miraCompanionButton"]
         XCTAssertTrue(companion.isHittable)
         XCTAssertLessThanOrEqual(companion.frame.maxY, calendar.frame.minY - 16)
+        let bottomOverflow = calendar.frame.maxY - scroll.frame.maxY + 7
+        if bottomOverflow > 0 {
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+            let end = start.withOffset(CGVector(dx: 0, dy: -bottomOverflow - 16))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
         XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
         XCTAssertGreaterThanOrEqual(scroll.frame.maxY - calendar.frame.maxY, 7)
         capture("roomier-calendar")
