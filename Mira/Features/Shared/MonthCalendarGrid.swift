@@ -57,7 +57,7 @@ struct MonthCalendarGrid: View {
         }
         // Inset the entire grid rather than every cell so all seven columns
         // stay aligned, including the leading/trailing days near the corners.
-        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : (privacyMode ? 0 : 6))
         .padding(.top, palette.isCatSkin ? MiraSpacing.lg : 0)
         .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
         .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
