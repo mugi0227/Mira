@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MonthCalendarGrid: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var dateSelection
     let month: Date
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
@@ -27,7 +29,7 @@ struct MonthCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(weekdayColor(for: index))
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
@@ -117,7 +119,8 @@ struct MonthCalendarGrid: View {
                     if isSelected {
                         Circle()
                             .fill(palette.actionGradient)
-                            .frame(width: 27, height: 27)
+                            .frame(width: 30, height: 30)
+                            .matchedGeometryEffect(id: "selected-date", in: dateSelection)
                     } else if isToday {
                         Circle()
                             .stroke(palette.accent, lineWidth: 1.5)
@@ -125,7 +128,7 @@ struct MonthCalendarGrid: View {
                     }
 
                     Text("\(calendar.component(.day, from: date))")
-                        .font(.caption.weight(isSelected || isToday ? .bold : .medium).monospacedDigit())
+                        .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
                         .foregroundStyle(dateForeground(
                             isSelected: isSelected,
                             isInDisplayedMonth: isInDisplayedMonth,
@@ -195,8 +198,7 @@ struct MonthCalendarGrid: View {
         .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
         .overlay(alignment: .trailing) {
             if column < 6 { gridLine.frame(width: 0.5) }
@@ -212,10 +214,17 @@ struct MonthCalendarGrid: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("calendar-day-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
         .accessibilityAction(named: "日付を開く") {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
+    }
+
+    private func select(_ date: Date) {
+        withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+            selectedDate = date
+        }
+        onSelectDate?(date)
     }
 
     private func dateForeground(

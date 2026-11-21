@@ -27,7 +27,7 @@ struct AccountSettingsView: View {
                     }
                     Button {
                         UIPasteboard.general.string = account.userId
-                        store.toast = "ユーザーIDをコピーしたにゃ"
+                        store.toast = "ユーザーIDをコピーしました"
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("ユーザーID（タップでコピー）")

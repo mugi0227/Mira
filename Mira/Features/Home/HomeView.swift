@@ -56,7 +56,7 @@ struct HomeView: View {
                         .padding(.horizontal, MiraSpacing.md)
                 }
             }
-            .animation(MiraMotion.standard, value: isFriendView)
+            .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
             .padding(.top, MiraSpacing.xs)
             .padding(.bottom, 96 + floatingTabBarClearance)
         }
@@ -114,10 +114,8 @@ struct HomeView: View {
         }
     }
 
-    /// The cat skin draws its own floating tab bar over the content instead
-    /// of insetting it, so corner controls must lift themselves above it.
     private var floatingTabBarClearance: CGFloat {
-        palette.isCatSkin ? 124 : 0
+        0
     }
 
     private var monthItems: [CalendarItemSnapshot] {
@@ -216,7 +214,7 @@ struct HomeView: View {
     private var standardMonthHeader: some View {
         HStack {
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(-1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.updateMarginRecommendation(for: store.selectedMonth)
@@ -240,7 +238,7 @@ struct HomeView: View {
             Spacer()
 
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.ensurePlan(for: store.selectedMonth)
@@ -260,7 +258,7 @@ struct HomeView: View {
         HStack(spacing: 4) {
             Button { changeMonth(by: -1) } label: {
                 Image(systemName: "chevron.left")
-                    .font(.body.weight(.medium))
+                    .font(.body.weight(.bold))
                     .frame(width: 44, height: 44)
                     .background(palette.surface.opacity(0.7), in: Circle())
             }
@@ -268,7 +266,7 @@ struct HomeView: View {
 
             VStack(spacing: 4) {
                 Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.title2.bold())
+                    .font(.system(.title2, design: .rounded, weight: .heavy))
                     .foregroundStyle(palette.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -278,17 +276,13 @@ struct HomeView: View {
 
             Button { changeMonth(by: 1) } label: {
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.bold))
                     .frame(width: 44, height: 44)
+                    .background(palette.surface, in: Circle())
             }
             .accessibilityLabel("次の月")
 
             addMenu
-                .background(alignment: .bottomLeading) {
-                    MiraBotanicalAccent(palette: palette)
-                        .frame(width: 45, height: 60)
-                        .offset(x: -20, y: 8)
-                }
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
@@ -398,7 +392,7 @@ struct HomeView: View {
             }
         } label: {
             Image(systemName: "plus")
-                .font(palette.isCatSkin ? .system(size: 28, weight: .regular) : .body)
+                .font(palette.isCatSkin ? .system(size: 25, weight: .bold, design: .rounded) : .body)
                 .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
                 .frame(width: palette.isCatSkin ? 52 : 44, height: palette.isCatSkin ? 52 : 44)
                 .background {

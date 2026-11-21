@@ -214,8 +214,8 @@ struct AssistantEngine: Sendable {
 
         if restActual == 0, restTarget > 0 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "おやすみがないにゃ" : "休息日がありません",
-                body: theme == .pixelCat ? "今月のおやすみを1日、先に置いておくと安心だにゃ。" : "今月の休息日を1日、先に確保するのがおすすめです。",
+                title: theme == .pixelCat ? "ひと息つける日を、先に" : "休息日がありません",
+                body: theme == .pixelCat ? "今月のおやすみを1日、先に置いておくと安心です。" : "今月の休息日を1日、先に確保するのがおすすめです。",
                 mood: .warning,
                 severity: 3,
                 actionTitle: "余白を整える"
@@ -226,8 +226,8 @@ struct AssistantEngine: Sendable {
             .map { calendar.startOfDay(for: $0.startDate) }).count
         if heavyDays >= 5 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "今月ちょっとぎゅうぎゅうだにゃ" : "今月は予定が多めです",
-                body: theme == .pixelCat ? "重めの日が続いてるにゃ。次の予定は来週へずらすと、のんびりできそう。" : "重い予定が続いています。次の予定を来週へ移すと余白を残せます。",
+                title: theme == .pixelCat ? "今月ちょっとぎゅうぎゅうです" : "今月は予定が多めです",
+                body: theme == .pixelCat ? "重めの日が続いています。次の予定は来週へずらすと、のんびりできそう。" : "重い予定が続いています。次の予定を来週へ移すと余白を残せます。",
                 mood: .tired,
                 severity: 2,
                 actionTitle: "再配置を見る"
@@ -237,8 +237,8 @@ struct AssistantEngine: Sendable {
         let remaining = max(0, restTarget - restActual)
         if remaining > 0 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "あと\(remaining)日だにゃ" : "休息日があと\(remaining)日必要です",
-                body: theme == .pixelCat ? "おやすみをあと\(remaining)日置けると、いい感じだにゃ。" : "休息日をあと\(remaining)日確保すると、今月の目標を満たせます。",
+                title: theme == .pixelCat ? "おやすみを、あと\(remaining)日" : "休息日があと\(remaining)日必要です",
+                body: theme == .pixelCat ? "おやすみをあと\(remaining)日置けると、いい感じです。" : "休息日をあと\(remaining)日確保すると、今月の目標を満たせます。",
                 mood: .thinking,
                 severity: 1,
                 actionTitle: "おすすめ配置"
@@ -246,8 +246,8 @@ struct AssistantEngine: Sendable {
         }
 
         return AssistantMessage(
-            title: theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです",
-            body: theme == .pixelCat ? "予定も余白も、ちゃんと居場所があるにゃ。" : "予定と自分の時間をバランスよく確保できています。",
+            title: theme == .pixelCat ? "いい感じです" : "今月はいいバランスです",
+            body: theme == .pixelCat ? "予定も余白も、ちゃんと居場所があります。" : "予定と自分の時間をバランスよく確保できています。",
             mood: .relaxed,
             severity: 0,
             actionTitle: nil

@@ -153,7 +153,7 @@ final class MiraStore {
     var currentAssistantMessage: AssistantMessage {
         if hasUnreadMiraSuggestion {
             return AssistantMessage(
-                title: theme == .pixelCat ? "来週の自分の時間、提案があるにゃ" : "来週の自分の時間の提案があります",
+                title: theme == .pixelCat ? "来週の自分の時間、提案があります" : "来週の自分の時間の提案があります",
                 body: "トークで確認して、置くかどうか決めてね。",
                 mood: .thinking,
                 severity: 2,
@@ -163,7 +163,7 @@ final class MiraStore {
         if let proposal = activeRebalanceProposal,
            Calendar.mira.isDate(proposal.month, equalTo: selectedMonth, toGranularity: .month) {
             return AssistantMessage(
-                title: "今月の余白を組み直せるにゃ",
+                title: "今月の余白を組み直せます",
                 body: proposal.summary,
                 mood: .thinking,
                 severity: 2,

@@ -76,7 +76,7 @@ extension MiraStore {
         ))
         try? context.save()
         try? refresh()
-        toast = "大切な人を追加したにゃ"
+        toast = "大切な人を追加しました"
     }
 
     func removeImportantPerson(id: UUID) {

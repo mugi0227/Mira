@@ -1,0 +1,44 @@
+import SwiftUI
+import UIKit
+import XCTest
+@testable import Mira
+
+final class MiraStyleTests: XCTestCase {
+    func testReduceMotionDisablesSelectionSpring() {
+        XCTAssertNil(MiraMotion.selection(reduceMotion: true))
+        XCTAssertNotNil(MiraMotion.selection(reduceMotion: false))
+    }
+
+    func testAccentLabelsHaveReadableContrastInBothThemes() {
+        for theme in AppThemeKind.allCases {
+            for scheme in [ColorScheme.light, .dark] {
+                let palette = MiraThemePalette(kind: theme, colorScheme: scheme)
+                let foreground = luminance(palette.onAccent)
+                let background = luminance(palette.accent)
+                let contrast = (max(foreground, background) + 0.05) / (min(foreground, background) + 0.05)
+                XCTAssertGreaterThanOrEqual(contrast, 4.5, "\(theme) \(scheme)")
+            }
+        }
+    }
+
+    func testAssistantSkinDoesNotForceCatVoice() {
+        for theme in AppThemeKind.allCases {
+            let message = AssistantEngine().message(theme: theme, month: .now, goals: [], items: [])
+            XCTAssertFalse(message.title.contains("にゃ"))
+            XCTAssertFalse(message.body.contains("にゃ"))
+        }
+    }
+
+    private func luminance(_ color: Color) -> Double {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let channels = [red, green, blue].map { value -> Double in
+            let value = Double(value)
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+    }
+}

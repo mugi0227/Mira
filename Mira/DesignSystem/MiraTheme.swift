@@ -60,35 +60,35 @@ struct MiraThemePalette {
             success = Color(hex: 0x9BC5A6)
             shadow = Color.black.opacity(0.28)
         case (.pixelCat, false):
-            background = Color(hex: 0xE9F8FE)
-            surface = Color.white.opacity(0.84)
-            elevatedSurface = Color(hex: 0xF5FCFF)
-            primaryText = Color(hex: 0x293D50)
-            secondaryText = Color(hex: 0x576E82)
-            accent = Color(hex: 0x2875A3)
-            accentSoft = Color(hex: 0xDCEFFC)
-            rest = Color(hex: 0xDEF3EF)
-            reading = Color(hex: 0xFFF1D5)
-            important = Color(hex: 0xFBE5EF)
-            pending = Color(hex: 0xEAE7FA)
-            adjustment = Color(hex: 0xDDEFFA)
-            warning = Color(hex: 0x9C6030)
-            critical = Color(hex: 0xAF426B)
-            success = Color(hex: 0x367765)
-            shadow = Color(hex: 0x79B8D5).opacity(0.13)
+            background = Color(hex: 0xF7F3EB)
+            surface = Color(hex: 0xFFFCF7)
+            elevatedSurface = Color(hex: 0xFFFCF7)
+            primaryText = Color(hex: 0x353831)
+            secondaryText = Color(hex: 0x6D7065)
+            accent = Color(hex: 0x5D6C53)
+            accentSoft = Color(hex: 0xE4E8DA)
+            rest = Color(hex: 0xDEE5D6)
+            reading = Color(hex: 0xEEE0CB)
+            important = Color(hex: 0xEEDDD7)
+            pending = Color(hex: 0xE4DEEC)
+            adjustment = Color(hex: 0xDEE5E6)
+            warning = Color(hex: 0x956039)
+            critical = Color(hex: 0xA54D52)
+            success = Color(hex: 0x526B4A)
+            shadow = Color(hex: 0x55503E).opacity(0.08)
         case (.pixelCat, true):
-            background = Color(hex: 0x152B3A)
-            surface = Color(hex: 0x233F51).opacity(0.96)
-            elevatedSurface = Color(hex: 0x2C4B5E)
-            primaryText = Color(hex: 0xECF7FE)
-            secondaryText = Color(hex: 0xB1CBDC)
-            accent = Color(hex: 0x9BD7F6)
-            accentSoft = Color(hex: 0x30566E)
-            rest = Color(hex: 0x2D514F)
-            reading = Color(hex: 0x514936)
-            important = Color(hex: 0x573D51)
-            pending = Color(hex: 0x414364)
-            adjustment = Color(hex: 0x304E69)
+            background = Color(hex: 0x20231F)
+            surface = Color(hex: 0x2B3029)
+            elevatedSurface = Color(hex: 0x343A31)
+            primaryText = Color(hex: 0xF4F1E8)
+            secondaryText = Color(hex: 0xC0C5B7)
+            accent = Color(hex: 0xC3D0AF)
+            accentSoft = Color(hex: 0x414C38)
+            rest = Color(hex: 0x3D4C36)
+            reading = Color(hex: 0x504737)
+            important = Color(hex: 0x523E3C)
+            pending = Color(hex: 0x484052)
+            adjustment = Color(hex: 0x3A484C)
             warning = Color(hex: 0xEFBE87)
             critical = Color(hex: 0xF2A6C0)
             success = Color(hex: 0x9AD7C4)
@@ -96,26 +96,22 @@ struct MiraThemePalette {
         }
     }
 
-    var cardRadius: CGFloat { isCatSkin ? 26 : MiraRadius.medium }
+    var cardRadius: CGFloat { MiraRadius.large }
     var cardBorder: Color {
-        isCatSkin ? Color.white.opacity(isDark ? 0.14 : 0.88) : primaryText.opacity(0.06)
+        primaryText.opacity(isDark ? 0.12 : 0.08)
     }
-    var botanical: Color { Color(hex: isDark ? 0x72B8B5 : 0x94CFCC) }
-    var onAccent: Color { isCatSkin && isDark ? background : .white }
+    var botanical: Color { accent.opacity(0.65) }
+    var onAccent: Color { isDark ? background : .white }
     var backgroundGradient: LinearGradient {
         LinearGradient(
-            colors: isCatSkin
-                ? [background, Color(hex: isDark ? 0x1A394B : 0xDDF4FD), background]
-                : [background, background],
+            colors: [background, background],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
     var actionGradient: LinearGradient {
         LinearGradient(
-            colors: isCatSkin
-                ? [Color(hex: isDark ? 0xB9E5FA : 0x3079A6), Color(hex: isDark ? 0x82C4EA : 0x246E9B)]
-                : [accent, accent],
+            colors: [accent, accent],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -199,15 +195,19 @@ enum MiraSpacing {
 }
 
 enum MiraRadius {
-    static let small: CGFloat = 12
-    static let medium: CGFloat = 18
-    static let large: CGFloat = 26
+    static let small: CGFloat = 16
+    static let medium: CGFloat = 24
+    static let large: CGFloat = 30
 }
 
 enum MiraMotion {
-    static let quick = Animation.easeOut(duration: 0.16)
-    static let standard = Animation.spring(response: 0.38, dampingFraction: 0.82)
-    static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.9)
+    static let quick = Animation.spring(response: 0.28, dampingFraction: 0.72)
+    static let standard = Animation.spring(response: 0.42, dampingFraction: 0.74)
+    static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.86)
+
+    static func selection(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : standard
+    }
 }
 
 struct MiraCardModifier: ViewModifier {
@@ -224,9 +224,9 @@ struct MiraCardModifier: ViewModifier {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
-                    .strokeBorder(palette.cardBorder, lineWidth: palette.isCatSkin ? 1.3 : 1)
+                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
             }
-            .shadow(color: palette.shadow, radius: palette.isCatSkin ? 18 : 16, y: 7)
+            .shadow(color: palette.shadow, radius: 12, y: 4)
     }
 }
 
@@ -241,8 +241,11 @@ struct MiraPressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.78 : 1)
-            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.98 : 1))
+            .opacity(configuration.isPressed ? 0.86 : 1)
+            .scaleEffect(
+                x: reduceMotion ? 1 : (configuration.isPressed ? 0.95 : 1),
+                y: reduceMotion ? 1 : (configuration.isPressed ? 0.92 : 1)
+            )
             .animation(reduceMotion ? nil : MiraMotion.quick, value: configuration.isPressed)
             .contentShape(Rectangle())
     }

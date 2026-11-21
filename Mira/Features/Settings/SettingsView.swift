@@ -70,7 +70,7 @@ struct SettingsView: View {
                     get: { store.assistantEnabled },
                     set: { store.setAssistantEnabled($0) }
                 ))
-                Toggle("通知でもキャラ口調", systemImage: "bell.badge.fill", isOn: Binding(
+                Toggle("やわらかな通知メッセージ", systemImage: "bell.badge.fill", isOn: Binding(
                     get: { store.characterNotificationsEnabled },
                     set: { store.setCharacterNotificationsEnabled($0) }
                 ))
@@ -255,6 +255,7 @@ private struct SettingsRow: View {
 private struct ThemePickerView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
     var body: some View {
@@ -265,7 +266,7 @@ private struct ThemePickerView: View {
                         theme: theme,
                         palette: MiraThemePalette(kind: theme, colorScheme: colorScheme),
                         selected: theme == store.theme
-                    ) { withAnimation(MiraMotion.standard) { store.setTheme(theme) } }
+                    ) { withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) { store.setTheme(theme) } }
                 }
             }
             .padding(MiraSpacing.md)
@@ -288,7 +289,7 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .pixelCat ? "空色とやわらかな光、猫と過ごす毎日" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .pixelCat ? "温かなアイボリーとセージ、さりげない遊び心" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()
@@ -302,7 +303,7 @@ private struct ThemePreviewCard: View {
                             Image(systemName: "leaf.circle.fill").font(.system(size: 48)).foregroundStyle(palette.accent).frame(width: 64)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです").font(.headline)
+                            Text(theme == .pixelCat ? "いい感じです" : "今月はいいバランスです").font(.headline)
                             Text("予定も余白も、ちゃんと居場所があります。")
                                 .font(.caption).foregroundStyle(palette.secondaryText)
                         }
