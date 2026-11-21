@@ -79,7 +79,9 @@ struct MonthCalendarGrid: View {
         let regular: CGFloat = dayCount > 35 ? 88 : 104
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
-        return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
+        // Shorter viewports trade extra preview chips for a visible card edge,
+        // never smaller text. Dense six-week months can still scroll.
+        return max(72, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -127,7 +129,13 @@ struct MonthCalendarGrid: View {
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
         let isCompact = palette.isCatSkin && cellHeight < 100
-        let visibleItemLimit = isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        let visibleItemLimit = if palette.isCatSkin && cellHeight < 88 {
+            // Date + one preview + overflow count still fit without crowding.
+            // On holidays the holiday title uses the preview's line.
+            holiday == nil ? 1 : 0
+        } else {
+            isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        }
 
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -197,11 +205,20 @@ struct MonthCalendarGrid: View {
                     }
 
                     if dayItems.count > visibleItemLimit {
-                        Text("ほか \(dayItems.count - visibleItemLimit)件")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+                        Button {
+                            select(date)
+                        } label: {
+                            Text("ほか \(dayItems.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .frame(maxWidth: .infinity, minHeight: 14, alignment: .leading)
+                                .padding(.horizontal, 2)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("ほか\(dayItems.count - visibleItemLimit)件の予定を表示")
+                        .accessibilityHint("この日の予定をすべて開く")
+                        .accessibilityIdentifier("calendar-overflow-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
                     }
                 }
             }
