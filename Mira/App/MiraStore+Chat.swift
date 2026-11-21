@@ -257,7 +257,7 @@ extension MiraStore {
         if !impact.overlappingMargins.isEmpty {
             notes.append("余白「\(impact.overlappingMargins.map(\.title).joined(separator: "、"))」と重なります")
         }
-        let summary = "提案カードを作成：\(event.title) \(ChatAnswer.date(event.startDate))〜\(ChatAnswer.date(event.endDate)) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
+        let summary = "提案カードを作成：\(event.title) \(rangeLabel(event.startDate, event.endDate)) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
             + (notes.isEmpty ? "問題なし。" : "注意：" + notes.joined(separator: "／"))
             + " まだ保存していません。本人がカードで決めます。"
         return MiraToolResult(
