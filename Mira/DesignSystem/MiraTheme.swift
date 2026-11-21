@@ -166,9 +166,12 @@ enum MiraRadius {
 }
 
 enum MiraMotion {
-    static let quick = Animation.spring(response: 0.28, dampingFraction: 0.72)
-    static let standard = Animation.spring(response: 0.42, dampingFraction: 0.74)
-    static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.86)
+    // A quick compression followed by a slower, elastic return feels soft
+    // without making the action itself wait for the animation to finish.
+    static let press = Animation.spring(response: 0.22, dampingFraction: 0.78)
+    static let quick = Animation.spring(response: 0.46, dampingFraction: 0.60)
+    static let standard = Animation.spring(response: 0.56, dampingFraction: 0.66)
+    static let gentle = Animation.spring(response: 0.72, dampingFraction: 0.78)
 
     static func selection(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : standard
@@ -182,7 +185,9 @@ struct MiraCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(padding)
+            // Large rounded corners need breathing room even when a caller
+            // requests a compact card. Keep Soft Minimal's original density.
+            .padding(palette.isCatSkin ? max(padding, MiraSpacing.lg) : padding)
             .background {
                 RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
                     .fill(reduceTransparency ? palette.elevatedSurface : palette.surface)
@@ -208,10 +213,13 @@ struct MiraPressStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.86 : 1)
             .scaleEffect(
-                x: reduceMotion ? 1 : (configuration.isPressed ? 0.95 : 1),
-                y: reduceMotion ? 1 : (configuration.isPressed ? 0.92 : 1)
+                x: reduceMotion ? 1 : (configuration.isPressed ? 0.97 : 1),
+                y: reduceMotion ? 1 : (configuration.isPressed ? 0.90 : 1)
             )
-            .animation(reduceMotion ? nil : MiraMotion.quick, value: configuration.isPressed)
+            .animation(
+                reduceMotion ? nil : (configuration.isPressed ? MiraMotion.press : MiraMotion.quick),
+                value: configuration.isPressed
+            )
             .contentShape(Rectangle())
     }
 }

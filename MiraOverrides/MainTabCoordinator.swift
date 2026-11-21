@@ -213,13 +213,13 @@ struct MainTabView: View {
                 .accessibilityIdentifier("miraTab-\(tab.rawValue)")
             }
         }
-        .padding(6)
+        .padding(MiraSpacing.xs)
         .background(palette.elevatedSurface, in: Capsule())
         .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
         .shadow(color: palette.shadow, radius: 20, y: 5)
-        .padding(.horizontal, MiraSpacing.md)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.horizontal, MiraSpacing.lg)
+        .padding(.top, MiraSpacing.sm)
+        .padding(.bottom, MiraSpacing.xs)
         .background {
             LinearGradient(colors: [palette.background.opacity(0), palette.background], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea(edges: .bottom)

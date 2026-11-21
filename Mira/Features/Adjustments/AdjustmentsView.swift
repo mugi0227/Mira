@@ -36,11 +36,11 @@ struct AdjustmentsView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, MiraSpacing.md)
+            .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
             .padding(.vertical, MiraSpacing.sm)
 
             ScrollView {
-                LazyVStack(spacing: MiraSpacing.sm) {
+                LazyVStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
                     if segment != .pending {
                         if segment == .adjustments { manualSchedulingCard }
                         adjustmentList
@@ -48,7 +48,7 @@ struct AdjustmentsView: View {
                         invitationList
                     }
                 }
-                .padding(.horizontal, MiraSpacing.md)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
                 .padding(.bottom, 104)
             }
         }

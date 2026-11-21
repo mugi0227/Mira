@@ -20,7 +20,7 @@ struct MarginsView: View {
                 baseRulesCard
                 futureMonthCard
             }
-            .padding(.horizontal, MiraSpacing.md)
+            .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
             .padding(.top, MiraSpacing.sm)
             .padding(.bottom, 104)
         }
