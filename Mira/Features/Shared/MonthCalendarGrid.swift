@@ -14,8 +14,9 @@ struct MonthCalendarGrid: View {
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
-    /// Friend view shows coarse availability without titles.
+    /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
+    var friendLevel: FriendShareLevel = .freeOnly
     var baseRules: [BaseAvailabilityRule] = []
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
@@ -111,14 +112,22 @@ struct MonthCalendarGrid: View {
         }
     }
 
-    @ViewBuilder
-    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
-        let dayItems = items
-            .filter { $0.overlapsDay(date, calendar: calendar) }
+    func itemsForDay(_ date: Date) -> [CalendarItemSnapshot] {
+        items
+            .filter {
+                privacyMode && friendLevel != .freeOnly
+                    ? $0.overlapsFriendShareDay(date, calendar: calendar)
+                    : $0.overlapsDay(date, calendar: calendar)
+            }
             .sorted { lhs, rhs in
                 if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
                 return lhs.startDate < rhs.startDate
             }
+    }
+
+    @ViewBuilder
+    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
+        let dayItems = itemsForDay(date)
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
@@ -168,16 +177,35 @@ struct MonthCalendarGrid: View {
                 }
 
                 if privacyMode {
-                    let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
-                    if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
-                        Text(availability.summary)
-                            .font(.system(size: 9, weight: .semibold, design: .rounded))
-                            .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
-                    } else {
-                        ForEach(availability.bands) { band in
-                            Text(band.label)
+                    if friendLevel != .freeOnly {
+                        let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
+                        ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
+                            Text(line)
                                 .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityIdentifier("friendDayContent")
+                        }
+                        if content.gridLines.count > visibleItemLimit {
+                            Text("ほか \(content.gridLines.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
+                        if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
+                            Text(availability.summary)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
+                        } else {
+                            ForEach(availability.bands) { band in
+                                Text(band.label)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                            }
                         }
                     }
                 } else {
@@ -270,7 +298,7 @@ struct MonthCalendarGrid: View {
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
         let suffix = privacyMode
-            ? FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar).summary
+            ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar).lines.joined(separator: "、")
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
         return "\(formatter.string(from: date))、\(suffix)"
     }
