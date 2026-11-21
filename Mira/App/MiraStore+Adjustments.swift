@@ -213,7 +213,7 @@ extension MiraStore {
     }
 
     func conflictMessages(for candidate: CandidateSlotSnapshot, excluding sessionID: UUID? = nil) -> [String] {
-        ConflictEngine().conflicts(
+        ConflictEngine(workDays: workDayResolver).conflicts(
             candidate: candidate,
             events: items,
             otherCandidates: heldCandidates(excluding: sessionID),

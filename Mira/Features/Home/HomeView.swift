@@ -64,6 +64,7 @@ struct HomeView: View {
                             privacyMode: isFriendView,
                             friendLevel: friendLevel,
                             baseRules: store.fetchBaseRules(),
+                            workDays: store.workDayResolver,
                             onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                             onSelectDate: openDay,
                             onSelectItem: { item in if !isFriendView { selectedItem = item } }
@@ -389,7 +390,7 @@ struct HomeView: View {
         let rules = store.fetchBaseRules()
         let minutes = days.reduce(0) { total, day in
             let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) ?? month.firstDay
-            return total + DayWhitespace(date: date, items: monthItems, baseRules: rules).availableMinutes
+            return total + DayWhitespace(date: date, items: monthItems, baseRules: rules, workDays: store.workDayResolver).availableMinutes
         }
         return Button { showWhitespaceExplanation = true } label: {
             HStack(alignment: .firstTextBaseline, spacing: MiraSpacing.sm) {
@@ -479,7 +480,7 @@ struct HomeView: View {
                         .accessibilityIdentifier("friendShareImage")
                     }
                     if friendLevel != .hidden {
-                        ShareLink(item: FriendAvailabilityText.text(from: store.now, items: store.items, baseRules: store.fetchBaseRules(), level: friendLevel)) {
+                        ShareLink(item: FriendAvailabilityText.text(from: store.now, items: store.items, baseRules: store.fetchBaseRules(), level: friendLevel, workDays: store.workDayResolver)) {
                             Label("文字で送る", systemImage: "text.bubble")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(palette.accent)

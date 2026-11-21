@@ -210,7 +210,8 @@ struct NewItemSheet: View {
                     referenceDate: store.now,
                     weekStartDay: store.weekStartDay,
                     palette: palette,
-                    loadMonth: { await store.refreshDeviceCalendar(around: $0) }
+                    loadMonth: { await store.refreshDeviceCalendar(around: $0) },
+                    workDays: store.workDayResolver
                 )
             } header: {
                 HStack {

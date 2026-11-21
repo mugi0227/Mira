@@ -16,17 +16,13 @@ struct FriendAvailability: Sendable {
         return bands.map(\.label).joined(separator: "、")
     }
 
-    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], calendar: Calendar = .mira) {
+    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         let day = calendar.startOfDay(for: date)
         let nextDay = day.addingDays(1, calendar: calendar)
         let relevant = items.filter { $0.kind != .birthday && $0.startDate < nextDay && $0.endDate > day }
         hasAllDayEvent = relevant.contains { $0.isAllDay }
         let allDay = hasAllDayEvent
-        let weekday = calendar.component(.weekday, from: day)
-        let work = baseRules.filter { $0.weekday == weekday }.map {
-            DateInterval(start: day.addingTimeInterval(Double($0.startMinute) * 60),
-                         end: day.addingTimeInterval(Double($0.endMinute) * 60))
-        }
+        let work = workDays.intervals(on: day, rules: baseRules, calendar: calendar)
         bands = [("朝", 8, 12), ("昼", 12, 18), ("夜", 18, 24)].map { title, start, end in
             let interval = DateInterval(start: day.setting(hour: start, calendar: calendar),
                                         end: end == 24 ? nextDay : day.setting(hour: end, calendar: calendar))

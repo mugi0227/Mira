@@ -5,6 +5,8 @@ import SwiftData
 extension MiraStore {
     func applySettings() {
         guard let settingsEntity else { return }
+        excludeHolidaysFromWorkDays = settingsEntity.excludeHolidaysFromWorkDays
+        loadWorkDayOverrides()
         onboardingCompleted = settingsEntity.onboardingCompleted
         theme = AppThemeKind(rawValue: settingsEntity.themeRaw) ?? .softMinimal
         colorStyle = AppColorStyle(rawValue: settingsEntity.colorStyleRaw ?? "") ?? .blue

@@ -32,10 +32,10 @@ struct FriendDayContent {
     let gridLines: [String]
     let gridEntries: [GridEntry]
 
-    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], level: FriendShareLevel = .freeOnly, calendar: Calendar = .mira) {
+    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], level: FriendShareLevel = .freeOnly, calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         guard level != .hidden else { lines = []; gridLines = []; gridEntries = []; return }
         if level == .freeOnly {
-            let availability = FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar)
+            let availability = FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
             lines = availability.hasAllDayEvent || availability.bands.allSatisfy { !$0.isBusy }
                 ? [availability.summary] : availability.bands.map(\.label)
             gridLines = lines
@@ -64,11 +64,7 @@ struct FriendDayContent {
         }
         let eventRanges = bodyItems.map { $0.isAllDay ? DateInterval(start: start, end: end) : clipped($0.startDate, $0.endDate) }
         let occupiedRanges = relevant.map { $0.isAllDay ? DateInterval(start: start, end: end) : clipped($0.occupiedInterval.start, $0.occupiedInterval.end) }
-        let work = baseRules.filter {
-            $0.weekday == calendar.component(.weekday, from: start) && $0.endMinute > $0.startMinute
-        }.map {
-            clipped(start.addingTimeInterval(Double($0.startMinute) * 60), start.addingTimeInterval(Double($0.endMinute) * 60))
-        }
+        let work = workDays.intervals(on: date, rules: baseRules, calendar: calendar)
         func merged(_ intervals: [DateInterval]) -> [DateInterval] {
             intervals.sorted { $0.start < $1.start }.reduce(into: []) { result, interval in
                 if let last = result.last, last.end >= interval.start {

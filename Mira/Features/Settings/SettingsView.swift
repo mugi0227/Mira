@@ -109,10 +109,14 @@ struct SettingsView: View {
                     get: { store.deviceHolidaysEnabled },
                     set: { enabled in Task { await store.setDeviceHolidaysEnabled(enabled) } }
                 ))
+                Toggle("祝日を仕事の日から除く", systemImage: "briefcase.fill", isOn: Binding(
+                    get: { store.excludeHolidaysFromWorkDays },
+                    set: { store.setExcludeHolidaysFromWorkDays($0) }
+                ))
             } header: {
                 Text("カレンダー表示")
             } footer: {
-                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。")
+                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。仕事の日から除くと、その日の基本時間は空き時間になります。日ごとの指定が優先されます。")
             }
             .listRowBackground(palette.surface)
 

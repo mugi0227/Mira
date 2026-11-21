@@ -2,9 +2,11 @@ import Foundation
 
 struct SchedulingRecommendationEngine: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func recommendations(
@@ -176,7 +178,7 @@ struct SchedulingRecommendationEngine: Sendable {
         let weekday = calendar.component(.weekday, from: interval.start)
         let startMinute = calendar.component(.hour, from: interval.start) * 60 + calendar.component(.minute, from: interval.start)
         let endMinute = calendar.component(.hour, from: interval.end) * 60 + calendar.component(.minute, from: interval.end)
-        return rules.contains { rule in
+        return workDays.effectiveRules(on: interval.start, rules: rules, calendar: calendar).contains { rule in
             rule.weekday == weekday && startMinute < rule.endMinute && endMinute > rule.startMinute
         }
     }

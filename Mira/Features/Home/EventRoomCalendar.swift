@@ -10,6 +10,7 @@ struct EventRoomCalendar: View {
     let durationMinutes: Int?
     let items: [CalendarItemSnapshot]
     let baseRules: [BaseAvailabilityRule]
+    let workDays: WorkDayResolver
     let referenceDate: Date
     let weekStartDay: WeekStartDay
     let palette: MiraThemePalette
@@ -26,9 +27,11 @@ struct EventRoomCalendar: View {
         referenceDate: Date,
         weekStartDay: WeekStartDay,
         palette: MiraThemePalette,
-        loadMonth: @escaping (Date) async -> Void = { _ in }
+        loadMonth: @escaping (Date) async -> Void = { _ in },
+        workDays: WorkDayResolver = WorkDayResolver()
     ) {
         self.loadMonth = loadMonth
+        self.workDays = workDays
         _selectedDate = selectedDate
         self.durationMinutes = durationMinutes
         self.items = items
@@ -109,7 +112,8 @@ struct EventRoomCalendar: View {
                 items: dayItems,
                 baseRules: baseRules,
                 notBefore: calendar.isDate(date, inSameDayAs: referenceDate) ? referenceDate : nil,
-                calendar: calendar
+                calendar: calendar,
+                workDays: workDays
             )
         }
         return result

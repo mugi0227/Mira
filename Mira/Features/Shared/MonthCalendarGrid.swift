@@ -18,6 +18,7 @@ struct MonthCalendarGrid: View {
     var privacyMode = false
     var friendLevel: FriendShareLevel = .freeOnly
     var baseRules: [BaseAvailabilityRule] = []
+    var workDays = WorkDayResolver()
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
@@ -205,11 +206,11 @@ struct MonthCalendarGrid: View {
             }
             .frame(height: privacyMode ? 26 : 34)
             .buttonStyle(.plain)
-            .accessibilityLabel("\(date.japaneseShortDate)を開く")
+            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             .overlay {
                 if !privacyMode {
-                    let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
+                    let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
                     WhitespaceRing(fraction: whitespace.fraction, palette: palette)
                         .frame(width: 32, height: 32)
                         .opacity(isInDisplayedMonth ? 1 : 0.3)
@@ -232,7 +233,7 @@ struct MonthCalendarGrid: View {
 
                 if privacyMode {
                     if friendLevel != .freeOnly {
-                        let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar)
+                        let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar, workDays: workDays)
                         if friendLevel == .titles {
                             ForEach(Array(content.gridEntries.prefix(friendTitlePreviewLimit).enumerated()), id: \.offset) { _, entry in
                                 Text("\(entry.time)\n\(entry.title)")
@@ -264,7 +265,7 @@ struct MonthCalendarGrid: View {
                                 .lineLimit(1)
                         }
                     } else {
-                        let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar)
+                        let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar, workDays: workDays)
                         if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
                             Text(availability.summary)
                                 .font(.system(size: 9, weight: .semibold, design: .rounded))
@@ -318,6 +319,19 @@ struct MonthCalendarGrid: View {
         .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
+        .overlay(alignment: .topTrailing) {
+            if !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) {
+                Image(systemName: WorkDayToggle.symbol(isWorkDay: true))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 7, height: 6)
+                    .foregroundStyle(palette.secondaryText.opacity(isInDisplayedMonth ? 0.65 : 0.25))
+                    .padding(1)
+                    .allowsHitTesting(false)
+                    .accessibilityLabel("仕事の日")
+                    .accessibilityIdentifier("workDayMark-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+            }
+        }
         .background {
             if isSelected {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -376,10 +390,11 @@ struct MonthCalendarGrid: View {
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
         let suffix = privacyMode
-            ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar).lines.joined(separator: "、")
+            ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar, workDays: workDays).lines.joined(separator: "、")
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
-        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar)
-        return "\(formatter.string(from: date))、\(suffix)" + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
+        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar, workDays: workDays)
+        let workDayLabel = !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""
+        return "\(formatter.string(from: date))、\(suffix)" + workDayLabel + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
     }
 }
 

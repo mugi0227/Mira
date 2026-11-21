@@ -27,7 +27,7 @@ struct DayTimelineView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
-                    dayHeader
+                    if proposal != nil { dayHeader }
 
                     if let holiday {
                         Label(holiday.title, systemImage: "flag.fill")
@@ -45,6 +45,17 @@ struct DayTimelineView: View {
                 .padding(.bottom, MiraSpacing.md)
             }
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if proposal == nil {
+                    VStack(alignment: .leading, spacing: MiraSpacing.md) {
+                        dayHeader
+                        WorkDayToggle(date: date, palette: palette)
+                    }
+                    .padding(MiraSpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.background)
+                }
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !pinnedItems.isEmpty {
                     ViewThatFits(in: .vertical) {
@@ -227,7 +238,6 @@ struct DayTimelineView: View {
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: timeLabelWidth, height: hourHeight, alignment: .topTrailing)
-                        .offset(y: proposal == nil && !hasPinnedAllDayItems ? -7 : 0)
                         .id("hour-\(hour)")
                 }
             }
@@ -241,6 +251,14 @@ struct DayTimelineView: View {
                                 .frame(height: 0.5)
                                 .frame(maxHeight: .infinity, alignment: .top)
                                 .frame(height: hourHeight)
+                        }
+                    }
+
+                    if proposal == nil {
+                        let intervals = store.workDayResolver.intervals(on: date, rules: store.fetchBaseRules())
+                        ForEach(intervals, id: \.self) { interval in
+                            workBand(interval)
+                                .frame(width: geometry.size.width)
                         }
                     }
 
@@ -366,6 +384,22 @@ struct DayTimelineView: View {
     private func isOverlapping(_ item: CalendarItemSnapshot) -> Bool {
         guard let proposal else { return false }
         return !ProposalTimeline.overlappingItems([item], proposal: proposal.event).isEmpty
+    }
+
+    private func workBand(_ interval: DateInterval) -> some View {
+        Rectangle()
+            .fill(palette.secondaryText.opacity(0.06))
+            .overlay(alignment: .topLeading) {
+                Text("仕事  \(DateFormatter.mira("H:mm").string(from: interval.start))–\(DateFormatter.mira("H:mm").string(from: interval.end))")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(MiraSpacing.sm)
+            }
+            .frame(height: CGFloat(interval.duration / 3600) * hourHeight)
+            .offset(y: yOffset(for: interval.start))
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("workDayBand")
     }
 
     private func baseRuleBand(_ interval: DateInterval) -> some View {
