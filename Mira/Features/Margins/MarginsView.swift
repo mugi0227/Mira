@@ -381,8 +381,8 @@ struct MarginsView: View {
 
     private var overallTitle: String {
         let deficits = store.currentMonthGoals.filter { store.progress(for: $0).current < store.progress(for: $0).target }
-        if deficits.isEmpty { return store.theme == .pixelCat ? "ちゃんと守れてるにゃ" : "目標を満たしています" }
-        return store.theme == .pixelCat ? "あと少し整えられるにゃ" : "まだ置ける余白があります"
+        if deficits.isEmpty { return store.theme == .pixelCat ? "ちゃんと守れています" : "目標を満たしています" }
+        return store.theme == .pixelCat ? "あと少し整えられます" : "まだ置ける余白があります"
     }
 
     private var overallMessage: String {

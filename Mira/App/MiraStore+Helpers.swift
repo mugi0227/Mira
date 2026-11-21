@@ -7,6 +7,7 @@ extension MiraStore {
         guard let settingsEntity else { return }
         onboardingCompleted = settingsEntity.onboardingCompleted
         theme = AppThemeKind(rawValue: settingsEntity.themeRaw) ?? .pixelCat
+        colorStyle = AppColorStyle(rawValue: settingsEntity.colorStyleRaw ?? "") ?? .blue
         assistantEnabled = settingsEntity.assistantEnabled
         characterNotificationsEnabled = settingsEntity.characterNotificationsEnabled
         notificationsEnabled = settingsEntity.notificationsEnabled

@@ -284,7 +284,7 @@ struct ConversationInterpretation: Codable, Hashable, Sendable {
             inferredFields: [],
             explicitConstraints: [],
             needsClarification: true,
-            clarificationQuestion: "どうしたい予定か教えてにゃ",
+            clarificationQuestion: "どうしたい予定か教えてください",
             clarificationOptions: ["行けそうか見る", "日程を探す", "予定に入れる", "断る文を作る"],
             matchedContextID: nil,
             confidence: 0,

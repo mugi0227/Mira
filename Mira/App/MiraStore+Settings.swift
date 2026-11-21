@@ -3,6 +3,13 @@ import SwiftData
 
 @MainActor
 extension MiraStore {
+    func setColorStyle(_ style: AppColorStyle) {
+        colorStyle = style
+        settingsEntity?.colorStyleRaw = style.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+    }
+
     func setTheme(_ newTheme: AppThemeKind) {
         theme = newTheme
         settingsEntity?.themeRaw = newTheme.rawValue
@@ -76,7 +83,7 @@ extension MiraStore {
         ))
         try? context.save()
         try? refresh()
-        toast = "大切な人を追加したにゃ"
+        toast = "大切な人を追加しました"
     }
 
     func removeImportantPerson(id: UUID) {
@@ -145,6 +152,7 @@ extension MiraStore {
             trendSuggestionsEnabled = true
             settingsEntity?.onboardingCompleted = false
             settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+            settingsEntity?.colorStyleRaw = nil
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
             settingsEntity?.deviceHolidaysEnabled = false
@@ -161,6 +169,7 @@ extension MiraStore {
             clearAllDrafts()
             onboardingCompleted = false
             theme = .pixelCat
+            colorStyle = .blue
             marginComfortLevel = .standard
             weekStartDay = .monday
             deviceHolidaysEnabled = false

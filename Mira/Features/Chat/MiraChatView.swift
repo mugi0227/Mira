@@ -7,6 +7,7 @@ struct MiraChatView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let palette: MiraThemePalette
 
     @State private var draft = ""
@@ -21,6 +22,8 @@ struct MiraChatView: View {
     ]
 
     var body: some View {
+        let arguments = ProcessInfo.processInfo.arguments
+        let usesLargeText = arguments.contains("-ui-testing") && arguments.contains("-ui-testing-large-text")
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -31,10 +34,12 @@ struct MiraChatView: View {
                         ForEach(store.chatMessages) { message in
                             ChatBubble(message: message, palette: palette)
                                 .id(message.id)
+                                .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
                         }
                         Color.clear.frame(height: 1).id("chat-bottom")
                     }
                     .padding(MiraSpacing.md)
+                    .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: store.chatMessages.map(\.id))
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: store.chatMessages) { _, _ in
@@ -73,6 +78,7 @@ struct MiraChatView: View {
                 }
             }
         }
+        .environment(\.dynamicTypeSize, usesLargeText ? .accessibility5 : dynamicTypeSize)
         .tint(palette.accent)
         .presentationDragIndicator(.visible)
     }
@@ -91,7 +97,7 @@ struct MiraChatView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Text("予定のこと、なんでも話しかけてね。カレンダーを見てから答えるにゃ。決めるのはあなた。")
+            Text("予定も、自分の時間も。カレンダーを見ながら、一緒に整えましょう。決めるのはあなたです。")
                 .font(.subheadline)
                 .foregroundStyle(palette.secondaryText)
             VStack(alignment: .leading, spacing: MiraSpacing.xs) {
@@ -103,7 +109,7 @@ struct MiraChatView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(palette.accent)
                             .padding(.horizontal, MiraSpacing.sm)
-                            .frame(minHeight: 40)
+                            .frame(minHeight: 44)
                             .background(palette.accentSoft.opacity(0.6), in: Capsule())
                     }
                     .buttonStyle(MiraPressStyle())
@@ -127,7 +133,7 @@ struct MiraChatView: View {
                 .background(palette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(palette.primaryText.opacity(0.08), lineWidth: 1)
+                        .strokeBorder(palette.cardBorder, lineWidth: 1.5)
                 }
                 .accessibilityIdentifier("miraChatInput")
 
@@ -201,9 +207,9 @@ private struct ChatBubble: View {
                 Text(message.text)
                     .font(.body)
                     .foregroundStyle(palette.onAccent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                     .textSelection(.enabled)
             }
         } else {
@@ -219,11 +225,11 @@ private struct ChatBubble: View {
                         Text(message.text)
                             .font(.body)
                             .foregroundStyle(palette.primaryText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
                                     .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
                             }
                             .textSelection(.enabled)
@@ -286,6 +292,7 @@ private struct TypingIndicator: View {
 }
 
 private struct ChatCardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(MiraStore.self) private var store
     let card: ChatCard
     let messageID: UUID
@@ -377,7 +384,7 @@ private struct ChatCardView: View {
         let result = await store.toolProposeEvent(title: title, start: slot.start, end: slot.end, isAllDay: slot.band == .allDay)
         store.chatMessages.append(ChatMessage(
             role: .assistant,
-            text: "\(slot.start.japaneseShortDate)\(slot.band.title)の案だにゃ。",
+            text: "\(slot.start.japaneseShortDate)\(slot.band.title)の案です。",
             activities: [result.activity],
             cards: result.card.map { [$0] } ?? [],
             createdAt: store.now
@@ -436,7 +443,7 @@ private struct ChatCardView: View {
     private func impactLines(conflicts: [String], margins: [CalendarItemSnapshot]) -> some View {
         let notes = conflicts.isEmpty ? margins.map { "余白「\($0.title)」と重なります" } : conflicts
         if notes.isEmpty {
-            Label("余白も他の予定も守れるにゃ", systemImage: "checkmark.circle.fill")
+            Label("余白も他の予定も守れます", systemImage: "checkmark.circle.fill")
                 .font(.caption)
                 .foregroundStyle(palette.success)
         } else {
@@ -455,13 +462,20 @@ private struct ChatCardView: View {
     private func proposalActions(state: ChatProposalState, needsCare: Bool, applyTitle: String, appliedTitle: String, cardID: UUID) -> some View {
         switch state {
         case .pending:
-            HStack(spacing: MiraSpacing.xs) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: MiraSpacing.xs))
+                : AnyLayout(HStackLayout(spacing: MiraSpacing.xs))
+            layout {
                 Button {
                     store.applyChatCard(messageID: messageID, cardID: cardID)
                 } label: {
                     Text(needsCare ? "それでも\(applyTitle)" : applyTitle)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(palette.onAccent)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(needsCare ? palette.warning : palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
                 }
@@ -470,7 +484,8 @@ private struct ChatCardView: View {
                 Button("やめる") { store.dismissChatCard(messageID: messageID, cardID: cardID) }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.secondaryText)
-                    .frame(minWidth: 64, minHeight: 44)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
             }
         case .applied:
             Label(appliedTitle, systemImage: "checkmark.circle.fill")
@@ -496,7 +511,7 @@ private struct ChatCardView: View {
             HStack(spacing: MiraSpacing.xs) {
                 Button {
                     UIPasteboard.general.string = draft.text
-                    store.toast = "コピーしたにゃ"
+                    store.toast = "コピーしました"
                 } label: {
                     Label("コピー", systemImage: "doc.on.doc")
                         .font(.subheadline.weight(.semibold))

@@ -107,7 +107,7 @@ extension MiraStore {
                 caseEntity: caseEntity
             ) {
                 pendingChangePreview = preview
-                caseEntity.appendTurn(role: .assistant, text: "変更前と変更後を確認してにゃ", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "変更前と変更後を確認してください", at: now)
             } else {
                 activeClarification = ConversationClarification(
                     caseID: caseEntity.id,
@@ -115,7 +115,7 @@ extension MiraStore {
                     options: automaticCandidates.prefix(3).map(\.title),
                     originalText: text
                 )
-                caseEntity.appendTurn(role: .assistant, text: "変更する予定を選んでにゃ", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "変更する予定を選んでください", at: now)
             }
             try? context.save()
 
@@ -125,7 +125,7 @@ extension MiraStore {
                 caseEntity: caseEntity
             ) {
                 pendingEventCreationPreview = preview
-                caseEntity.appendTurn(role: .assistant, text: "追加する予定を確認してにゃ", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "追加する予定を確認してください", at: now)
                 try? context.save()
             } else if interpretation.durationBucket != nil, !interpretation.timeBands.isEmpty {
                 startSchedulingDraft(from: interpretation, originalText: text, caseEntity: caseEntity)
@@ -325,7 +325,7 @@ extension MiraStore {
               let candidate = draft.recommendations.first(where: { $0.id == recommendationID }) else { return }
         if !candidate.conflicts.isEmpty, !allowConflict,
            !draft.selectedRecommendationIDs.contains(recommendationID) {
-            toast = candidate.conflicts.joined(separator: "。") + "。それでも選ぶならもう一度押してにゃ"
+            toast = candidate.conflicts.joined(separator: "。") + "。それでも選ぶならもう一度押してください"
             return
         }
         if draft.selectedRecommendationIDs.contains(recommendationID) {
@@ -365,7 +365,7 @@ extension MiraStore {
             return $0.timeBand.rawValue < $1.timeBand.rawValue
         }
         guard !selected.isEmpty else {
-            toast = "候補を1つ以上選んでにゃ"
+            toast = "候補を1つ以上選んでください"
             return false
         }
 
@@ -399,7 +399,7 @@ extension MiraStore {
                 state.durationBucket = draft.durationBucket
                 state.allowedTimeBands = draft.timeBands
                 caseEntity.state = state
-                caseEntity.appendTurn(role: .assistant, text: "候補を整理したにゃ。参加するか、別の日を探すか決められるよ。", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "候補を整理しました。参加するか、別の日を探すか決められるよ。", at: now)
             }
         } else if let adjustmentID = caseEntity?.state.relatedAdjustmentID,
                   let existing = adjustments.first(where: { $0.id == adjustmentID }) {
@@ -416,7 +416,7 @@ extension MiraStore {
                 state.durationBucket = draft.durationBucket
                 state.allowedTimeBands = draft.timeBands
                 caseEntity.state = state
-                caseEntity.appendTurn(role: .assistant, text: "候補日を追加して仮押さえしたにゃ。", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "候補日を追加して仮押さえしました。", at: now)
             }
         } else {
             let entity = AdjustmentEntity(
@@ -437,7 +437,7 @@ extension MiraStore {
                 state.durationBucket = draft.durationBucket
                 state.allowedTimeBands = draft.timeBands
                 caseEntity.state = state
-                caseEntity.appendTurn(role: .assistant, text: "この候補を仮押さえしたにゃ。相手へ送る文も作ったよ。", at: now)
+                caseEntity.appendTurn(role: .assistant, text: "この候補を仮押さえしました。相手へ送る文も作ったよ。", at: now)
             }
         }
 
@@ -485,7 +485,7 @@ extension MiraStore {
             try commitChange(preview, to: entity, undoTitle: "予定の変更")
             completeSavedDraft(id: preview.id)
             pendingChangePreview = nil
-            toast = "変更を保存したにゃ"
+            toast = "変更を保存しました"
             return true
         } catch {
             context.rollback()
@@ -505,7 +505,7 @@ extension MiraStore {
         }
         entity.apply(preview.after)
         if let caseEntity = conversationCase(id: preview.caseID) {
-            caseEntity.appendTurn(role: .assistant, text: "変更を保存したにゃ", at: now)
+            caseEntity.appendTurn(role: .assistant, text: "変更を保存しました", at: now)
             var state = caseEntity.state
             state.dateRangeStart = preview.after.startDate
             state.dateRangeEnd = preview.after.endDate
@@ -557,7 +557,7 @@ extension MiraStore {
             state.durationBucket = preview.event.durationBucket
             state.allowedTimeBands = preview.event.schedulingTimeBand.map { [$0] } ?? []
             caseEntity.state = state
-            caseEntity.appendTurn(role: .assistant, text: "予定を追加したにゃ", at: self.now)
+            caseEntity.appendTurn(role: .assistant, text: "予定を追加しました", at: self.now)
           }
         }
         guard saved else { return false }
@@ -741,7 +741,7 @@ extension MiraStore {
         state.allowedTimeBands = bands
         state.lastIntent = interpretation.intent
         caseEntity.state = state
-        caseEntity.appendTurn(role: .assistant, text: "良さそうな候補を先に選んだにゃ。違うところだけ直してね。", at: now)
+        caseEntity.appendTurn(role: .assistant, text: "良さそうな候補を先に選びました。違うところだけ直してね。", at: now)
         try? context.save()
         try? refresh()
     }
@@ -929,7 +929,7 @@ extension MiraStore {
         for context: ContextSearchResult?,
         caseEntity: ConversationCaseEntity
     ) -> String {
-        guard let context else { return "どの予定のことか、左のボタンから選べるにゃ" }
+        guard let context else { return "どの予定か、左のボタンから選べます" }
         if let itemID = context.relatedItemID,
            let item = items.first(where: { $0.id == itemID }) {
             return "\(item.title)は\(item.startDate.japaneseShortDate)の\(item.timeDescription)。負荷は\(item.loadClass.title)です。"
@@ -942,6 +942,6 @@ extension MiraStore {
            let invitation = pendingInvitations.first(where: { $0.id == invitationID }) {
             return "\(invitation.title)はまだ検討中です。参加した場合の余白も確認できます。"
         }
-        return "\(caseEntity.title)について続けられるにゃ"
+        return "\(caseEntity.title)について続けられます"
     }
 }

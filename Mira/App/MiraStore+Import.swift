@@ -45,7 +45,7 @@ extension MiraStore {
                 updateMarginRecommendation(for: month.firstDay)
                 recalculateBalance(for: month.firstDay)
             }
-            toast = "\(chosen.count)件の予定を引っ越したにゃ"
+            toast = "\(chosen.count)件の予定を引っ越しました"
             return chosen.count
         } catch {
             context.rollback()

@@ -95,7 +95,7 @@ struct CandidateDatePicker: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .confirmationDialog("この日、ちょっと気になるにゃ", isPresented: Binding(
+        .confirmationDialog("この日、ちょっと気になります", isPresented: Binding(
             get: { pendingOverrideDate != nil },
             set: { if !$0 { pendingOverrideDate = nil } }
         ), titleVisibility: .visible) {
@@ -107,7 +107,7 @@ struct CandidateDatePicker: View {
             }
             Button("別の日を選ぶ", role: .cancel) { pendingOverrideDate = nil }
         } message: {
-            Text(overrideMessage + "\n候補から外すことをおすすめするけど、最終的には選べるにゃ。")
+            Text(overrideMessage + "\n候補から外すのがおすすめですが、最終的には選べます。")
         }
     }
 
