@@ -50,7 +50,7 @@ struct MonthCalendarGrid: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
                 let cellHeight = rowHeight(dayCount: days.count)
-                ForEach(Array(days.enumerated()), id: \.offset) { index, date in
+                ForEach(Array(days.enumerated()), id: \.element) { index, date in
                     dayCell(date, index: index, cellHeight: cellHeight)
                 }
             }
@@ -85,7 +85,9 @@ struct MonthCalendarGrid: View {
             let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
             return count > (hasHoliday ? 1 : 2)
         }
-        let minimum: CGFloat = hasOverflow ? 88 : 76
+        // Keep room for the friend's availability bands. The personal grid can
+        // trade preview chips for a visible card edge without shrinking text.
+        let minimum: CGFloat = privacyMode ? (hasOverflow ? 88 : 76) : 72
         return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -142,37 +144,50 @@ struct MonthCalendarGrid: View {
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
         let isCompact = palette.isCatSkin && cellHeight < 100
-        let visibleItemLimit = isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        let visibleItemLimit = if palette.isCatSkin && cellHeight < 88 {
+            // Date + one preview + overflow count still fit without crowding.
+            // On holidays the holiday title uses the preview's line.
+            holiday == nil ? 1 : 0
+        } else {
+            isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        }
 
         VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Spacer(minLength: 0)
-                ZStack {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(palette.actionGradient)
-                            .frame(width: 30, height: 30)
-                            .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                    } else if isToday {
-                        Circle()
-                            .stroke(palette.accent, lineWidth: 1.5)
-                            .frame(width: 27, height: 27)
-                    }
+            Button {
+                select(date)
+            } label: {
+                HStack {
+                    Spacer(minLength: 0)
+                    ZStack {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(palette.actionGradient)
+                                .frame(width: 30, height: 30)
+                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
+                        } else if isToday {
+                            Circle()
+                                .stroke(palette.accent, lineWidth: 1.5)
+                                .frame(width: 27, height: 27)
+                        }
 
-                    Text("\(calendar.component(.day, from: date))")
-                        .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
-                        .foregroundStyle(dateForeground(
-                            isSelected: isSelected,
-                            isInDisplayedMonth: isInDisplayedMonth,
-                            date: date,
-                            isHoliday: holiday != nil
-                        ))
+                        Text("\(calendar.component(.day, from: date))")
+                            .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
+                            .foregroundStyle(dateForeground(
+                                isSelected: isSelected,
+                                isInDisplayedMonth: isInDisplayedMonth,
+                                date: date,
+                                isHoliday: holiday != nil
+                            ))
+                    }
+                    .frame(height: 28)
+                    Spacer(minLength: 0)
                 }
-                .frame(height: 28)
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { select(date) }
+            .frame(height: 28)
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.japaneseShortDate)を開く")
+            .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
 
             VStack(spacing: 2) {
                 if let holiday {
@@ -233,11 +248,20 @@ struct MonthCalendarGrid: View {
                     }
 
                     if dayItems.count > visibleItemLimit {
-                        Text("ほか \(dayItems.count - visibleItemLimit)件")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+                        Button {
+                            select(date)
+                        } label: {
+                            Text("ほか \(dayItems.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .frame(maxWidth: .infinity, minHeight: 14, alignment: .leading)
+                                .padding(.horizontal, 2)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("ほか\(dayItems.count - visibleItemLimit)件の予定を表示")
+                        .accessibilityHint("この日の予定をすべて開く")
+                        .accessibilityIdentifier("calendar-overflow-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
                     }
                 }
             }
