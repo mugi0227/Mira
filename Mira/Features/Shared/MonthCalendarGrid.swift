@@ -80,7 +80,13 @@ struct MonthCalendarGrid: View {
         let regular: CGFloat = dayCount > 35 ? 88 : 104
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
-        return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
+        let hasOverflow = cells.contains { date in
+            let count = items.filter { $0.overlapsDay(date, calendar: calendar) }.count
+            let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
+            return count > (hasHoliday ? 1 : 2)
+        }
+        let minimum: CGFloat = hasOverflow ? 88 : 76
+        return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -165,6 +171,8 @@ struct MonthCalendarGrid: View {
                 .frame(height: 28)
                 Spacer(minLength: 0)
             }
+            .contentShape(Rectangle())
+            .onTapGesture { select(date) }
 
             VStack(spacing: 2) {
                 if let holiday {

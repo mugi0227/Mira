@@ -26,6 +26,7 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
+        XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
         XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
         capture("roomier-calendar")
     }
@@ -94,23 +95,58 @@ final class MiraStyleUITests: XCTestCase {
         capture("rounded-day")
     }
 
-    func testToastLeavesMonthControlsReachable() {
+    func testToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "pixelCat")
+    }
+
+    func testSilhouetteToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "silhouetteCat")
+    }
+
+    private func assertToastLayout(theme: String) throws {
+        let themeIndex = try XCTUnwrap(app.launchArguments.firstIndex(of: "-ui-theme"))
+        app.launchArguments[themeIndex + 1] = theme
         app.launchArguments += ["-ui-testing-persistent-toast"]
         launchHome()
+        let calendarPermission = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .buttons.matching(NSPredicate(format: "label IN %@", ["Allow Full Access", "フルアクセスを許可"])).firstMatch
+        if calendarPermission.waitForExistence(timeout: 2) { calendarPermission.tap() }
+
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
         let month = app.staticTexts["2026年9月"]
-        XCTAssertGreaterThanOrEqual(month.frame.minY, toastFrame.maxY)
+        XCTAssertFalse(month.frame.intersects(toastFrame))
         for label in ["前の月", "次の月", "追加メニュー"] {
             let button = app.buttons[label]
             XCTAssertTrue(button.isHittable)
             XCTAssertFalse(button.frame.intersects(toastFrame))
         }
-        capture("toast-clear-header")
+        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
+        let monthFrame = month.frame
+        let lastRowFrame = lastRow.frame
+        let tabFrame = tabs.frame
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, app.scrollViews["homeScroll"].frame.maxY)
+        XCTAssertFalse(lastRowFrame.intersects(toastFrame))
+        XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
+        XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
+        capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         XCTAssertTrue(toast.exists)
+        app.buttons["前の月"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" || $0 == "-ui-testing-persistent-toast" }
+        launchHome()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: toast)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed)
+        XCTAssertEqual(month.frame.minY, monthFrame.minY, accuracy: 1)
+        XCTAssertEqual(lastRow.frame.maxY, lastRowFrame.maxY, accuracy: 1)
+        XCTAssertEqual(tabs.frame.minY, tabFrame.minY, accuracy: 1)
     }
 
     func testChatUsesNaturalVoiceAndAccessibleControls() {
@@ -181,7 +217,11 @@ final class MiraStyleUITests: XCTestCase {
         app.buttons["miraTab-settings"].tap()
         let colors = app.descendants(matching: .any)["appColorSettings"].firstMatch
         for _ in 0..<4 where !colors.isHittable {
-            app.swipeUp()
+            if colors.exists && colors.frame.minY < app.frame.midY {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
         }
         XCTAssertTrue(colors.waitForExistence(timeout: 5))
         colors.tap()
