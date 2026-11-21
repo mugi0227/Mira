@@ -166,6 +166,17 @@ final class MiraChatTests: XCTestCase {
 }
 
 final class ChatTitleTests: XCTestCase {
+    func testDurationIsNotAClockTime() async {
+        let base = RuleBasedConversationInterpreter()
+        let now = TestFixtures.date(day: 15)
+        let local = await base.interpret(text: "明日2時間映画", now: now,
+            pinnedContext: nil, searchCandidates: [], recentTurns: [])
+        XCTAssertNil(local.exactStartDate)
+        let production = await ProductionConversationInterpreter(base: base).interpret(
+            text: "明日2時間映画", now: now, pinnedContext: nil, searchCandidates: [], recentTurns: [])
+        XCTAssertNil(production.exactStartDate)
+        XCTAssertNotEqual(production.intent, .addEvent)
+    }
     func testClockPrefixDoesNotEatDurationTitles() {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "24時間テレビを追加して"), "24時間テレビ")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "明日の19時30分に夕食を追加して"), "夕食")

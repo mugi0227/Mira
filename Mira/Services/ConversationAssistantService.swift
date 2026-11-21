@@ -293,7 +293,7 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
     }
 
     private func parseExactTime(from text: String, dates: [Date], range: DateInterval) -> DateInterval? {
-        guard let regex = try? NSRegularExpression(pattern: "(\\d{1,2})時(半)?"),
+        guard let regex = try? NSRegularExpression(pattern: "(?<![0-9])(\\d{1,2})時(?!間)(半)?"),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let hourRange = Range(match.range(at: 1), in: text),
               let hour = Int(text[hourRange]), (0...23).contains(hour) else { return nil }
