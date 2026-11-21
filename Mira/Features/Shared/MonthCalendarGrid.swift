@@ -76,12 +76,21 @@ struct MonthCalendarGrid: View {
         Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
-    private var friendTitlePreviewLimit: Int { preferredHeight == nil ? 3 : 2 }
+    private var friendTitlePreviewLimit: Int {
+        // Preserve the preview count from the original single-line layout,
+        // before adding height for legible time/title pairs.
+        var height: CGFloat = cells.count > 35 ? 88 : 104
+        if palette.isCatSkin, let preferredHeight {
+            let chrome = 30 + MiraSpacing.lg * 2
+            height = min(height, (preferredHeight - chrome) / CGFloat(cells.count / 7))
+        }
+        return height < 100 ? 2 : 3
+    }
 
     private func rowHeight(dayCount: Int) -> CGFloat {
         let hasPairedPreviews = privacyMode && friendLevel == .titles
-        // Each time/title pair can use three fixed-size lines. Exported cards
-        // keep their three previews; compact interactive grids keep two.
+        // Each time/title pair can use three fixed-size lines, without
+        // reducing the original two or three previews to make room.
         let pairedRowHeight = CGFloat(friendTitlePreviewLimit) * 40 + 44
         let regular: CGFloat = hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)
         guard palette.isCatSkin, let preferredHeight else { return regular }
