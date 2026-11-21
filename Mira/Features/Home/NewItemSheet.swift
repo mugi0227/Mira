@@ -180,13 +180,25 @@ struct NewItemSheet: View {
 
     private var eventFields: some View {
         Group {
-            Section("予定") {
+            Section {
                 TextField("例：友達とご飯", text: $title)
                     .textInputAutocapitalization(.never)
                     .onChange(of: title) { _, value in
                         guard !colorChosenByUser else { return }
                         colorTag = store.suggestedColor(forTitle: value)
                     }
+                Toggle("時間を取らない予定", isOn: $isMemo)
+                    .onChange(of: isMemo) { _, value in
+                        if value { isImportant = false }
+                    }
+            } header: {
+                Text("予定")
+            } footer: {
+                Text("メモや人の予定など。空き時間や余白の計算には入りません")
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("色")
                     EventColorPicker(selection: $colorTag, palette: palette) { _ in
@@ -199,16 +211,6 @@ struct NewItemSheet: View {
                     DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
                     DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
                 }
-            }
-            .listRowBackground(palette.surface)
-
-            Section {
-                Toggle("時間を取らない予定", isOn: $isMemo)
-                    .onChange(of: isMemo) { _, value in
-                        if value { isImportant = false }
-                    }
-            } footer: {
-                Text("メモや人の予定など。空き時間や余白の計算には入りません")
             }
             .listRowBackground(palette.surface)
 

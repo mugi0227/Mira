@@ -22,13 +22,11 @@ final class MiraStyleUITests: XCTestCase {
         title.tap()
         title.typeText("友だちの出張メモ")
         title.typeText("\n")
-        app.swipeUp()
-        app.switches["終日"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         let toggle = app.switches["時間を取らない予定"]
-        if !toggle.isHittable { app.swipeUp() }
-        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
-        XCTAssertTrue(NSPredicate(format: "value == '1'").evaluate(with: toggle))
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: toggle)
+        waitForExpectations(timeout: 3)
         let form = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         form.name = "memo-form-toggle-on"
         form.lifetime = .keepAlways
