@@ -182,7 +182,7 @@ struct MiraAvatar: View {
         ZStack {
             Circle().fill(palette.elevatedSurface)
             if store.theme.isCat {
-                MiraCatView(mood: mood, size: size * (store.theme == .silhouetteCat ? 0.6 : 0.9))
+                MiraCatView(mood: mood, size: size * (store.theme == .pixelCat ? 0.9 : 0.6))
             } else {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: size * 0.42, weight: .semibold))
@@ -191,7 +191,9 @@ struct MiraAvatar: View {
         }
         .frame(width: size, height: size)
         .overlay { Circle().strokeBorder(palette.accent.opacity(0.2), lineWidth: 1) }
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mira")
+        .accessibilityIdentifier("miraAvatar")
     }
 }
 

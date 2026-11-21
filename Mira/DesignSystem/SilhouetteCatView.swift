@@ -16,10 +16,10 @@ struct MiraCatArtwork: View {
     var size: CGFloat = 72
 
     var body: some View {
-        if theme == .silhouetteCat {
-            SilhouetteCatView(mood: mood, size: size)
-        } else {
-            PixelCatView(mood: mood, size: size)
+        switch theme {
+        case .silhouetteCat: SilhouetteCatView(mood: mood, size: size)
+        case .onelineCat: OneLineCatView(mood: mood, size: size)
+        case .pixelCat, .softMinimal: PixelCatView(mood: mood, size: size)
         }
     }
 }

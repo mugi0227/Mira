@@ -6,8 +6,9 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
     case softMinimal
     case pixelCat
     case silhouetteCat
+    case onelineCat
 
-    var isCat: Bool { self == .pixelCat || self == .silhouetteCat }
+    var isCat: Bool { self != .softMinimal }
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
         case .softMinimal: "Soft Minimal"
         case .pixelCat: "Pixel Cat"
         case .silhouetteCat: "くすみシルエット"
+        case .onelineCat: "One-line Cat"
         }
     }
 }

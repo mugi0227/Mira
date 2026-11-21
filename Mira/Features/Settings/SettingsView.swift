@@ -295,7 +295,7 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .silhouetteCat ? "くすみカラーの丸いシルエット猫" : theme.isCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .silhouetteCat ? "くすみカラーの丸いシルエット猫" : theme == .onelineCat ? "太い丸線の猫が、のびのびと寄り添う" : theme.isCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()

@@ -11,6 +11,28 @@ final class MiraStyleTests: XCTestCase {
         XCTAssertNotNil(MiraMotion.selection(reduceMotion: false))
     }
 
+    func testOneLineCatIsASelectableCatSkin() {
+        XCTAssertTrue(AppThemeKind.allCases.contains(.onelineCat))
+        XCTAssertEqual(AppThemeKind(rawValue: AppThemeKind.onelineCat.rawValue), .onelineCat)
+        XCTAssertTrue(AppThemeKind.onelineCat.isCat)
+        XCTAssertFalse(AppThemeKind.softMinimal.isCat)
+        for scheme in [ColorScheme.light, .dark] {
+            XCTAssertTrue(MiraThemePalette(kind: .onelineCat, colorScheme: scheme).isCatSkin)
+        }
+    }
+
+    func testOneLineCatHasLightAndDarkArtworkForEveryMood() {
+        let moods: [CatMood] = [.idle, .relaxed, .sleeping, .thinking, .tired, .warning, .happy, .celebrating, .inviting]
+        XCTAssertEqual(Set(moods.map { OneLineCatPose(mood: $0) }), Set(OneLineCatPose.allCases))
+        for pose in OneLineCatPose.allCases {
+            for style in [UIUserInterfaceStyle.light, .dark] {
+                let image = UIImage(named: pose.assetName, in: .main, compatibleWith: UITraitCollection(userInterfaceStyle: style))
+                XCTAssertNotNil(image, "\(pose) \(style.rawValue)")
+                XCTAssertGreaterThan(image?.size.width ?? 0, 80, "\(pose) should show the whole body")
+            }
+        }
+    }
+
     func testAccentLabelsHaveReadableContrastInBothThemes() {
         for theme in AppThemeKind.allCases {
             for scheme in [ColorScheme.light, .dark] {
