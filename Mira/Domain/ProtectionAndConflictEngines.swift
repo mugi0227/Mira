@@ -122,6 +122,52 @@ struct ConflictEngine: Sendable {
         return result
     }
 
+    func conflictDetails(
+        candidate: CandidateSlotSnapshot,
+        events: [CalendarItemSnapshot],
+        otherCandidates: [CandidateSlotSnapshot],
+        candidateTitles: [UUID: String] = [:],
+        baseRules: [BaseAvailabilityRule] = []
+    ) -> [String] {
+        var details: [(Date, String)] = []
+        for event in events where (event.kind == .confirmed || event.kind == .margin)
+            && event.occupiedInterval.intersects(candidate.interval) {
+            let kind = event.kind == .margin ? "守っている余白" : "確定予定"
+            let title = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = title.isEmpty ? kind : title
+            let time = !event.exactTimeKnown ? event.timeDescription
+                : (event.isAllDay ? "終日" : timeRange(event.startDate, event.endDate))
+            details.append((event.startDate, "\(time)『\(label)』（\(kind)）"))
+        }
+        for other in otherCandidates where other.status == .held && other.id != candidate.id
+            && coarseCandidatesConflict(other, candidate) {
+            let title = candidateTitles[other.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = title.flatMap { $0.isEmpty ? nil : $0 } ?? "別の日程調整"
+            let time = other.exactTimeKnown == false ? other.displayTimeBand.title : timeRange(other.startDate, other.endDate)
+            details.append((other.startDate, "\(time)『\(label)』（仮押さえ）"))
+        }
+        var day = calendar.startOfDay(for: candidate.startDate)
+        while day < candidate.endDate {
+            for rule in baseRules where rule.weekday == calendar.component(.weekday, from: day) {
+                guard let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
+                      let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
+                      start < end, start < candidate.endDate, candidate.startDate < end else { continue }
+                details.append((start, "\(timeRange(start, end))『基本時間（予定を入れない時間）』"))
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
+            day = next
+        }
+        let sorted = details.sorted { $0.0 == $1.0 ? $0.1 < $1.1 : $0.0 < $1.0 }
+        var lines = sorted.prefix(2).map { "\($0.1)と重なっています" }
+        if sorted.count > 2 { lines.append("ほか\(sorted.count - 2)件") }
+        return lines
+    }
+
+    private func timeRange(_ start: Date, _ end: Date) -> String {
+        let formatter = DateFormatter.mira("HH:mm")
+        return "\(formatter.string(from: start))〜\(formatter.string(from: end))"
+    }
+
     private func coarseCandidatesConflict(
         _ lhs: CandidateSlotSnapshot,
         _ rhs: CandidateSlotSnapshot

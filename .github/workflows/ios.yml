@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 60
 
     steps:
@@ -29,9 +29,12 @@ jobs:
 
       - name: Select newest installed Xcode
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode*.app/Contents/Developer | sort -V | tail -1)
-          sudo xcode-select -s "$XCODE_PATH"
+          ls -d /Applications/Xcode*.app || true
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          echo "Selecting $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
           xcodebuild -version
+          xcodebuild -showsdks | grep -i ios
 
       - name: Install XcodeGen
         run: brew install xcodegen

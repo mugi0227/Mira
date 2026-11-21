@@ -434,7 +434,7 @@ private struct ChatCardView: View {
 
     @ViewBuilder
     private func impactLines(conflicts: [String], margins: [CalendarItemSnapshot]) -> some View {
-        let notes = conflicts + margins.map { "余白「\($0.title)」と重なります" }
+        let notes = conflicts.isEmpty ? margins.map { "余白「\($0.title)」と重なります" } : conflicts
         if notes.isEmpty {
             Label("余白も他の予定も守れるにゃ", systemImage: "checkmark.circle.fill")
                 .font(.caption)

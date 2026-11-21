@@ -14,7 +14,7 @@ final class EventEntryAdvisoryTests: XCTestCase {
         try store.refresh()
 
         let conflicts = store.eventEntryConflicts(for: event)
-        XCTAssertTrue(conflicts.contains("基本的に予定を入れない時間と重なっています"))
+        XCTAssertTrue(conflicts.contains { $0.contains("09:00〜18:00『基本時間（予定を入れない時間）』") })
 
         store.commitAdvisedEvent(event, impact: .none, resolution: .exception)
         XCTAssertTrue(store.items.contains(where: { $0.id == event.id }))
