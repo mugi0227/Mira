@@ -31,10 +31,11 @@ struct ColorStylePickerView: View {
                             Text(style.title)
                                 .font(.headline)
                             Spacer(minLength: 0)
-                            if store.colorStyle == style {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(palette.accent)
-                            }
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(palette.accent)
+                                .opacity(store.colorStyle == style ? 1 : 0)
+                                .transaction { $0.animation = nil }
+                                .accessibilityHidden(true)
                         }
                         .foregroundStyle(palette.primaryText)
                         .frame(minHeight: 56)

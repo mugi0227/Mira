@@ -73,6 +73,9 @@ final class MiraStyleUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(button.frame.height, 44)
             button.tap()
             XCTAssertEqual(button.value as? String, "選択中")
+            for other in ["blue", "sage", "rose", "lavender"] where other != style {
+                XCTAssertNotEqual(app.buttons["appColor-\(other)"].value as? String, "選択中")
+            }
         }
         capture("custom-sage-colors")
 
