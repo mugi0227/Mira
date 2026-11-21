@@ -49,8 +49,9 @@ struct AdjustmentsView: View {
                     }
                 }
                 .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
-                .padding(.bottom, 104)
+                .padding(.bottom, MiraSpacing.md)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .miraScreenBackground(palette)
         .navigationTitle("調整")

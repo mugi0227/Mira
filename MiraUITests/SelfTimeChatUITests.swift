@@ -141,7 +141,116 @@ final class SelfTimeChatUITests: XCTestCase {
         require(text, "share as text")
     }
 
+    func testHomeScrollEndsJustAboveCompanion() {
+        let companion = app.buttons["miraCompanionButton"]
+        require(companion, "companion", timeout: 12)
+        let home = app.scrollViews["homeScroll"]
+        require(home, "home scroll")
+        home.swipeUp(velocity: .fast)
+        home.swipeUp(velocity: .fast)
+
+        let progress = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
+        require(progress, "monthly progress summary")
+        captureScrollState("home-scroll-end")
+        let gap = companion.frame.minY - progress.frame.maxY
+        XCTAssertGreaterThanOrEqual(gap, 0)
+        XCTAssertLessThanOrEqual(gap, 48, "Home should not scroll into unused space above Mira")
+        let tabGap = app.buttons["miraTab-home"].frame.minY - companion.frame.maxY
+        XCTAssertGreaterThanOrEqual(tabGap, 0)
+        XCTAssertLessThanOrEqual(tabGap, 32, "The tab bar already reserves its own space")
+    }
+
+    func testLatestChatActionStaysAboveKeyboardAndComposer() {
+        openCompanion()
+        sendChat("明日の19時に友達と夕食を追加して")
+        let action = app.buttons["chatApplyCard"].firstMatch
+        require(action, "latest reply action", timeout: 20)
+        let input = app.descendants(matching: .any)["miraChatInput"]
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        captureScrollState("chat-reply-above-composer")
+        XCTAssertTrue(action.isHittable)
+        XCTAssertLessThanOrEqual(action.frame.maxY, input.frame.minY)
+    }
+
+    func testEditingAnOlderChatCardDoesNotJumpToLatest() {
+        openCompanion()
+        let proposals = app.buttons.matching(identifier: "chatApplyCard")
+        for (index, request) in [
+            "明日の19時に友達と夕食を追加して",
+            "明日の20時に友達と映画を追加して",
+            "明日の21時に友達と会う予定を追加して"
+        ].enumerated() {
+            sendChat(request)
+            require(proposals.element(boundBy: index), "reply action \(index)", timeout: 20)
+        }
+
+        let history = app.scrollViews["miraChatTranscript"]
+        require(history, "chat transcript")
+        let firstDismiss = app.buttons.matching(identifier: "やめる").firstMatch
+        for _ in 0..<5 where !firstDismiss.isHittable { history.swipeDown() }
+        XCTAssertTrue(firstDismiss.isHittable)
+        firstDismiss.tap()
+
+        let dismissed = app.staticTexts["見送りました"]
+        require(dismissed, "older card's dismissed status")
+        let input = app.descendants(matching: .any)["miraChatInput"]
+        XCTAssertLessThan(dismissed.frame.maxY, input.frame.minY)
+        XCTAssertGreaterThan(dismissed.frame.minY, app.navigationBars["Mira"].frame.maxY)
+    }
+
+    func testMarginsScrollEndsNearTabs() {
+        openTab("マイ余白")
+        let margins = app.scrollViews.firstMatch
+        for _ in 0..<5 { margins.swipeUp(velocity: .fast) }
+
+        let lastMonth = app.buttons["12月"]
+        require(lastMonth, "last month shortcut")
+        captureScrollState("margins-scroll-end")
+        let gap = app.buttons["miraTab-margins"].frame.minY - lastMonth.frame.maxY
+        XCTAssertGreaterThan(gap, 0)
+        XCTAssertLessThan(gap, 75, "Margins should not scroll an extra tab bar's height")
+    }
+
+    func testSchedulingScrollEndsNearItsAction() {
+        openTab("調整")
+        app.buttons["日程を探す"].tap()
+        let save = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "候補でOK")).firstMatch
+        require(save, "scheduling action")
+        let schedule = app.scrollViews.firstMatch
+        for _ in 0..<5 { schedule.swipeUp(velocity: .fast) }
+
+        let summary = app.otherElements["schedulingSelectedSummary"]
+        require(summary, "candidate summary")
+        let gap = save.frame.minY - summary.frame.maxY
+        XCTAssertGreaterThan(gap, 0)
+        XCTAssertLessThan(gap, 72, "The pinned action already reserves space below the candidates")
+    }
+
+    func testDayTimelineEndsNearTheFinalHour() {
+        let day = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "9月", "予定なし")
+        ).firstMatch
+        require(day, "an empty day on the demo calendar")
+        day.tap()
+        require(app.buttons["この日に予定を追加"], "day timeline")
+
+        let timeline = app.scrollViews.firstMatch
+        for _ in 0..<4 { timeline.swipeUp(velocity: .fast) }
+        let lastHour = app.staticTexts["23:00"]
+        require(lastHour, "last hour")
+        let gap = app.buttons["miraTab-home"].frame.minY - lastHour.frame.maxY
+        XCTAssertGreaterThan(gap, 0)
+        XCTAssertLessThan(gap, 110, "The final hour should not be followed by another hour of blank space")
+    }
+
     // MARK: Helpers
+
+    private func captureScrollState(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 
     private func openTab(_ title: String) {
         if app.tabBars.buttons[title].exists {

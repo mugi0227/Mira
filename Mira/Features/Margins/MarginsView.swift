@@ -22,8 +22,9 @@ struct MarginsView: View {
             }
             .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
             .padding(.top, MiraSpacing.sm)
-            .padding(.bottom, 104)
+            .padding(.bottom, MiraSpacing.md)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .miraScreenBackground(palette)
         .navigationTitle("マイ余白")
         .navigationBarTitleDisplayMode(.inline)
