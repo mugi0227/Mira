@@ -63,6 +63,40 @@ final class MiraStyleUITests: XCTestCase {
         capture("large-text-chat")
     }
 
+    func testColorsCanChangeAndSurviveRelaunch() {
+        launchHome()
+        openColorStyles()
+        XCTAssertEqual(app.buttons["appColor-blue"].value as? String, "選択中")
+        for style in ["rose", "lavender", "sage"] {
+            let button = app.buttons["appColor-\(style)"]
+            XCTAssertTrue(button.waitForExistence(timeout: 5))
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            button.tap()
+            XCTAssertEqual(button.value as? String, "選択中")
+        }
+        capture("custom-sage-colors")
+
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        launchHome()
+        openColorStyles()
+        XCTAssertEqual(app.buttons["appColor-sage"].value as? String, "選択中")
+        app.buttons["appColor-blue"].tap()
+        XCTAssertEqual(app.buttons["appColor-blue"].value as? String, "選択中")
+        capture("blue-white-colors")
+    }
+
+    private func openColorStyles() {
+        app.buttons["miraTab-settings"].tap()
+        let colors = app.descendants(matching: .any)["appColorSettings"].firstMatch
+        for _ in 0..<4 where !colors.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(colors.waitForExistence(timeout: 5))
+        colors.tap()
+        XCTAssertTrue(app.buttons["appColor-blue"].waitForExistence(timeout: 5))
+    }
+
     private func launchHome() {
         app.launch()
         let recommended = app.buttons["おすすめを確認"]

@@ -12,7 +12,7 @@ struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme)
+        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme, colorStyle: store.colorStyle)
 
         ZStack {
             MiraScreenBackground(palette: palette)

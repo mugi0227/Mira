@@ -66,6 +66,12 @@ struct SettingsView: View {
                 } label: {
                     SettingsRow(symbol: "swatchpalette.fill", title: "色のラベル", value: "\(store.colorLabels.count)色", tint: palette.accent)
                 }
+                NavigationLink {
+                    ColorStylePickerView()
+                } label: {
+                    SettingsRow(symbol: "circle.lefthalf.filled", title: "アプリの色", value: store.colorStyle.title, tint: palette.accent)
+                }
+                .accessibilityIdentifier("appColorSettings")
                 Toggle("案内役を表示", systemImage: "bubble.left.and.bubble.right.fill", isOn: Binding(
                     get: { store.assistantEnabled },
                     set: { store.setAssistantEnabled($0) }
@@ -264,7 +270,7 @@ private struct ThemePickerView: View {
                 ForEach(AppThemeKind.allCases) { theme in
                     ThemePreviewCard(
                         theme: theme,
-                        palette: MiraThemePalette(kind: theme, colorScheme: colorScheme),
+                        palette: MiraThemePalette(kind: theme, colorScheme: colorScheme, colorStyle: store.colorStyle),
                         selected: theme == store.theme
                     ) { withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) { store.setTheme(theme) } }
                 }
@@ -289,7 +295,7 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .pixelCat ? "温かなアイボリーとセージ、さりげない遊び心" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .pixelCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()

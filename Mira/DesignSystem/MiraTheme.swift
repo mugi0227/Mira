@@ -20,80 +20,45 @@ struct MiraThemePalette {
     let success: Color
     let shadow: Color
 
-    init(kind: AppThemeKind, colorScheme: ColorScheme) {
+    init(kind: AppThemeKind, colorScheme: ColorScheme, colorStyle: AppColorStyle = .blue) {
         let isDark = colorScheme == .dark
         self.isDark = isDark
         isCatSkin = kind == .pixelCat
-        switch (kind, isDark) {
-        case (.softMinimal, false):
-            background = Color(hex: 0xF7F6F2)
-            surface = .white
-            elevatedSurface = Color(hex: 0xFCFCFA)
-            primaryText = Color(hex: 0x262823)
-            secondaryText = Color(hex: 0x686B63)
-            accent = Color(hex: 0x5E7867)
-            accentSoft = Color(hex: 0xE2ECE4)
-            rest = Color(hex: 0xDCE9E2)
-            reading = Color(hex: 0xEEE4D5)
-            important = Color(hex: 0xF0DDE1)
-            pending = Color(hex: 0xE7E0F0)
-            adjustment = Color(hex: 0xDCE7F1)
-            warning = Color(hex: 0xB36A38)
-            critical = Color(hex: 0xA84545)
-            success = Color(hex: 0x4F765C)
-            shadow = Color.black.opacity(0.08)
-        case (.softMinimal, true):
-            background = Color(hex: 0x171A17)
-            surface = Color(hex: 0x222622)
-            elevatedSurface = Color(hex: 0x292E29)
-            primaryText = Color(hex: 0xF2F2ED)
-            secondaryText = Color(hex: 0xBFC3BA)
-            accent = Color(hex: 0xA8C4AF)
-            accentSoft = Color(hex: 0x34443A)
-            rest = Color(hex: 0x35483D)
-            reading = Color(hex: 0x4A4135)
-            important = Color(hex: 0x503A40)
-            pending = Color(hex: 0x433A50)
-            adjustment = Color(hex: 0x344657)
-            warning = Color(hex: 0xE3A26E)
-            critical = Color(hex: 0xED8F8F)
-            success = Color(hex: 0x9BC5A6)
-            shadow = Color.black.opacity(0.28)
-        case (.pixelCat, false):
-            background = Color(hex: 0xF7F3EB)
-            surface = Color(hex: 0xFFFCF7)
-            elevatedSurface = Color(hex: 0xFFFCF7)
-            primaryText = Color(hex: 0x353831)
-            secondaryText = Color(hex: 0x6D7065)
-            accent = Color(hex: 0x5D6C53)
-            accentSoft = Color(hex: 0xE4E8DA)
-            rest = Color(hex: 0xDEE5D6)
-            reading = Color(hex: 0xEEE0CB)
-            important = Color(hex: 0xEEDDD7)
-            pending = Color(hex: 0xE4DEEC)
-            adjustment = Color(hex: 0xDEE5E6)
-            warning = Color(hex: 0x956039)
-            critical = Color(hex: 0xA54D52)
-            success = Color(hex: 0x526B4A)
-            shadow = Color(hex: 0x55503E).opacity(0.08)
-        case (.pixelCat, true):
-            background = Color(hex: 0x20231F)
-            surface = Color(hex: 0x2B3029)
-            elevatedSurface = Color(hex: 0x343A31)
-            primaryText = Color(hex: 0xF4F1E8)
-            secondaryText = Color(hex: 0xC0C5B7)
-            accent = Color(hex: 0xC3D0AF)
-            accentSoft = Color(hex: 0x414C38)
-            rest = Color(hex: 0x3D4C36)
-            reading = Color(hex: 0x504737)
-            important = Color(hex: 0x523E3C)
-            pending = Color(hex: 0x484052)
-            adjustment = Color(hex: 0x3A484C)
-            warning = Color(hex: 0xEFBE87)
-            critical = Color(hex: 0xF2A6C0)
-            success = Color(hex: 0x9AD7C4)
-            shadow = Color(hex: 0x061722).opacity(0.26)
+        let colors: (background: UInt32, surface: UInt32, accent: UInt32, soft: UInt32)
+        switch (colorStyle, isDark) {
+        case (.blue, false):
+            colors = (0xF2F7FC, 0xFFFFFF, 0x406B94, 0xE0EDF8)
+        case (.blue, true):
+            colors = (0x18232E, 0x243342, 0xAED4F3, 0x344B60)
+        case (.sage, false):
+            colors = (0xF7F3EB, 0xFFFCF7, 0x5D6C53, 0xE4E8DA)
+        case (.sage, true):
+            colors = (0x20231F, 0x2B3029, 0xC3D0AF, 0x414C38)
+        case (.rose, false):
+            colors = (0xFBF3F5, 0xFFFBFC, 0x96586C, 0xF3DFE6)
+        case (.rose, true):
+            colors = (0x2B2026, 0x3A2B33, 0xE5B6C6, 0x543C47)
+        case (.lavender, false):
+            colors = (0xF6F3FB, 0xFDFBFF, 0x76619A, 0xE9E1F3)
+        case (.lavender, true):
+            colors = (0x24212D, 0x322D3E, 0xCCBDE4, 0x4A415C)
         }
+        background = Color(hex: colors.background)
+        surface = Color(hex: colors.surface)
+        elevatedSurface = surface
+        primaryText = Color(hex: isDark ? 0xF3F5F7 : 0x293746)
+        secondaryText = Color(hex: isDark ? 0xBDC8D1 : 0x5C6B78)
+        accent = Color(hex: colors.accent)
+        accentSoft = Color(hex: colors.soft)
+        rest = Color(hex: isDark ? 0x35483D : 0xDCE9E2)
+        reading = Color(hex: isDark ? 0x4A4135 : 0xEEE4D5)
+        important = Color(hex: isDark ? 0x503A40 : 0xF0DDE1)
+        pending = Color(hex: isDark ? 0x433A50 : 0xE7E0F0)
+        adjustment = Color(hex: isDark ? 0x344657 : 0xDCE7F1)
+        warning = Color(hex: isDark ? 0xE3A26E : 0x956039)
+        critical = Color(hex: isDark ? 0xED8F8F : 0xA84545)
+        success = Color(hex: isDark ? 0x9BC5A6 : 0x4F765C)
+        shadow = Color.black.opacity(isDark ? 0.28 : 0.08)
     }
 
     var cardRadius: CGFloat { MiraRadius.large }

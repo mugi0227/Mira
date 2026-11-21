@@ -59,6 +59,7 @@ final class MiraStore {
     }
     var selectedDate: Date
     var theme: AppThemeKind = .pixelCat
+    var colorStyle: AppColorStyle = .blue
     var onboardingCompleted = false
     var assistantEnabled = true
     var characterNotificationsEnabled = true
@@ -316,6 +317,8 @@ final class MiraStore {
         trendSuggestionsEnabled = true
         settingsEntity?.onboardingCompleted = false
         settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+        settingsEntity?.colorStyleRaw = nil
+        colorStyle = .blue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
         settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
         settingsEntity?.deviceHolidaysEnabled = false

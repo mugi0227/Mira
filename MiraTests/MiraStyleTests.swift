@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 import UIKit
 import XCTest
 @testable import Mira
 
+@MainActor
 final class MiraStyleTests: XCTestCase {
     func testReduceMotionDisablesSelectionSpring() {
         XCTAssertNil(MiraMotion.selection(reduceMotion: true))
@@ -12,11 +14,13 @@ final class MiraStyleTests: XCTestCase {
     func testAccentLabelsHaveReadableContrastInBothThemes() {
         for theme in AppThemeKind.allCases {
             for scheme in [ColorScheme.light, .dark] {
-                let palette = MiraThemePalette(kind: theme, colorScheme: scheme)
-                let foreground = luminance(palette.onAccent)
-                let background = luminance(palette.accent)
-                let contrast = (max(foreground, background) + 0.05) / (min(foreground, background) + 0.05)
-                XCTAssertGreaterThanOrEqual(contrast, 4.5, "\(theme) \(scheme)")
+                for style in AppColorStyle.allCases {
+                    let palette = MiraThemePalette(kind: theme, colorScheme: scheme, colorStyle: style)
+                    let foreground = luminance(palette.onAccent)
+                    let background = luminance(palette.accent)
+                    let contrast = (max(foreground, background) + 0.05) / (min(foreground, background) + 0.05)
+                    XCTAssertGreaterThanOrEqual(contrast, 4.5, "\(theme) \(scheme) \(style)")
+                }
             }
         }
     }
@@ -27,6 +31,49 @@ final class MiraStyleTests: XCTestCase {
             XCTAssertFalse(message.title.contains("にゃ"))
             XCTAssertFalse(message.body.contains("にゃ"))
         }
+    }
+
+    func testColorChoiceSurvivesRelaunchAndSkinChanges() async throws {
+        let container = try makeContainer()
+        let store = makeStore(container)
+        await store.bootstrap()
+        XCTAssertEqual(store.colorStyle, .blue)
+
+        store.setColorStyle(.sage)
+        for theme in AppThemeKind.allCases {
+            store.setTheme(theme)
+            XCTAssertEqual(store.colorStyle, .sage)
+        }
+
+        let relaunched = makeStore(container)
+        await relaunched.bootstrap()
+        XCTAssertEqual(relaunched.colorStyle, .sage)
+    }
+
+    func testMissingOrUnknownColorChoiceDefaultsToBlue() async throws {
+        let store = makeStore(try makeContainer())
+        await store.bootstrap()
+        for raw in [nil, "unknown-color"] as [String?] {
+            store.settingsEntity?.colorStyleRaw = raw
+            store.applySettings()
+            XCTAssertEqual(store.colorStyle, .blue)
+        }
+    }
+
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
+            BaseRuleEntity.self, AdjustmentEntity.self, PendingInvitationEntity.self,
+            LoadRuleEntity.self, ImportantPersonEntity.self, ConversationCaseEntity.self,
+            RebalanceProposalEntity.self
+        ])
+        return try ModelContainer(for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+    }
+
+    private func makeStore(_ container: ModelContainer) -> MiraStore {
+        MiraStore(container: container, classifier: RuleBasedSemanticClassifier(),
+            conversationInterpreter: RuleBasedConversationInterpreter(), draftStorage: DraftStorage())
     }
 
     private func luminance(_ color: Color) -> Double {
