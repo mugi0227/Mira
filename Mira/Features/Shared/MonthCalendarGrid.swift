@@ -56,8 +56,8 @@ struct MonthCalendarGrid: View {
         }
         // Inset the entire grid rather than every cell so all seven columns
         // stay aligned, including the leading/trailing days near the corners.
-        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
-        .padding(.top, palette.isCatSkin ? MiraSpacing.md : 0)
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.top, palette.isCatSkin ? MiraSpacing.lg : 0)
         .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
         .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
         .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? MiraRadius.large : 0, style: .continuous))
@@ -78,7 +78,7 @@ struct MonthCalendarGrid: View {
     private func rowHeight(dayCount: Int) -> CGFloat {
         let regular: CGFloat = dayCount > 35 ? 88 : 104
         guard palette.isCatSkin, let preferredHeight else { return regular }
-        let chrome = 30 + MiraSpacing.md + MiraSpacing.lg
+        let chrome = 30 + MiraSpacing.lg * 2
         return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
@@ -126,7 +126,8 @@ struct MonthCalendarGrid: View {
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
-        let visibleItemLimit = holiday == nil && cellHeight >= 100 ? 3 : 2
+        let isCompact = palette.isCatSkin && cellHeight < 100
+        let visibleItemLimit = isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
 
         VStack(alignment: .leading, spacing: 3) {
             HStack {

@@ -21,9 +21,12 @@ final class MiraStyleUITests: XCTestCase {
         let sunday = app.descendants(matching: .any)["calendar-day-2026-09-06"].firstMatch
         XCTAssertTrue(monday.exists)
         XCTAssertTrue(sunday.exists)
-        XCTAssertGreaterThanOrEqual(monday.frame.minX - calendar.frame.minX, 8)
-        XCTAssertGreaterThanOrEqual(calendar.frame.maxX - sunday.frame.maxX, 8)
+        XCTAssertGreaterThanOrEqual(monday.frame.minX - calendar.frame.minX, 24)
+        XCTAssertGreaterThanOrEqual(calendar.frame.maxX - sunday.frame.maxX, 24)
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
+        let scroll = app.scrollViews["homeScroll"]
+        XCTAssertTrue(scroll.exists)
+        XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
         capture("roomier-calendar")
     }
 
@@ -45,6 +48,20 @@ final class MiraStyleUITests: XCTestCase {
         capture("roomier-next-step")
         event.tap()
         XCTAssertTrue(app.buttons["閉じる"].waitForExistence(timeout: 5))
+    }
+
+    func testGoalPillsStayInsideScreenGutters() {
+        launchHome()
+        let summary = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
+        for _ in 0..<4 where !summary.isHittable { app.swipeUp() }
+        let pills = summary.descendants(matching: .any).matching(identifier: "homeGoalPill")
+        XCTAssertEqual(pills.count, 3)
+        for index in 0..<pills.count {
+            let pill = pills.element(boundBy: index)
+            XCTAssertGreaterThanOrEqual(pill.frame.minX - app.frame.minX, 20)
+            XCTAssertGreaterThanOrEqual(app.frame.maxX - pill.frame.maxX, 20)
+        }
+        capture("roomier-goals")
     }
 
     func testRoundedTabsKeepSelectionAndNavigation() {
@@ -105,6 +122,12 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThan(suggestions.count, 0)
         XCTAssertGreaterThanOrEqual(suggestions.firstMatch.frame.height, 44)
         XCTAssertTrue(app.buttons["閉じる"].isHittable)
+        let apply = app.buttons["selfTimeApply"].firstMatch
+        let dismiss = app.buttons["selfTimeDismiss"].firstMatch
+        for _ in 0..<6 where !dismiss.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(apply.isHittable)
+        XCTAssertTrue(dismiss.isHittable)
+        XCTAssertGreaterThanOrEqual(dismiss.frame.minY, apply.frame.maxY)
         capture("natural-chat")
     }
 

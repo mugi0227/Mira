@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let palette: MiraThemePalette
 
     @State private var selectedItem: CalendarItemSnapshot?
@@ -15,68 +16,75 @@ struct HomeView: View {
     @State private var monthHeaderHeight: CGFloat = 88
 
     var body: some View {
-        GeometryReader { viewport in
-        ScrollView {
-            // The calendar leads; everything else is secondary and sits below
-            // it, while talking to Mira lives behind the corner companion.
-            VStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
-                monthHeader
-                    .padding(.horizontal, screenInset)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
-
-                if isFriendView {
-                    friendViewBanner
-                        .padding(.horizontal, screenInset)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+        VStack(spacing: 0) {
+            GeometryReader { viewport in
+                ScrollView {
+                    // The calendar leads; everything else is secondary and sits below
+                    // it, while talking to Mira lives behind the corner companion.
+                    VStack(spacing: palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.sm) {
+                        monthHeader
+                            .padding(.horizontal, screenInset)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
+        
+                        if isFriendView {
+                            friendViewBanner
+                                .padding(.horizontal, screenInset)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+        
+                        MonthCalendarGrid(
+                            month: store.selectedMonth,
+                            selectedDate: Binding(
+                                get: { store.selectedDate },
+                                set: { store.selectedDate = $0 }
+                            ),
+                            items: monthItems,
+                            palette: palette,
+                            preferredHeight: palette.isCatSkin
+                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs
+                                : nil,
+                            weekStartDay: store.weekStartDay,
+                            holidays: store.deviceHolidays,
+                            referenceDate: store.now,
+                            allowsDragging: !isFriendView,
+                            privacyMode: isFriendView,
+                            baseRules: store.fetchBaseRules(),
+                            onMoveItem: { id, date in store.moveItem(id: id, to: date) },
+                            onSelectDate: openDay,
+                            onSelectItem: { item in if !isFriendView { selectedItem = item } }
+                        )
+                        .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
+        
+                        if !isFriendView {
+                            nextStepCard
+                                .padding(.horizontal, screenInset)
+        
+                            progressSummary
+                                .padding(.horizontal, screenInset)
+                        }
+                    }
+                    .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
+                    .padding(.top, palette.isCatSkin ? MiraSpacing.md : MiraSpacing.xs)
+                    .padding(.bottom, MiraSpacing.lg)
                 }
-
-                MonthCalendarGrid(
-                    month: store.selectedMonth,
-                    selectedDate: Binding(
-                        get: { store.selectedDate },
-                        set: { store.selectedDate = $0 }
-                    ),
-                    items: monthItems,
-                    palette: palette,
-                    preferredHeight: palette.isCatSkin
-                        ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs
-                        : nil,
-                    weekStartDay: store.weekStartDay,
-                    holidays: store.deviceHolidays,
-                    referenceDate: store.now,
-                    allowsDragging: !isFriendView,
-                    privacyMode: isFriendView,
-                    baseRules: store.fetchBaseRules(),
-                    onMoveItem: { id, date in store.moveItem(id: id, to: date) },
-                    onSelectDate: openDay,
-                    onSelectItem: { item in if !isFriendView { selectedItem = item } }
-                )
-                .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
-
-                if !isFriendView {
-                    nextStepCard
-                        .padding(.horizontal, screenInset)
-
-                    progressSummary
-                        .padding(.horizontal, screenInset)
-                }
+                // Keep scrolled dates out of the status bar's safe area.
+                .clipped()
+                .accessibilityIdentifier("homeScroll")
+                .miraScreenBackground(palette)
             }
-            .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
-            .padding(.top, palette.isCatSkin ? MiraSpacing.md : MiraSpacing.xs)
-            .padding(.bottom, 96 + floatingTabBarClearance)
-        }
-        // Keep scrolled dates out of the status bar's safe area.
-        .clipped()
-        .miraScreenBackground(palette)
-        .overlay(alignment: .bottomTrailing) {
+            // A separate footer gives Mira a home without covering dates, card
+            // corners, or the goal pills at any scroll position.
             if store.assistantEnabled && !isFriendView {
-                MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                    showCompanion = true
+                HStack {
+                    Spacer(minLength: 0)
+                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
+                        showCompanion = true
+                    }
                 }
-                .padding(.trailing, screenInset)
-                .padding(.bottom, MiraSpacing.sm + floatingTabBarClearance)
+                .padding(.horizontal, screenInset)
+                .padding(.vertical, MiraSpacing.xs)
+                .background(palette.background)
             }
-        }
         }
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
@@ -120,10 +128,6 @@ struct HomeView: View {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
             await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
-    }
-
-    private var floatingTabBarClearance: CGFloat {
-        0
     }
 
     private var monthItems: [CalendarItemSnapshot] {
@@ -430,21 +434,25 @@ struct HomeView: View {
     @ViewBuilder
     private var progressSummary: some View {
         let visibleGoals = store.currentMonthGoals.filter { [.rest, .reading, .importantPeople].contains($0.kind) }
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: MiraSpacing.xs) {
-                ForEach(visibleGoals) { goal in
-                    let progress = store.progress(for: goal)
-                    ProgressPill(
-                        symbol: goal.kind.symbolName,
-                        title: shortTitle(goal.kind),
-                        current: progress.current,
-                        target: progress.target,
-                        palette: palette
-                    )
-                }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: MiraSpacing.sm))
+            : AnyLayout(FlowLayout(spacing: MiraSpacing.sm))
+        layout {
+            ForEach(visibleGoals) { goal in
+                let progress = store.progress(for: goal)
+                ProgressPill(
+                    symbol: goal.kind.symbolName,
+                    title: shortTitle(goal.kind),
+                    current: progress.current,
+                    target: progress.target,
+                    palette: palette
+                )
+                .accessibilityIdentifier("homeGoalPill")
             }
         }
-        .scrollClipDisabled()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("homeGoalSummary")
     }
 
     private var selectedDaySection: some View {
