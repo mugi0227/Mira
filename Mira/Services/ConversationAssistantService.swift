@@ -239,6 +239,9 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
     private func parseDates(from text: String, now: Date) -> [Date] {
         var result: [Date] = []
         let currentYear = calendar.component(.year, from: now)
+        for (word, offset) in [("明後日", 2), ("明日", 1), ("今日", 0)] where text.contains(word) {
+            result.append(calendar.startOfDay(for: now).addingDays(offset, calendar: calendar))
+        }
 
         if let regex = try? NSRegularExpression(pattern: "(?:(\\d{1,2})月)?(\\d{1,2})日") {
             let nsText = text as NSString
@@ -289,7 +292,7 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
         guard let regex = try? NSRegularExpression(pattern: "(\\d{1,2})時(半)?"),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let hourRange = Range(match.range(at: 1), in: text),
-              let hour = Int(text[hourRange]) else { return nil }
+              let hour = Int(text[hourRange]), (0...23).contains(hour) else { return nil }
         let minute = match.range(at: 2).location == NSNotFound ? 0 : 30
         let day = dates.first ?? range.start
         let start = day.setting(hour: hour, minute: minute, calendar: calendar)

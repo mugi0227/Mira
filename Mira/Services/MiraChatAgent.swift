@@ -25,9 +25,14 @@ enum MiraChatAgentFactory {
 @MainActor
 final class RuleBasedChatAgent: MiraChatAgent {
     let displayName = "Mira（ルール）"
+    private let interpreter: (any ConversationInterpreting)?
+
+    init(interpreter: (any ConversationInterpreting)? = nil) {
+        self.interpreter = interpreter
+    }
 
     func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
-        var interpretation = await store.conversationInterpreter.interpret(
+        var interpretation = await (interpreter ?? store.conversationInterpreter).interpret(
             text: text,
             now: store.now,
             pinnedContext: nil,
@@ -126,6 +131,9 @@ final class RuleBasedChatAgent: MiraChatAgent {
             "を予定に追加して", "を予定に入れて", "を入れて", "を追加して", "に行きたい", "行きたい",
             "したい", "を探して", "探して", "の誘いを断りたい", "を断りたい", "を断る文を作って", "断りたい"
         ]
+        value = value.replacingOccurrences(
+            of: "^の?\\d{1,2}時(?:半)?(?:から|に)?", with: "", options: .regularExpression
+        )
         for ending in requestEndings where value.hasSuffix(ending) && value.count > ending.count {
             value.removeLast(ending.count)
             break

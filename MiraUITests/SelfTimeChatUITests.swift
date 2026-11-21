@@ -46,6 +46,19 @@ final class SelfTimeChatUITests: XCTestCase {
         require(app.staticTexts["見送りました"], "dismissed status")
     }
 
+    func testTomorrowDinnerShowsEventProposal() throws {
+        openCompanion()
+        sendChat("明日の19時に友達と夕食を追加して")
+        require(app.buttons["chatApplyCard"].firstMatch, "event proposal", timeout: 20)
+        XCTAssertTrue(app.staticTexts["友達と夕食"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "うまく考えられなかった")).firstMatch.exists)
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "tomorrow-dinner-proposal"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
         let companion = app.buttons["miraCompanionButton"]
         require(companion, "companion", timeout: 12)

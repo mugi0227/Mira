@@ -28,10 +28,21 @@ extension MiraStore {
             if let intent = selfTimeIntent(in: text) {
                 respondToSelfTimeRequest(intent, sink: sink)
             } else {
-                try await currentChatAgent().respond(to: text, store: self, sink: sink)
+                let interpreter = RuleBasedConversationInterpreter()
+                let interpretation = await interpreter.interpret(
+                    text: text, now: now, pinnedContext: nil, searchCandidates: [], recentTurns: []
+                )
+                if interpretation.intent == .addEvent, interpretation.exactStartDate != nil {
+                    try await RuleBasedChatAgent(interpreter: interpreter).respond(to: text, store: self, sink: sink)
+                } else {
+                    try await currentChatAgent().respond(to: text, store: self, sink: sink)
+                }
             }
         } catch {
-            sink.setText(sink.text.isEmpty ? "ごめんね、うまく考えられなかったにゃ。もう一度言い方を変えてみてね。" : sink.text)
+            if !sink.hasCards {
+                try? await RuleBasedChatAgent(interpreter: RuleBasedConversationInterpreter())
+                    .respond(to: text, store: self, sink: sink)
+            }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             sink.setText(sink.hasCards ? "こんな感じでどうかにゃ？" : "うまく読み取れなかったにゃ。日付や相手を入れてもう一度教えてね。")

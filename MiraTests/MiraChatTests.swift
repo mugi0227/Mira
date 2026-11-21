@@ -5,6 +5,34 @@ import XCTest
 
 @MainActor
 final class MiraChatTests: XCTestCase {
+    func testExplicitEventBypassesFailingModelAndOnlyProposes() async throws {
+        let store = try makeStore()
+        store.chatAgent = FailingChatAgent()
+        let before = store.items
+        await store.sendChat("明日の19時に友達と夕食を追加して")
+        let reply = try XCTUnwrap(store.chatMessages.last)
+        guard case .eventProposal(let proposal) = reply.cards.first else { return XCTFail("expected event proposal") }
+        XCTAssertEqual(proposal.event.title, "友達と夕食")
+        let tomorrow = Calendar.mira.startOfDay(for: store.now).addingDays(1)
+        XCTAssertEqual(proposal.event.startDate, tomorrow.setting(hour: 19, minute: 0))
+        XCTAssertEqual(store.items, before)
+        XCTAssertFalse(reply.text.contains("うまく考えられなかった"))
+    }
+
+    func testModelFailureFallsBackToRuleTools() async throws {
+        let store = try makeStore()
+        store.chatAgent = FailingChatAgent()
+        await store.sendChat("今月ちゃんと休めてる？")
+        XCTAssertFalse(try XCTUnwrap(store.chatMessages.last).text.contains("うまく考えられなかった"))
+        XCTAssertFalse(try XCTUnwrap(store.chatMessages.last).activities.isEmpty)
+    }
+
+    func testEmptyChatDoesNothing() async throws {
+        let store = try makeStore()
+        await store.sendChat("  ")
+        XCTAssertTrue(store.chatMessages.isEmpty)
+    }
+
     func testProposalDoesNotTouchTheCalendarUntilApproved() async throws {
         let store = try makeStore()
         let before = store.items
@@ -93,6 +121,22 @@ final class MiraChatTests: XCTestCase {
 }
 
 final class ChatTitleTests: XCTestCase {
+    func testRelativeEventTitle() {
+        XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "明日の19時に友達と夕食を追加して"), "友達と夕食")
+    }
+
+    func testRelativeDateAndInvalidHour() async {
+        let interpreter = RuleBasedConversationInterpreter()
+        let now = TestFixtures.date(day: 15, hour: 10)
+        for (word, offset) in [("今日", 0), ("明日", 1), ("明後日", 2)] {
+            let result = await interpreter.interpret(text: "\(word)の19時に夕食を追加して", now: now,
+                pinnedContext: nil, searchCandidates: [], recentTurns: [])
+            XCTAssertEqual(result.exactStartDate, now.addingDays(offset).setting(hour: 19, minute: 0))
+        }
+        let invalid = await interpreter.interpret(text: "明日の29時に夕食を追加して", now: now,
+            pinnedContext: nil, searchCandidates: [], recentTurns: [])
+        XCTAssertNil(invalid.exactStartDate)
+    }
     func testRequestPhrasesAreStrippedFromPlanTitles() {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "、友達とご飯に行ける日を探して"), "友達とご飯")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "来週友達と焼肉行きたい"), "友達と焼肉")
@@ -100,6 +144,14 @@ final class ChatTitleTests: XCTestCase {
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "はなび大会"), "はなび大会")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: "探して"), "探して")
         XCTAssertEqual(RuleBasedChatAgent.planTitle(from: ""), "予定")
+    }
+}
+
+@MainActor
+private final class FailingChatAgent: MiraChatAgent {
+    let displayName = "Failing model"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        throw CocoaError(.coderInvalidValue)
     }
 }
 
