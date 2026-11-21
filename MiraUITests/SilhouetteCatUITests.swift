@@ -17,9 +17,11 @@ final class SilhouetteCatUITests: XCTestCase {
         for _ in 0..<3 where !card.isHittable { app.swipeUp() }
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()
+        XCTAssertTrue(card.label.hasSuffix("、選択中"))
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["miraTab-home"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["silhouetteCat"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["miraTab-home"].isSelected)
+        XCTAssertTrue(app.miraChatButton.isHittable)
     }
 
     func testCaptureSilhouetteScreens() {
@@ -30,7 +32,7 @@ final class SilhouetteCatUITests: XCTestCase {
         }
         finishOnboarding()
         capture("silhouette-home")
-        app.buttons["miraCompanionButton"].tap()
+        app.miraChatButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
         capture("silhouette-chat")
         app.buttons["閉じる"].tap()
@@ -53,7 +55,7 @@ final class SilhouetteCatUITests: XCTestCase {
             XCTAssertTrue(start.waitForExistence(timeout: 5))
             start.tap()
         }
-        XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 12))
     }
 
     private func openThemePicker() {

@@ -9,6 +9,7 @@ struct ManualEventDraft: Identifiable, Codable, Hashable, Sendable {
     var endTime: Date
     var isAllDay = false
     var isImportant = false
+    var isMemo: Bool? = nil
     var marginKind: MarginKind = .rest
     var marginGoalID: UUID? = nil
     var isMargin = false

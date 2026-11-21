@@ -89,6 +89,7 @@ struct MiraThemePalette {
     }
 
     func color(for item: CalendarItemSnapshot) -> Color {
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return secondaryText.opacity(0.08) }
         if item.kind == .birthday { return important }
         if item.kind == .margin {
             switch item.marginKind {

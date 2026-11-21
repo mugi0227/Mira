@@ -66,7 +66,8 @@ enum DemoSeeder {
                 bufferBeforeMinutes: evaluation.bufferBeforeMinutes,
                 bufferAfterMinutes: evaluation.bufferAfterMinutes,
                 isImportantTime: spec.5,
-                sourceID: nil
+                sourceID: nil,
+                occupiesTime: spec.4 && spec.6 == .confirmed ? true : nil
             )
             snapshot.colorTag = demoColors[spec.0]
             context.insert(CalendarItemEntity(snapshot: snapshot))

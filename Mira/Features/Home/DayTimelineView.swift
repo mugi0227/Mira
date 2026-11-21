@@ -169,11 +169,11 @@ struct DayTimelineView: View {
     }
 
     private var allDayItems: [CalendarItemSnapshot] {
-        dayItems.filter { $0.isAllDay || $0.kind == .birthday }
+        dayItems.filter { $0.isAllDay || $0.kind == .birthday || ($0.kind == .confirmed && !$0.countsAgainstWhitespace) }
     }
 
     private var timedItems: [CalendarItemSnapshot] {
-        dayItems.filter { !$0.isAllDay && $0.kind != .birthday }
+        dayItems.filter { !$0.isAllDay && $0.kind != .birthday && ($0.kind != .confirmed || $0.countsAgainstWhitespace) }
     }
 
     private var dayHeader: some View {
@@ -203,7 +203,7 @@ struct DayTimelineView: View {
 
     private func allDaySection(_ items: [CalendarItemSnapshot]) -> some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
-            Text("終日")
+            Text("終日・メモ")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
 
@@ -215,6 +215,7 @@ struct DayTimelineView: View {
                         Image(systemName: symbol(for: item))
                             .accessibilityHidden(true)
                         Text(item.title)
+                            .foregroundStyle((item.kind == .confirmed && !item.countsAgainstWhitespace) ? palette.secondaryText : palette.primaryText)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(2)
                         Spacer(minLength: 0)
@@ -225,7 +226,7 @@ struct DayTimelineView: View {
                     .background(palette.color(for: item), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
                 }
                 .buttonStyle(MiraPressStyle())
-                .accessibilityLabel("\(item.title)、終日")
+                .accessibilityLabel("\(item.title)、\(item.timeDescription)\((item.kind == .confirmed && !item.countsAgainstWhitespace) ? "、メモ" : "")")
             }
         }
     }
@@ -337,6 +338,7 @@ struct DayTimelineView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
+                            .foregroundStyle((item.kind == .confirmed && !item.countsAgainstWhitespace) ? palette.secondaryText : palette.primaryText)
                     .font(.caption.weight(.semibold))
                     .lineLimit(height >= 62 ? 2 : 1)
                 Text(item.timeDescription)
@@ -585,6 +587,7 @@ struct DayTimelineView: View {
 
     private func symbol(for item: CalendarItemSnapshot) -> String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return "calendar"

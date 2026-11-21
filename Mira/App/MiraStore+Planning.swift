@@ -130,7 +130,8 @@ extension MiraStore {
             bufferAfterMinutes: evaluation.bufferAfterMinutes,
             isImportantTime: isImportant,
             sourceID: nil,
-            colorTag: colorTag
+            colorTag: colorTag,
+            occupiesTime: true
         )
     }
 
@@ -287,7 +288,7 @@ extension MiraStore {
         let key = MonthKey(year: goal.year, month: goal.month)
         let current: Int
         if goal.kind == .importantPeople {
-            current = items.filter { $0.isImportantTime && key.interval.contains($0.startDate) }.count
+            current = items.filter { ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.isImportantTime && key.interval.contains($0.startDate) }.count
         } else if goal.kind == .freeEvening {
             let engine = FreeEveningEngine()
             let days = daysInMonth(key.firstDay)

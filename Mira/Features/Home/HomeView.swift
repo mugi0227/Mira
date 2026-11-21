@@ -10,7 +10,6 @@ struct HomeView: View {
     @State private var selectedDayDestination: DayTimelineDestination?
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
-    @State private var showCompanion = false
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
     @State private var renderedFriendSignature: Int?
@@ -34,7 +33,7 @@ struct HomeView: View {
             GeometryReader { viewport in
                 ScrollView {
                     // The calendar leads; everything else is secondary and sits below
-                    // it, while talking to Mira lives behind the corner companion.
+                    // it, while talking to Mira lives in the tab bar.
                     VStack(spacing: MiraSpacing.lg) {
                         monthHeader
                             .padding(.horizontal, screenInset)
@@ -86,8 +85,7 @@ struct HomeView: View {
                     .padding(.top, MiraSpacing.xs)
                     .padding(.bottom, MiraSpacing.lg)
                 }
-                // Fade inside the viewport, not in the companion's dock. A
-                // scroll view's layout frame alone does not contain its drawing.
+                // A scroll view's layout frame alone does not contain its drawing.
                 .scrollClipDisabled()
                 .mask {
                     VStack(spacing: 0) {
@@ -108,28 +106,10 @@ struct HomeView: View {
                 }
                 .accessibilityIdentifier("homeScroll")
             }
-            // A separate footer gives Mira a home without covering dates, card
-            // corners, or the goal pills at any scroll position.
-            if store.assistantEnabled && !isFriendView && !palette.isCatSkin {
-                HStack {
-                    Spacer(minLength: 0)
-                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                        showCompanion = true
-                    }
-                    .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bounds) {
-                        MiraOverlayLayout(companionBounds: $0)
-                    }
-                }
-                .padding(.horizontal, screenInset)
-                .padding(.vertical, MiraSpacing.xs)
-            }
         }
-        // Keep both the viewport and the companion within the safe area.
+        // Keep the viewport within the safe area.
         .clipped()
         .miraScreenBackground(palette)
-        .sheet(isPresented: $showCompanion) {
-            MiraChatView(palette: palette)
-        }
         .sheet(isPresented: $showWhitespaceExplanation) {
             NavigationStack {
                 ScrollView {
@@ -156,14 +136,6 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showFriendImagePreview) {
             if let friendShareImage {
                 FriendShareImagePreview(image: friendShareImage)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
-            showCompanion = true
-        }
-        .task {
-            if UserDefaults.standard.bool(forKey: MiraStore.openChatRequestKey) {
-                showCompanion = true
             }
         }
         .navigationTitle("余白")
@@ -279,7 +251,7 @@ struct HomeView: View {
     }
 
     private var nextEvent: CalendarItemSnapshot? {
-        store.items.filter { $0.kind == .confirmed && $0.endDate > store.now }
+        store.items.filter { $0.countsAgainstWhitespace && $0.endDate > store.now }
             .min { $0.startDate < $1.startDate }
     }
 
@@ -371,11 +343,6 @@ struct HomeView: View {
             HStack(alignment: .center) {
                 friendViewButton
                 Spacer(minLength: MiraSpacing.sm)
-                if store.assistantEnabled && !isFriendView {
-                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                        showCompanion = true
-                    }
-                }
             }
         }
         .foregroundStyle(palette.accent)
@@ -624,7 +591,7 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        let values = store.selectedDayItems.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }
         guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
@@ -756,6 +723,7 @@ private struct AgendaRow: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }
