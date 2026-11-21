@@ -36,9 +36,13 @@ struct EventDetailSheet: View {
                             .miraCard(palette)
                             .onChange(of: isMemo) { _, enabled in
                                 guard enabled != (item.kind == .memo) else { return }
-                                var updated = item
-                                updated.kind = enabled ? .memo : .confirmed
-                                occupancyWarning = store.eventEntryConflicts(for: updated).joined(separator: "\n")
+                                let updated = store.memoConvertedSnapshot(for: item, enabled: enabled)
+                                var warnings = store.eventEntryConflicts(for: updated)
+                                let margins = store.previewImpact(for: updated).overlappingMargins
+                                if !margins.isEmpty {
+                                    warnings.append("消費する余白：" + margins.map(\.title).joined(separator: "、"))
+                                }
+                                occupancyWarning = warnings.joined(separator: "\n")
                                 if !enabled {
                                     showOccupancyConfirmation = true
                                 } else if store.setMemo(item, enabled: enabled) { dismiss() }

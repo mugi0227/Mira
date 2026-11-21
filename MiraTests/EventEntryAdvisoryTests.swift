@@ -4,6 +4,25 @@ import XCTest
 
 @MainActor
 final class EventEntryAdvisoryTests: XCTestCase {
+    func testMemoConversionPreviewIncludesBufferOnlyMargin() throws {
+        let store = try makeStore()
+        let memo = TestFixtures.event(title: "飲み会", day: 10, hour: 18, kind: .memo)
+        let margin = TestFixtures.event(title: "読書", day: 10, hour: 20, kind: .margin, marginKind: .reading)
+        store.context.insert(CalendarItemEntity(snapshot: memo))
+        store.context.insert(CalendarItemEntity(snapshot: margin))
+        try store.context.save()
+        try store.refresh()
+        let converted = store.memoConvertedSnapshot(for: memo, enabled: false)
+        XCTAssertGreaterThan(converted.bufferAfterMinutes, 0)
+        XCTAssertFalse(memo.occupiedInterval.intersects(margin.occupiedInterval))
+        let shown = store.previewImpact(for: converted).overlappingMargins
+        XCTAssertEqual(shown.map(\.id), [margin.id])
+        XCTAssertTrue(store.eventEntryConflicts(for: converted).contains { $0.contains("読書") })
+        XCTAssertTrue(store.setMemo(memo, enabled: false))
+        XCTAssertFalse(store.items.contains { $0.id == margin.id })
+        XCTAssertEqual(store.items.first { $0.id == memo.id }, converted)
+    }
+
     func testMemoCommitPreservesMarginGoalsAndRejectsInvalidEntry() throws {
         let store = try makeStore()
         let margin = TestFixtures.event(day: 10, hour: 18, kind: .margin, marginKind: .rest)
