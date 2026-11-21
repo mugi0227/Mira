@@ -42,6 +42,7 @@ struct ColorStylePickerView: View {
                     }
                     .buttonStyle(MiraPressStyle())
                     .accessibilityElement(children: .ignore)
+                    .accessibilityAddTraits(.isButton)
                     .accessibilityLabel(style.title)
                     .accessibilityValue(store.colorStyle == style ? "選択中" : "")
                     .accessibilityIdentifier("appColor-\(style.rawValue)")

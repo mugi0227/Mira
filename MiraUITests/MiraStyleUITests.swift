@@ -94,7 +94,11 @@ final class MiraStyleUITests: XCTestCase {
         }
         XCTAssertTrue(colors.waitForExistence(timeout: 5))
         colors.tap()
-        XCTAssertTrue(app.buttons["appColor-blue"].waitForExistence(timeout: 5))
+        if !app.buttons["appColor-blue"].waitForExistence(timeout: 5) {
+            capture("color-picker-unreachable")
+            print(app.debugDescription)
+            XCTFail("Color choices must be exposed as buttons")
+        }
     }
 
     private func launchHome() {
