@@ -26,7 +26,9 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
-        XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
+        let companion = app.buttons["miraCompanionButton"]
+        XCTAssertTrue(companion.isHittable)
+        XCTAssertLessThanOrEqual(companion.frame.maxY, calendar.frame.minY - 16)
         capture("roomier-calendar")
     }
 

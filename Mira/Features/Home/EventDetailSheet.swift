@@ -12,11 +12,13 @@ struct EventDetailSheet: View {
     @State private var showDeleteConfirmation = false
     @State private var colorTag: EventColorTag?
     @State private var marginMinutes: Int
+    @State private var occupiesTime: Bool
 
     init(item: CalendarItemSnapshot, palette: MiraThemePalette) {
         self.item = item
         self.palette = palette
         _selectedLoad = State(initialValue: item.loadClass)
+        _occupiesTime = State(initialValue: item.countsAgainstWhitespace)
         _colorTag = State(initialValue: item.colorTag)
         _marginMinutes = State(initialValue: max(30, Int(item.endDate.timeIntervalSince(item.startDate) / 60)))
     }
@@ -27,6 +29,20 @@ struct EventDetailSheet: View {
                 VStack(spacing: MiraSpacing.lg) {
                     header
                     detailCard
+                    if item.kind == .confirmed {
+                        VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+                            Toggle("時間を使う予定", isOn: $occupiesTime)
+                                .font(.headline)
+                                .accessibilityIdentifier("eventOccupiesTime")
+                                .onChange(of: occupiesTime) { _, value in
+                                    store.setOccupiesTime(itemID: item.id, to: value)
+                                }
+                            Text("オフにすると、メモとして表示し、日ごとの余白を減らしません。")
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        .miraCard(palette)
+                    }
                     if item.kind != .margin {
                         colorCard
                     }

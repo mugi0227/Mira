@@ -264,6 +264,12 @@ struct CalendarItemSnapshot: Identifiable, Codable, Hashable, Sendable {
     var conversationCaseID: UUID? = nil
     var deviceEvent: DeviceEventReference? = nil
     var colorTag: EventColorTag? = nil
+    /// nil preserves old data: timed events occupy time; all-day memos do not.
+    var occupiesTime: Bool? = nil
+
+    var countsAgainstWhitespace: Bool {
+        kind == .confirmed && (occupiesTime ?? !isAllDay)
+    }
 
     var occupiedInterval: DateInterval {
         let start = Calendar.mira.date(byAdding: .minute, value: -bufferBeforeMinutes, to: startDate) ?? startDate

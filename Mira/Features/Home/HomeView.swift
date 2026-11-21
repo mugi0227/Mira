@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
     @State private var monthHeaderHeight: CGFloat = 88
+    @State private var showWhitespaceExplanation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,10 +39,10 @@ struct HomeView: View {
                                 get: { store.selectedDate },
                                 set: { store.selectedDate = $0 }
                             ),
-                            items: monthItems,
+                            items: store.items,
                             palette: palette,
                             preferredHeight: palette.isCatSkin
-                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs
+                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - MiraSpacing.xs - 20
                                 : nil,
                             weekStartDay: store.weekStartDay,
                             holidays: store.deviceHolidays,
@@ -56,6 +57,9 @@ struct HomeView: View {
                         .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
         
                         if !isFriendView {
+                            whitespaceSummary
+                                .padding(.horizontal, screenInset)
+
                             nextStepCard
                                 .padding(.horizontal, screenInset)
         
@@ -74,7 +78,7 @@ struct HomeView: View {
             }
             // A separate footer gives Mira a home without covering dates, card
             // corners, or the goal pills at any scroll position.
-            if store.assistantEnabled && !isFriendView {
+            if store.assistantEnabled && !isFriendView && !palette.isCatSkin {
                 HStack {
                     Spacer(minLength: 0)
                     MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
@@ -88,6 +92,29 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
+        }
+        .sheet(isPresented: $showWhitespaceExplanation) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                        Label("自分に戻れる時間を、ひと目で。", systemImage: "circle.dotted")
+                            .font(.title2.weight(.semibold))
+                        Text("日ごとのリングは、7:00〜23:00のうち、予定や基本時間で埋まっていない時間の割合です。大きく満ちているほど、余白があります。")
+                        Text("重なる予定は一度だけ数えます。休息や読書などの余白、予定前後のゆとり、誕生日、終日メモは減らしません。時間を使わない予定は、詳細の「時間を使う予定」をオフにできます。")
+                        Text("今月の合計は、過去の日も含むひと月全体の余白です。睡眠時間の個別設定には未対応のため、現在は7:00〜23:00を目安にしています。")
+                            .font(.footnote)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .padding(MiraSpacing.lg)
+                }
+                .miraScreenBackground(palette)
+                .navigationTitle("余白メーターについて")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) {
+                    Button("閉じる") { showWhitespaceExplanation = false }
+                } }
+            }
+            .tint(palette.accent)
         }
         .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
             showCompanion = true
@@ -272,36 +299,84 @@ struct HomeView: View {
     }
 
     private var skyMonthHeader: some View {
-        HStack(spacing: MiraSpacing.sm) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.system(.title, design: .rounded, weight: .heavy))
-                    .foregroundStyle(palette.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+        VStack(alignment: .leading, spacing: MiraSpacing.xxs) {
+            HStack(alignment: .center, spacing: MiraSpacing.sm) {
+                VStack(alignment: .leading, spacing: -5) {
+                    Text(DateFormatter.mira("yyyy").string(from: store.selectedMonth))
+                        .font(.system(size: 18, weight: .medium, design: .serif))
+                        .tracking(3)
+                    Text(DateFormatter.mira("M月").string(from: store.selectedMonth))
+                        .font(.system(size: dynamicTypeSize.isAccessibilitySize ? 48 : 58, weight: .regular, design: .serif))
+                        .tracking(1)
+                }
+                .foregroundStyle(palette.primaryText)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(store.selectedMonth.japaneseMonthTitle)
+                .accessibilityIdentifier("homeMonthHeading")
+                Spacer(minLength: 0)
+                HStack(spacing: 0) {
+                    Button { changeMonth(by: -1) } label: {
+                        Image(systemName: "chevron.left").frame(width: 44, height: 48)
+                    }
+                    .accessibilityLabel("前の月")
+                    Button { changeMonth(by: 1) } label: {
+                        Image(systemName: "chevron.right").frame(width: 44, height: 48)
+                    }
+                    .accessibilityLabel("次の月")
+                }
+                .font(.body.weight(.semibold))
+                .background(palette.surface, in: Capsule())
+                .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
+                .shadow(color: palette.shadow, radius: 8, y: 4)
+                addMenu
+            }
+            HStack(alignment: .center) {
                 friendViewButton
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack(spacing: 0) {
-                Button { changeMonth(by: -1) } label: {
-                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                Spacer(minLength: MiraSpacing.sm)
+                if store.assistantEnabled && !isFriendView {
+                    MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
+                        showCompanion = true
+                    }
                 }
-                .accessibilityLabel("前の月")
-                Button { changeMonth(by: 1) } label: {
-                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("次の月")
             }
-            .font(.body.weight(.heavy))
-            .background(palette.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 2) }
-
-            addMenu
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
         .padding(.vertical, MiraSpacing.xs)
+    }
+
+    private var whitespaceSummary: some View {
+        let calendar = Calendar.mira
+        let month = MonthKey(date: store.selectedMonth)
+        let days = calendar.range(of: .day, in: .month, for: month.firstDay) ?? 1..<31
+        let rules = store.fetchBaseRules()
+        let minutes = days.reduce(0) { total, day in
+            let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) ?? month.firstDay
+            return total + DayWhitespace(date: date, items: monthItems, baseRules: rules).availableMinutes
+        }
+        return Button { showWhitespaceExplanation = true } label: {
+            HStack(alignment: .firstTextBaseline, spacing: MiraSpacing.sm) {
+                Text("今月の余白")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 0)
+                Text("\(minutes / 60)")
+                    .font(.system(.title, design: .serif, weight: .medium))
+                    .monospacedDigit()
+                Text("時間")
+                    .font(.caption)
+                Image(systemName: "info.circle")
+                    .font(.caption)
+            }
+            .foregroundStyle(palette.accent)
+            .padding(.horizontal, MiraSpacing.lg)
+            .padding(.vertical, MiraSpacing.md)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(palette.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
+        }
+        .buttonStyle(MiraPressStyle())
+        .accessibilityLabel("今月の余白、\(minutes / 60)時間。計算方法を見る")
+        .accessibilityIdentifier("monthWhitespaceSummary")
     }
 
     private var friendViewButton: some View {

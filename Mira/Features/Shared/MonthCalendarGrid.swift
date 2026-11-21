@@ -79,7 +79,7 @@ struct MonthCalendarGrid: View {
         let regular: CGFloat = dayCount > 35 ? 88 : 104
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
-        return max(88, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
+        return max(80, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -126,10 +126,10 @@ struct MonthCalendarGrid: View {
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
-        let isCompact = palette.isCatSkin && cellHeight < 100
-        let visibleItemLimit = isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        let isCompact = cellHeight < 104
+        let visibleItemLimit = isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
 
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Spacer(minLength: 0)
                 ZStack {
@@ -145,7 +145,7 @@ struct MonthCalendarGrid: View {
                     }
 
                     Text("\(calendar.component(.day, from: date))")
-                        .font(.system(.subheadline, design: .rounded, weight: isSelected || isToday ? .heavy : .bold).monospacedDigit())
+                        .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
                         .foregroundStyle(dateForeground(
                             isSelected: isSelected,
                             isInDisplayedMonth: isInDisplayedMonth,
@@ -153,8 +153,19 @@ struct MonthCalendarGrid: View {
                             isHoliday: holiday != nil
                         ))
                 }
-                .frame(height: 28)
+                .frame(height: 26)
                 Spacer(minLength: 0)
+            }
+
+            if !privacyMode {
+                let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar)
+                WhitespaceRing(fraction: whitespace.fraction, palette: palette)
+                    .frame(width: 13, height: 13)
+                    .frame(maxWidth: .infinity)
+                    .opacity(isInDisplayedMonth ? 1 : 0.3)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
+                    .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             }
 
             VStack(spacing: 2) {
@@ -272,7 +283,22 @@ struct MonthCalendarGrid: View {
         let suffix = privacyMode
             ? FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar).summary
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
-        return "\(formatter.string(from: date))、\(suffix)"
+        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar)
+        return "\(formatter.string(from: date))、\(suffix)" + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
+    }
+}
+
+private struct WhitespaceRing: View {
+    let fraction: Double
+    let palette: MiraThemePalette
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(palette.accent.opacity(0.12), lineWidth: 2.5)
+            Circle().trim(from: 0, to: min(1, max(0, fraction)))
+                .stroke(palette.accent.opacity(0.75), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
     }
 }
 
