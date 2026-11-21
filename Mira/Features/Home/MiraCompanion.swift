@@ -73,7 +73,7 @@ struct MiraCompanionButton: View {
                     .overlay { Circle().strokeBorder(palette.accent.opacity(0.25), lineWidth: 1.5) }
                     .shadow(color: palette.shadow, radius: 14, y: 5)
                 if store.theme.isCat {
-                    MiraCatView(mood: message.mood, size: store.theme == .silhouetteCat ? 36 : 54)
+                    MiraCatView(mood: message.mood, size: store.theme == .pixelCat ? 54 : 36)
                         .accessibilityHidden(true)
                 } else {
                     Image(systemName: "bubble.left.and.text.bubble.right.fill")

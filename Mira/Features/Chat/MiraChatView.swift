@@ -182,7 +182,7 @@ struct MiraAvatar: View {
         ZStack {
             Circle().fill(palette.elevatedSurface)
             if store.theme.isCat {
-                MiraCatView(mood: mood, size: size * (store.theme == .silhouetteCat ? 0.6 : 0.9))
+                MiraCatView(mood: mood, size: size * (store.theme == .pixelCat ? 0.9 : 0.6))
             } else {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: size * 0.42, weight: .semibold))
@@ -191,7 +191,9 @@ struct MiraAvatar: View {
         }
         .frame(width: size, height: size)
         .overlay { Circle().strokeBorder(palette.accent.opacity(0.2), lineWidth: 1) }
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mira")
+        .accessibilityIdentifier("miraAvatar")
     }
 }
 
@@ -293,7 +295,9 @@ private struct TypingIndicator: View {
 
 private struct ChatCardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(MiraStore.self) private var store
+    @State private var timelineProposal: DayTimelineProposal?
     let card: ChatCard
     let messageID: UUID
     let palette: MiraThemePalette
@@ -312,6 +316,13 @@ private struct ChatCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .miraCard(palette, padding: MiraSpacing.sm)
+        .sheet(item: $timelineProposal) { proposal in
+            NavigationStack {
+                DayTimelineView(date: proposal.event.startDate, palette: palette, proposal: proposal)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private func scheduleCard(_ summary: ChatScheduleSummary) -> some View {
@@ -410,6 +421,13 @@ private struct ChatCardView: View {
                 }
             }
             impactLines(conflicts: proposal.conflicts, margins: proposal.impact.overlappingMargins)
+            Button("この日の予定を見る") {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+                    timelineProposal = DayTimelineProposal(event: proposal.event,
+                        conflicts: store.eventEntryConflictDetails(for: proposal.event))
+                }
+            }
+            .accessibilityIdentifier("proposal.showDay")
             proposalActions(state: proposal.state, needsCare: proposal.needsCare, applyTitle: "カレンダーに追加", appliedTitle: "追加しました", cardID: proposal.id)
         }
     }

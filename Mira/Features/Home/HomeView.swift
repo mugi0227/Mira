@@ -13,9 +13,20 @@ struct HomeView: View {
     @State private var showCompanion = false
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
+    @State private var renderedFriendSignature: Int?
+    @State private var friendRecipientID: UUID?
+    @State private var showFriendImagePreview = false
     @State private var monthHeaderHeight: CGFloat = 88
     @State private var topFadeAmount: CGFloat = 0
     private let scrollFadeHeight: CGFloat = MiraSpacing.lg
+
+    private var friendRecipient: ImportantPersonEntity? {
+        store.importantPeople.first { $0.id == friendRecipientID }
+    }
+
+    private var friendLevel: FriendShareLevel {
+        friendRecipient.map { store.friendShareLevel(for: $0) } ?? .freeOnly
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,20 +38,20 @@ struct HomeView: View {
                         monthHeader
                             .padding(.horizontal, screenInset)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
-        
+
                         if isFriendView {
                             friendViewBanner
                                 .padding(.horizontal, screenInset)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                         }
-        
+
                         MonthCalendarGrid(
                             month: store.selectedMonth,
                             selectedDate: Binding(
                                 get: { store.selectedDate },
                                 set: { store.selectedDate = $0 }
                             ),
-                            items: monthItems,
+                            items: isFriendView ? store.items : monthItems,
                             palette: palette,
                             preferredHeight: palette.isCatSkin
                                 ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - scrollFadeHeight - MiraSpacing.xs
@@ -50,17 +61,18 @@ struct HomeView: View {
                             referenceDate: store.now,
                             allowsDragging: !isFriendView,
                             privacyMode: isFriendView,
+                            friendLevel: friendLevel,
                             baseRules: store.fetchBaseRules(),
                             onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                             onSelectDate: openDay,
                             onSelectItem: { item in if !isFriendView { selectedItem = item } }
                         )
                         .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
-        
+
                         if !isFriendView {
                             nextStepCard
                                 .padding(.horizontal, screenInset)
-        
+
                             progressSummary
                                 .padding(.horizontal, screenInset)
                         }
@@ -105,6 +117,9 @@ struct HomeView: View {
                     MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
                         showCompanion = true
                     }
+                    .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bounds) {
+                        MiraOverlayLayout(companionBounds: $0)
+                    }
                 }
                 .padding(.horizontal, screenInset)
                 .padding(.vertical, MiraSpacing.xs)
@@ -115,6 +130,11 @@ struct HomeView: View {
         .miraScreenBackground(palette)
         .sheet(isPresented: $showCompanion) {
             MiraChatView(palette: palette)
+        }
+        .fullScreenCover(isPresented: $showFriendImagePreview) {
+            if let friendShareImage {
+                FriendShareImagePreview(image: friendShareImage)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
             showCompanion = true
@@ -310,19 +330,21 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 0) {
+            HStack(spacing: MiraSpacing.xs) {
                 Button { changeMonth(by: -1) } label: {
                     Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                        .background(palette.surface, in: Circle())
+                        .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
                 }
                 .accessibilityLabel("前の月")
                 Button { changeMonth(by: 1) } label: {
                     Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                        .background(palette.surface, in: Circle())
+                        .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
                 }
                 .accessibilityLabel("次の月")
             }
             .font(.body.weight(.heavy))
-            .background(palette.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 2) }
 
             addMenu
         }
@@ -351,69 +373,85 @@ struct HomeView: View {
     }
 
     private var friendViewBanner: some View {
-        HStack(spacing: MiraSpacing.sm) {
-            Image(systemName: "eye.slash.fill")
-                .foregroundStyle(palette.accent)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("見せる用モード")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.primaryText)
-                Text("予定の中身を隠して、朝・昼・夜の空きを表示中。朝8–12時、昼12–18時、夜18–24時。")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading) {
+            FriendShareControls(recipientID: $friendRecipientID, palette: palette)
+            if ProcessInfo.processInfo.arguments.contains("-friend-share-image-preview"),
+               friendLevel != .hidden, renderedFriendSignature == friendShareSignature, friendShareImage != nil {
+                Button("共有画像を確認") { showFriendImagePreview = true }
+                    .accessibilityIdentifier("friendShareExactImagePreview")
             }
-            Spacer(minLength: 0)
-            Button("戻る") { isFriendView = false }
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(palette.accent)
-                .frame(minWidth: 44, minHeight: 44)
-        }
-        .padding(.bottom, 52)
-        .overlay(alignment: .bottom) {
-            HStack(spacing: MiraSpacing.xs) {
-                if let friendShareImage {
-                    ShareLink(
-                        item: friendShareImage,
-                        preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
-                    ) {
-                        Label("画像で送る", systemImage: "square.and.arrow.up")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(palette.onAccent)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+            HStack(spacing: MiraSpacing.sm) {
+                Image(systemName: "eye.slash.fill")
+                    .foregroundStyle(palette.accent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("見せる用モード")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(palette.primaryText)
+                    Text(friendLevel.explanation)
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Button("戻る") { isFriendView = false }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(palette.accent)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .padding(.bottom, 52)
+            .overlay(alignment: .bottom) {
+                HStack(spacing: MiraSpacing.xs) {
+                    if friendLevel != .hidden, renderedFriendSignature == friendShareSignature, let friendShareImage {
+                        ShareLink(
+                            item: friendShareImage,
+                            preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
+                        ) {
+                            Label("画像で送る", systemImage: "square.and.arrow.up")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(palette.onAccent)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                        }
+                        .accessibilityIdentifier("friendShareImage")
                     }
-                    .accessibilityIdentifier("friendShareImage")
+                    if friendLevel != .hidden {
+                        ShareLink(item: FriendAvailabilityText.text(from: store.now, items: store.items, baseRules: store.fetchBaseRules(), level: friendLevel)) {
+                            Label("文字で送る", systemImage: "text.bubble")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(palette.accent)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                        }
+                        .accessibilityIdentifier("friendShareText")
+                    }
                 }
-                // Text keeps the same privacy as the image: only which bands are free.
-                ShareLink(item: store.friendAvailabilityText()) {
-                    Label("文字で送る", systemImage: "text.bubble")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(palette.accent)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
-                }
-                .accessibilityIdentifier("friendShareText")
             }
         }
         .miraCard(palette, padding: MiraSpacing.sm)
         .task(id: friendShareSignature) {
+            let signature = friendShareSignature
             friendShareImage = FriendShareRenderer.image(for: FriendShareCard(
                 month: store.selectedMonth,
-                items: monthItems,
+                items: store.items,
                 palette: palette,
                 weekStartDay: store.weekStartDay,
                 referenceDate: store.now,
-                baseRules: store.fetchBaseRules()
+                baseRules: store.fetchBaseRules(),
+                level: friendLevel,
+                recipientName: friendRecipient?.name
             ))
+            renderedFriendSignature = signature
         }
     }
 
     private var friendShareSignature: Int {
         var hasher = Hasher()
+        hasher.combine(friendRecipientID)
+        hasher.combine(friendRecipient?.name)
+        hasher.combine(friendLevel)
         hasher.combine(MonthKey(date: store.selectedMonth))
-        hasher.combine(monthItems)
+        hasher.combine(store.items)
         hasher.combine(store.weekStartDay)
         hasher.combine(store.theme)
         for rule in store.fetchBaseRules() {

@@ -5,6 +5,21 @@ extension Notification.Name {
     static let miraRetryStorage = Notification.Name("mira.retryStorage")
 }
 
+struct MiraOverlayLayout {
+    var tabBarHeight: CGFloat = 0
+    var companionBounds: Anchor<CGRect>?
+}
+
+struct MiraOverlayLayoutKey: PreferenceKey {
+    static var defaultValue = MiraOverlayLayout()
+
+    static func reduce(value: inout MiraOverlayLayout, nextValue: () -> MiraOverlayLayout) {
+        let next = nextValue()
+        value.tabBarHeight = max(value.tabBarHeight, next.tabBarHeight)
+        value.companionBounds = next.companionBounds ?? value.companionBounds
+    }
+}
+
 struct AppRootView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
@@ -14,8 +29,8 @@ struct AppRootView: View {
     var body: some View {
         let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme, colorStyle: store.colorStyle)
 
-        VStack(spacing: 0) {
-            toastBanner(palette: palette)
+        ZStack {
+            MiraScreenBackground(palette: palette)
             Group {
                 if store.isEmergencyStorage {
                     VStack(spacing: MiraSpacing.lg) {
@@ -41,7 +56,6 @@ struct AppRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background { MiraScreenBackground(palette: palette) }
         .task {
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
@@ -101,6 +115,21 @@ struct AppRootView: View {
                 }
             }
         }
+        .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
+            GeometryReader { geometry in
+                let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
+                let trailingClearance = layout.companionBounds.map {
+                    max(0, geometry.size.width - geometry[$0].minX) + MiraSpacing.xs
+                } ?? 0
+                VStack {
+                    Spacer(minLength: 0)
+                    toastBanner(palette: palette)
+                        .padding(.trailing, trailingClearance)
+                        .padding(.bottom, bottomClearance + MiraSpacing.xs)
+                }
+            }
+            .allowsHitTesting(false)
+        }
         .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
     }
@@ -109,18 +138,16 @@ struct AppRootView: View {
     private func toastBanner(palette: MiraThemePalette) -> some View {
         if let toast = store.toast {
             Text(toast)
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, MiraSpacing.md)
-                .padding(.vertical, MiraSpacing.sm)
+                .padding(.vertical, MiraSpacing.xs)
                 .background(.ultraThinMaterial, in: Capsule())
                 .shadow(color: palette.shadow, radius: 12, y: 5)
-                .padding(.horizontal, MiraSpacing.md)
-                .padding(.top, 8)
-                .padding(.bottom, MiraSpacing.xs)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md)
                 .accessibilityIdentifier("appToast")
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: toast) {
                     let arguments = ProcessInfo.processInfo.arguments
                     guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
