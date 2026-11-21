@@ -278,7 +278,7 @@ struct HomeView: View {
         .foregroundStyle(palette.primaryText)
         .tint(palette.accent)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .miraCard(palette, padding: MiraSpacing.sm)
+        .miraPeekingCatCard(palette, theme: store.theme, padding: MiraSpacing.sm)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("homeNextStepCard")
     }

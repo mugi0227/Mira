@@ -23,16 +23,23 @@ enum FriendShareLevel: String, CaseIterable {
 }
 
 struct FriendDayContent {
+    struct GridEntry: Equatable {
+        let time: String
+        let title: String
+    }
+
     let lines: [String]
     let gridLines: [String]
+    let gridEntries: [GridEntry]
 
     init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule] = [], level: FriendShareLevel = .freeOnly, calendar: Calendar = .mira) {
-        guard level != .hidden else { lines = []; gridLines = []; return }
+        guard level != .hidden else { lines = []; gridLines = []; gridEntries = []; return }
         if level == .freeOnly {
             let availability = FriendAvailability(date: date, items: items, baseRules: baseRules, calendar: calendar)
             lines = availability.hasAllDayEvent || availability.bands.allSatisfy { !$0.isBusy }
                 ? [availability.summary] : availability.bands.map(\.label)
             gridLines = lines
+            gridEntries = []
             return
         }
         let start = calendar.startOfDay(for: date)
@@ -72,6 +79,7 @@ struct FriendDayContent {
             }
         }
         if level == .busyTimes {
+            gridEntries = []
             let unknown = undetermined.isEmpty ? [] : ["時間未定 予定あり"]
             if relevant.contains(where: \.isAllDay) {
                 lines = ["終日 予定あり"] + unknown
@@ -83,12 +91,13 @@ struct FriendDayContent {
             }
             return
         }
-        var entries: [(date: Date, text: String, grid: String)] = zip(bodyItems, eventRanges).map { item, interval in
+        var entries: [(date: Date, text: String, grid: String, preview: GridEntry)] = zip(bodyItems, eventRanges).map { item, interval in
             let title = item.kind == .confirmed ? item.title : "予定あり"
             let grid = item.kind == .confirmed
                 ? "\(item.isAllDay ? "終日" : compactTime(interval.start)) \(title)"
                 : (item.isAllDay ? "終日 予定あり" : compactRange(interval))
-            return (interval.start, "\(item.isAllDay ? "終日" : range(interval.start, interval.end)) \(title)", grid)
+            let preview = GridEntry(time: item.isAllDay ? "終日" : compactRange(interval), title: title)
+            return (interval.start, "\(item.isAllDay ? "終日" : range(interval.start, interval.end)) \(title)", grid, preview)
         }
         let covered = merged(eventRanges)
         for interval in merged(work + occupiedRanges) {
@@ -96,19 +105,22 @@ struct FriendDayContent {
             for body in covered where body.end > cursor && body.start < interval.end {
                 if body.start > cursor {
                     let gap = DateInterval(start: cursor, end: body.start)
-                    entries.append((gap.start, "\(range(gap.start, gap.end)) 予定あり", compactRange(gap)))
+                    entries.append((gap.start, "\(range(gap.start, gap.end)) 予定あり", compactRange(gap), GridEntry(time: compactRange(gap), title: "予定あり")))
                 }
                 cursor = max(cursor, body.end)
             }
             if cursor < interval.end {
                 let gap = DateInterval(start: cursor, end: interval.end)
-                entries.append((gap.start, "\(range(gap.start, gap.end)) 予定あり", compactRange(gap)))
+                entries.append((gap.start, "\(range(gap.start, gap.end)) 予定あり", compactRange(gap), GridEntry(time: compactRange(gap), title: "予定あり")))
             }
         }
         entries.sort { $0.date < $1.date }
         let unknown = undetermined.map { "時間未定 \($0.kind == .confirmed ? $0.title : "予定あり")" }
         lines = entries.map(\.text) + unknown
         gridLines = entries.map(\.grid) + unknown
+        gridEntries = entries.map(\.preview) + undetermined.map {
+            GridEntry(time: "時間未定", title: $0.kind == .confirmed ? $0.title : "予定あり")
+        }
     }
 }
 
