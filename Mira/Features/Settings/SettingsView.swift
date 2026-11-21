@@ -11,27 +11,25 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            if palette.isCatSkin {
-                Section {
-                    HStack(spacing: MiraSpacing.md) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Miraを、あなたらしく")
-                                .font(.title3.bold())
-                                .foregroundStyle(palette.primaryText)
-                            Text("毎日に合う、心地よい使い方へ。")
-                                .font(.subheadline)
-                                .foregroundStyle(palette.secondaryText)
-                        }
-                        Spacer(minLength: 0)
-                        MiraBotanicalAccent(palette: palette)
-                            .frame(width: 48, height: 64)
-                            .accessibilityHidden(true)
+            Section {
+                HStack(spacing: MiraSpacing.md) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Miraを、あなたらしく")
+                            .font(.title3.bold())
+                            .foregroundStyle(palette.primaryText)
+                        Text("毎日に合う、心地よい使い方へ。")
+                            .font(.subheadline)
+                            .foregroundStyle(palette.secondaryText)
                     }
-                    .padding(.vertical, MiraSpacing.xs)
+                    Spacer(minLength: 0)
+                    MiraBotanicalAccent(palette: palette)
+                        .frame(width: 48, height: 64)
+                        .accessibilityHidden(true)
                 }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 0, leading: MiraSpacing.md, bottom: 0, trailing: MiraSpacing.md))
             }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
             Section {
                 Toggle("日常の日時を使う", isOn: Binding(
@@ -216,6 +214,7 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
         }
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, MiraSpacing.xs, for: .scrollContent)
         .miraFormStyle(palette)
         .miraScreenBackground(palette)
         .navigationTitle("設定")

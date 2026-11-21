@@ -43,7 +43,7 @@ struct MiraQuickInputBar: View {
                     Image(systemName: "scope")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .foregroundStyle(palette.isCatSkin || store.pinnedContext != nil ? palette.accent : palette.secondaryText)
+                        .foregroundStyle(palette.accent)
                         .background(palette.surface, in: Circle())
                 }
                 .accessibilityLabel("この話について予定を指定")
@@ -61,10 +61,10 @@ struct MiraQuickInputBar: View {
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
                     .foregroundStyle(palette.primaryText)
-                    .background(palette.surface, in: RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.medium, style: .continuous))
+                    .background(palette.surface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: palette.isCatSkin ? 24 : MiraRadius.medium, style: .continuous)
-                            .stroke(palette.isCatSkin ? palette.accent.opacity(0.14) : palette.primaryText.opacity(0.07), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
+                            .stroke(palette.accent.opacity(0.14), lineWidth: 1)
                     }
                     .accessibilityLabel("Miraへのお願い")
                     .accessibilityIdentifier("miraQuickInput")
@@ -152,14 +152,7 @@ private struct QuickInputSurface: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if palette.isCatSkin {
-            content.miraCard(palette, padding: MiraSpacing.sm)
-        } else {
-            content
-                .padding(MiraSpacing.sm)
-                .background(palette.elevatedBackground, in: RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous))
-                .shadow(color: palette.shadow, radius: 12, y: 5)
-        }
+        content.miraCard(palette, padding: MiraSpacing.sm)
     }
 }
 

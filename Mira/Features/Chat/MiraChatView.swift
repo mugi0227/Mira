@@ -25,7 +25,7 @@ struct MiraChatView: View {
     var body: some View {
         let arguments = ProcessInfo.processInfo.arguments
         let usesLargeText = arguments.contains("-ui-testing") && arguments.contains("-ui-testing-large-text")
-        let transcriptInset = palette.isCatSkin ? MiraSpacing.lg : MiraSpacing.md
+        let transcriptInset = MiraSpacing.lg
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {

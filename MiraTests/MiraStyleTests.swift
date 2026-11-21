@@ -82,6 +82,38 @@ final class MiraStyleTests: XCTestCase {
         }
     }
 
+    func testNewAndInvalidThemeSettingsDefaultToSoftMinimal() async throws {
+        XCTAssertEqual(AppSettingsEntity().themeRaw, AppThemeKind.softMinimal.rawValue)
+        let store = makeStore(try makeContainer())
+        XCTAssertEqual(store.theme, .softMinimal)
+        await store.bootstrap()
+        XCTAssertEqual(store.theme, .softMinimal)
+        store.settingsEntity?.themeRaw = "unknown-theme"
+        store.applySettings()
+        XCTAssertEqual(store.theme, .softMinimal)
+    }
+
+    func testSavedCatThemesSurviveRelaunch() async throws {
+        let container = try makeContainer()
+        let store = makeStore(container)
+        await store.bootstrap()
+        for theme in AppThemeKind.allCases where theme.isCat {
+            store.setTheme(theme)
+            let relaunched = makeStore(container)
+            await relaunched.bootstrap()
+            XCTAssertEqual(relaunched.theme, theme)
+        }
+    }
+
+    func testDemoResetRestoresSoftMinimal() async throws {
+        let store = makeStore(try makeContainer())
+        await store.bootstrap()
+        store.setTheme(.pixelCat)
+        await store.resetDemo()
+        XCTAssertEqual(store.theme, .softMinimal)
+        XCTAssertEqual(store.settingsEntity?.themeRaw, AppThemeKind.softMinimal.rawValue)
+    }
+
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
             AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,
