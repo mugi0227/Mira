@@ -20,9 +20,7 @@ final class HomeWhitespaceUITests: XCTestCase {
         let day = element("calendar-day-2026-09-06")
         XCTAssertTrue(day.waitForExistence(timeout: 5))
         day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
-        XCTAssertTrue(app.navigationBars["9月6日 (日)"].waitForExistence(timeout: 3)
-            || app.buttons["timelineAddEvent"].waitForExistence(timeout: 3)
-            || app.navigationBars.buttons.firstMatch.exists)
+        XCTAssertTrue(app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", "9月6日")).firstMatch.waitForExistence(timeout: 5))
         capture("whitespace-day-navigation")
     }
 
@@ -34,7 +32,7 @@ final class HomeWhitespaceUITests: XCTestCase {
         let dinner = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "みんなでご飯、")).firstMatch
         XCTAssertTrue(dinner.waitForExistence(timeout: 5))
         dinner.tap()
-        let toggle = app.switches["eventOccupiesTime"]
+        let toggle = app.buttons["eventOccupiesTime"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         toggle.tap()
         app.buttons["閉じる"].tap()

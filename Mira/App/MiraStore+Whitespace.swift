@@ -12,6 +12,7 @@ extension MiraStore {
             try context.save()
             try refresh()
         } catch {
+            context.rollback()
             toast = "余白の計算設定を保存できませんでした"
         }
     }

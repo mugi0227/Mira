@@ -18,6 +18,8 @@ struct HomeView: View {
     @State private var showFriendImagePreview = false
     @State private var monthHeaderHeight: CGFloat = 88
     @State private var showWhitespaceExplanation = false
+    @State private var scrollAtTop = true
+    @State private var scrollAtBottom = false
 
     private var friendRecipient: ImportantPersonEntity? {
         store.importantPeople.first { $0.id == friendRecipientID }
@@ -80,11 +82,25 @@ struct HomeView: View {
                         }
                     }
                     .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
-                    .padding(.top, palette.isCatSkin ? MiraSpacing.md : MiraSpacing.xs)
+                    .padding(.top, MiraSpacing.xs)
                     .padding(.bottom, MiraSpacing.lg)
                 }
                 // Keep scrolled dates out of the status bar's safe area.
                 .clipped()
+                .onScrollGeometryChange(for: Bool.self) { $0.visibleRect.minY <= 1 } action: { _, value in
+                    scrollAtTop = value
+                }
+                .onScrollGeometryChange(for: Bool.self) { $0.visibleRect.maxY >= $0.contentSize.height - 1 } action: { _, value in
+                    scrollAtBottom = value
+                }
+                .mask {
+                    LinearGradient(stops: [
+                        .init(color: .white.opacity(scrollAtTop ? 1 : 0), location: 0),
+                        .init(color: .white, location: min(0.1, 24 / max(1, viewport.size.height))),
+                        .init(color: .white, location: max(0.9, 1 - 24 / max(1, viewport.size.height))),
+                        .init(color: .white.opacity(scrollAtBottom ? 1 : 0), location: 1)
+                    ], startPoint: .top, endPoint: .bottom)
+                }
                 .accessibilityIdentifier("homeScroll")
                 .miraScreenBackground(palette)
             }
@@ -359,7 +375,7 @@ struct HomeView: View {
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
-        .padding(.vertical, MiraSpacing.xs)
+        .padding(.vertical, MiraSpacing.xxs)
     }
 
     private var whitespaceSummary: some View {

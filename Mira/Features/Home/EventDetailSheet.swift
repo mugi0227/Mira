@@ -31,12 +31,26 @@ struct EventDetailSheet: View {
                     detailCard
                     if item.kind == .confirmed {
                         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
-                            Toggle("時間を使う予定", isOn: $occupiesTime)
-                                .font(.headline)
-                                .accessibilityIdentifier("eventOccupiesTime")
-                                .onChange(of: occupiesTime) { _, value in
-                                    store.setOccupiesTime(itemID: item.id, to: value)
+                            Button {
+                                occupiesTime.toggle()
+                                store.setOccupiesTime(itemID: item.id, to: occupiesTime)
+                            } label: {
+                                HStack(spacing: MiraSpacing.md) {
+                                    Text("時間を使う予定")
+                                        .font(.headline)
+                                    Spacer(minLength: 0)
+                                    Label(occupiesTime ? "使う" : "メモ", systemImage: occupiesTime ? "checkmark.circle.fill" : "circle")
+                                        .font(.subheadline.weight(.semibold))
                                 }
+                                .foregroundStyle(palette.accent)
+                                .padding(MiraSpacing.sm)
+                                .frame(minHeight: 48)
+                                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small))
+                            }
+                            .buttonStyle(MiraPressStyle())
+                            .accessibilityLabel("時間を使う予定")
+                            .accessibilityValue(occupiesTime ? "オン" : "オフ")
+                            .accessibilityIdentifier("eventOccupiesTime")
                             Text("オフにすると、メモとして表示し、日ごとの余白を減らしません。")
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
