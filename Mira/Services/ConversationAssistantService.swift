@@ -109,7 +109,7 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
         searchCandidates: [ContextSearchResult],
         recentTurns: [ConversationTurnSnapshot]
     ) async -> ConversationInterpretation {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = Self.removingNegatedDays(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return .unknown(text) }
 
         let intent = inferIntent(from: normalized, hasContext: pinnedContext != nil || !searchCandidates.isEmpty)
@@ -147,6 +147,10 @@ struct RuleBasedConversationInterpreter: ConversationInterpreting {
             confidence: needsClarification ? 0.42 : 0.72,
             source: "ルールベース"
         )
+    }
+
+    static func removingNegatedDays(_ text: String) -> String {
+        text.replacingOccurrences(of: "(?:明後日|明日|今日)(?:ではなく|じゃなくて)", with: "", options: .regularExpression)
     }
 
     func defaultSearchRange(text: String, now: Date) -> DateInterval {

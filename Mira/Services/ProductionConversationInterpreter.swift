@@ -18,7 +18,7 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
         searchCandidates: [ContextSearchResult],
         recentTurns: [ConversationTurnSnapshot]
     ) async -> ConversationInterpretation {
-        let normalized = normalize(text)
+        let normalized = RuleBasedConversationInterpreter.removingNegatedDays(normalize(text))
         var result = await base.interpret(
             text: normalized,
             now: now,

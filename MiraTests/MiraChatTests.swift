@@ -5,6 +5,14 @@ import XCTest
 
 @MainActor
 final class MiraChatTests: XCTestCase {
+    func testNegatedRelativeDayIsNotProposed() async throws {
+        let store = try makeStore()
+        for request in ["明日ではなく明後日の19時に夕食を追加して", "明日じゃなくて明後日の19時に夕食を追加して"] {
+            await store.sendChat(request)
+            guard case .eventProposal(let proposal) = store.chatMessages.last?.cards.first else { return XCTFail("expected proposal") }
+            XCTAssertEqual(proposal.event.startDate, store.now.addingDays(2).setting(hour: 19))
+        }
+    }
     func testExplicitEventPreservesMinutesAndSlashDate() async throws {
         let store = try makeStore()
         store.chatAgent = FailingChatAgent()
