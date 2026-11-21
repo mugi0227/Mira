@@ -29,6 +29,18 @@ struct ProductionConversationInterpreter: ConversationInterpreting {
 
         applySupplementalDates(from: normalized, now: now, to: &result)
         applyExactTime(from: normalized, now: now, pinnedContext: pinnedContext, to: &result)
+        if [.unknown, .askAboutExisting].contains(result.intent),
+           !result.candidateDates.isEmpty, result.exactStartDate != nil,
+           !["?", "？", "教えて", "何が", "何か", "予定は", "予定を", "ある", "確認", "見せて", "調べて", "空き"].contains(where: normalized.contains) {
+            let title = RuleBasedChatAgent.planTitle(from: normalized)
+            if title != "予定", !title.isEmpty {
+                result.intent = .addEvent
+                result.title = title
+                result.needsClarification = false
+                result.clarificationQuestion = nil
+                result.clarificationOptions = []
+            }
+        }
         applyColloquialDefaults(text: normalized, to: &result)
         applyExplicitExclusionPhrases(from: normalized, to: &result)
 

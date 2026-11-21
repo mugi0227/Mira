@@ -5,6 +5,23 @@ import XCTest
 
 @MainActor
 final class MiraChatTests: XCTestCase {
+    func testTerseDatedEventCreatesProposal() async throws {
+        let store = try makeStore()
+        store.chatAgent = FailingChatAgent()
+        await store.sendChat("今日の20時に読書")
+        guard case .eventProposal(let proposal) = store.chatMessages.last?.cards.first else { return XCTFail("expected proposal") }
+        XCTAssertEqual(proposal.event.title, "読書")
+        XCTAssertEqual(proposal.event.startDate, store.now.setting(hour: 20))
+    }
+
+    func testDatedQuestionsDoNotBecomeAddRequests() async {
+        let interpreter = ProductionConversationInterpreter(base: RuleBasedConversationInterpreter())
+        for text in ["今日の20時の予定は？", "今日の20時に何がある", "今日の20時の予定を教えて"] {
+            let result = await interpreter.interpret(text: text, now: TestFixtures.date(day: 15),
+                pinnedContext: nil, searchCandidates: [], recentTurns: [])
+            XCTAssertNotEqual(result.intent, .addEvent)
+        }
+    }
     func testNegatedRelativeDayIsNotProposed() async throws {
         let store = try makeStore()
         for request in ["明日ではなく明後日の19時に夕食を追加して", "明日じゃなくて明後日の19時に夕食を追加して"] {
