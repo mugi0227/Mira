@@ -232,6 +232,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     func testDayTimelineEndsNearTheFinalHour() {
+        XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 5))
         let day = app.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "9月", "予定なし")
         ).firstMatch
