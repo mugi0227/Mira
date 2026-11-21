@@ -293,6 +293,7 @@ private struct TypingIndicator: View {
 
 private struct ChatCardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(MiraStore.self) private var store
     @State private var timelineProposal: DayTimelineProposal?
     let card: ChatCard
@@ -419,7 +420,7 @@ private struct ChatCardView: View {
             }
             impactLines(conflicts: proposal.conflicts, margins: proposal.impact.overlappingMargins)
             Button("この日の予定を見る") {
-                withAnimation(.spring()) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     timelineProposal = DayTimelineProposal(event: proposal.event,
                         conflicts: store.eventEntryConflictDetails(for: proposal.event))
                 }

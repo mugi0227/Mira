@@ -22,6 +22,7 @@ struct DayTimelineView: View {
     private let timeLabelWidth: CGFloat = 52
 
     var body: some View {
+        GeometryReader { viewport in
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
@@ -47,14 +48,14 @@ struct DayTimelineView: View {
                 .padding(.bottom, 80)
             }
             .miraScreenBackground(palette)
-            .safeAreaInset(edge: .top, spacing: 0) {
+            .safeAreaInset(edge: .top, spacing: proposal == nil ? 0 : MiraSpacing.md) {
                 if let proposal {
                     ScrollView {
                         conflictSection(proposal)
                             .padding(.horizontal, MiraSpacing.md)
-                            .padding(.vertical, MiraSpacing.xs)
+                            .padding(.vertical, MiraSpacing.sm)
                     }
-                    .frame(height: min(200, CGFloat(max(1, proposal.conflicts.count)) * 64 + 64))
+                    .frame(height: min(viewport.size.height * 0.42, CGFloat(max(1, proposal.conflicts.count)) * 76 + 96))
                     .background(palette.background)
                 }
             }
@@ -64,6 +65,7 @@ struct DayTimelineView: View {
                     proxy.scrollTo(scrollTargetID, anchor: .top)
                 }
             }
+        }
         }
         .navigationTitle(date.japaneseDayTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -117,7 +119,7 @@ struct DayTimelineView: View {
         }
         .font(.subheadline)
         .foregroundStyle(palette.critical)
-        .miraCard(palette, padding: MiraSpacing.sm)
+        .miraCard(palette, padding: MiraSpacing.lg)
     }
 
     private func conflictRow(_ text: String, icon: String, tappable: Bool) -> some View {
@@ -205,7 +207,7 @@ struct DayTimelineView: View {
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: timeLabelWidth, height: hourHeight, alignment: .topTrailing)
-                        .offset(y: -7)
+                        .offset(y: proposal == nil ? -7 : 0)
                         .id("hour-\(hour)")
                 }
             }
@@ -287,6 +289,7 @@ struct DayTimelineView: View {
             }
             .frame(height: hourHeight * 24)
         }
+        .padding(.trailing, proposal == nil ? 0 : MiraSpacing.md)
         .accessibilityElement(children: .contain)
     }
 
