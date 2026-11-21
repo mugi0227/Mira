@@ -15,9 +15,9 @@ struct PrimaryButton: View {
                         .accessibilityHidden(true)
                 }
                 Text(title)
-                    .font(.headline)
+                    .font(.headline.weight(.bold))
             }
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .foregroundStyle(palette.onAccent)
             .background {
                 if isDisabled {
@@ -26,7 +26,7 @@ struct PrimaryButton: View {
                     palette.actionGradient
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 26 : MiraRadius.medium, style: .continuous))
+            .clipShape(Capsule())
             .overlay {
                 if palette.isCatSkin {
                     Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)

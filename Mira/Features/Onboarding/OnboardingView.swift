@@ -289,7 +289,7 @@ struct OnboardingView: View {
             VStack(spacing: MiraSpacing.lg) {
                 Spacer(minLength: MiraSpacing.lg)
                 PixelCatView(mood: .celebrating, size: 124)
-                onboardingTitle("あなたの余白を置いてみるにゃ", subtitle: "今ある予定と基本時間を避けて、休む日や自分の時間をおすすめ配置します。")
+                onboardingTitle("あなたの余白を置いてみましょう", subtitle: "今ある予定と基本時間を避けて、休む日や自分の時間をおすすめ配置します。")
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {

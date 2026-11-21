@@ -56,7 +56,7 @@ struct HomeView: View {
                     onSelectDate: openDay,
                     onSelectItem: { item in if !isFriendView { selectedItem = item } }
                 )
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.md : 0)
 
                 if !isFriendView {
                     nextStepCard
@@ -67,7 +67,7 @@ struct HomeView: View {
                         .padding(.horizontal, MiraSpacing.md)
                 }
             }
-            .animation(MiraMotion.standard, value: isFriendView)
+            .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
             .padding(.top, MiraSpacing.xs)
             .padding(.bottom, 96 + floatingTabBarClearance)
         }
@@ -125,10 +125,8 @@ struct HomeView: View {
         }
     }
 
-    /// The cat skin draws its own floating tab bar over the content instead
-    /// of insetting it, so corner controls must lift themselves above it.
     private var floatingTabBarClearance: CGFloat {
-        palette.isCatSkin ? 124 : 0
+        0
     }
 
     private var monthItems: [CalendarItemSnapshot] {
@@ -227,7 +225,7 @@ struct HomeView: View {
     private var standardMonthHeader: some View {
         HStack {
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(-1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.updateMarginRecommendation(for: store.selectedMonth)
@@ -251,7 +249,7 @@ struct HomeView: View {
             Spacer()
 
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.ensurePlan(for: store.selectedMonth)
@@ -268,42 +266,36 @@ struct HomeView: View {
     }
 
     private var skyMonthHeader: some View {
-        HStack(spacing: 4) {
-            Button { changeMonth(by: -1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.medium))
-                    .frame(width: 44, height: 44)
-                    .background(palette.surface.opacity(0.7), in: Circle())
-            }
-            .accessibilityLabel("前の月")
-
-            VStack(spacing: 4) {
+        HStack(spacing: MiraSpacing.sm) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.title2.bold())
+                    .font(.system(.title, design: .rounded, weight: .heavy))
                     .foregroundStyle(palette.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.65)
                 friendViewButton
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button { changeMonth(by: 1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .frame(width: 44, height: 44)
+            HStack(spacing: 0) {
+                Button { changeMonth(by: -1) } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("前の月")
+                Button { changeMonth(by: 1) } label: {
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("次の月")
             }
-            .accessibilityLabel("次の月")
+            .font(.body.weight(.heavy))
+            .background(palette.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 2) }
 
             addMenu
-                .background(alignment: .bottomLeading) {
-                    MiraBotanicalAccent(palette: palette)
-                        .frame(width: 45, height: 60)
-                        .offset(x: -20, y: 8)
-                }
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
-        .padding(.vertical, 4)
+        .padding(.vertical, MiraSpacing.xs)
     }
 
     private var friendViewButton: some View {
@@ -420,14 +412,14 @@ struct HomeView: View {
             }
         } label: {
             Image(systemName: "plus")
-                .font(palette.isCatSkin ? .system(size: 28, weight: .regular) : .body)
+                .font(palette.isCatSkin ? .system(size: 25, weight: .bold, design: .rounded) : .body)
                 .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
                 .frame(width: palette.isCatSkin ? 52 : 44, height: palette.isCatSkin ? 52 : 44)
                 .background {
                     if palette.isCatSkin {
-                        Circle().fill(palette.actionGradient)
-                            .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
-                            .shadow(color: palette.shadow, radius: 10, y: 4)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(palette.accent)
+                            .shadow(color: palette.accent.opacity(0.16), radius: 0, y: 4)
                     }
                 }
         }

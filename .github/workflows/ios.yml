@@ -86,7 +86,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test | tee unit-tests.log
 
-      - name: Run Grill-Me and self-time UI tests
+      - name: Run Grill-Me, self-time and style UI tests
         if: github.event_name != 'workflow_dispatch' || inputs.run_ui_tests != false
         run: |
           set -o pipefail
@@ -97,6 +97,7 @@ jobs:
             -only-testing:MiraUITests/GrillMeFlowUITests \
             -only-testing:MiraUITests/SelfTimeChatUITests \
             -only-testing:MiraUITests/FriendShareLevelUITests \
+            -only-testing:MiraUITests/MiraStyleUITests \
             CODE_SIGNING_ALLOWED=NO \
             test | tee ui-tests.log
 

@@ -67,35 +67,35 @@ final class RuleBasedChatAgent: MiraChatAgent {
             )
             sink.record(result)
             sink.setText(result.card == nil
-                ? "\(store.rangeLabel(rangeStart, rangeEnd))は、余白を崩さずに入れられる枠が見つからなかったにゃ。期間を広げてみる？"
-                : "余白を守れる候補を探したにゃ。気になる枠をタップすると、そのまま予定の案にできるよ。")
+                ? "\(store.rangeLabel(rangeStart, rangeEnd))は、余白を崩さずに入れられる枠が見つかりませんでした。期間を広げてみる？"
+                : "余白を守れる候補を探しました。気になる枠をタップすると、そのまま予定の案にできるよ。")
 
         case .declineInvitation:
             let draft = await store.declineDraftText(title: interpretation.title, person: interpretation.person, audience: .friend)
             sink.record(store.toolDraftMessage(purpose: "お断り", text: draft))
-            sink.setText("角が立たない断り方を考えたにゃ。そのまま使っても、少し直してもいいよ。断るのは悪いことじゃないにゃ。")
+            sink.setText("やわらかく伝わる文面を考えました。そのままでも、少し直しても大丈夫。無理のない返事を選びましょう。")
 
         case .updateExisting:
             if let day = interpretation.candidateDates.first ?? interpretation.dateRangeStart {
                 let result = store.toolProposeMove(titleQuery: interpretation.title, to: day)
                 sink.record(result)
-                sink.setText(result.card == nil ? "どの予定のことか分からなかったにゃ。予定の名前を入れてもう一度教えてね。" : proposalReply(for: result))
+                sink.setText(result.card == nil ? "どの予定のことか分かりませんでした。予定の名前を入れてもう一度教えてね。" : proposalReply(for: result))
             } else {
-                sink.setText("いつに動かしたいか教えてくれたら、影響をチェックするにゃ。")
+                sink.setText("いつに動かしたいか教えてくれたら、影響をチェックします。")
             }
 
         case .askAboutExisting, .unknown:
             if Self.isBalanceQuestion(text) {
                 let result = store.toolMonthBalance(month: store.selectedMonth)
                 sink.record(result)
-                sink.setText("今月の余白の様子だにゃ。足りないところがあれば、空いている日に置く案も出せるよ。")
+                sink.setText("今月の余白の様子です。足りないところがあれば、空いている日に置く案も出せるよ。")
             } else if interpretation.intent == .askAboutExisting || Self.isScheduleQuestion(text) {
                 let end = interpretation.dateRangeEnd ?? calendar.date(byAdding: .day, value: 7, to: rangeStart) ?? rangeStart
                 let result = store.toolListSchedule(from: rangeStart, to: end)
                 sink.record(result)
-                sink.setText(result.card == nil ? "\(store.rangeLabel(rangeStart, end))は何も入っていないにゃ。のんびりできそう。" : "\(store.rangeLabel(rangeStart, end))の予定だにゃ。")
+                sink.setText(result.card == nil ? "\(store.rangeLabel(rangeStart, end))は何も入っていません。のんびりできそう。" : "\(store.rangeLabel(rangeStart, end))の予定です。")
             } else {
-                sink.setText("予定のことなら任せてにゃ。たとえば「来週ご飯に行ける日を探して」「土曜の誘いを断る文を作って」「今月ちゃんと休めてる？」みたいに話しかけてね。")
+                sink.setText("予定の相談をどうぞ。たとえば「来週ご飯に行ける日を探して」「土曜の誘いを断る文を作って」「今月ちゃんと休めてる？」みたいに話しかけてね。")
             }
         }
     }
@@ -103,11 +103,11 @@ final class RuleBasedChatAgent: MiraChatAgent {
     private func proposalReply(for result: MiraToolResult) -> String {
         switch result.card {
         case .eventProposal(let proposal) where proposal.needsCare:
-            return "入れることはできるけど、気になる点があるにゃ。カードを見て決めてね。"
+            return "入れることはできるけど、気になる点があります。カードを見て決めてね。"
         case .moveProposal(let proposal) where proposal.needsCare:
-            return "動かせるけど、ぶつかるものがあるにゃ。カードで確認してね。"
+            return "動かせるけど、ぶつかるものがあります。カードで確認してね。"
         case .eventProposal, .moveProposal:
-            return "問題なさそうだにゃ。よければカードのボタンで決めてね。"
+            return "問題なさそうです。よければカードのボタンで決めてね。"
         default:
             return result.summary
         }
@@ -220,7 +220,7 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     }
 
     static let instructions = """
-    あなたは「Mira」。予定管理アプリの、やさしい猫のアシスタント。語尾は時々「にゃ」。返事は日本語で2〜3文、短く。
+    あなたは「Mira」。予定と自分の時間を整える、落ち着いたアシスタント。親しみやすく自然な日本語で2〜3文、短く答える。動物の鳴き声やキャラクター口調は使わない。
     利用者は誘いが多く断るのが苦手。自分の休息・読書・一人時間（＝余白）を守りながら予定を入れたい。
     ルール：
     - 予定や空きについて答える前に、必ずツールでカレンダーを確認する。推測で日付や予定を言わない。

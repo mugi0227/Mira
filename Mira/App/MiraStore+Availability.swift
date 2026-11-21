@@ -68,8 +68,8 @@ extension MiraStore {
             try context.save()
             recalculateBalance(for: selectedMonth)
             toast = rules.isEmpty
-                ? "基本時間の設定を外したにゃ"
-                : "基本時間を更新したにゃ。おすすめ配置にも反映できるよ"
+                ? "基本時間の設定を外しました"
+                : "基本時間を更新しました。おすすめ配置にも反映できるよ"
         } catch {
             toast = "基本時間を変更できませんでした"
         }

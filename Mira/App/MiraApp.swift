@@ -20,6 +20,7 @@ struct MiraApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView()
+                .fontDesign(.rounded)
                 // Pickers and system date text follow the same calendar the
                 // scheduling engines use, whatever the device region is.
                 .environment(\.locale, Locale(identifier: "ja_JP"))

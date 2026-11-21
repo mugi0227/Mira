@@ -153,12 +153,12 @@ extension MiraStore {
                 state.allowedTimeBands = prepared.schedulingTimeBand.map { [$0] } ?? []
                 state.candidates = updated
                 caseEntity.state = state
-                caseEntity.appendTurn(role: .assistant, text: "この日で確定して、ほかの候補を解放したにゃ", at: self.now)
+                caseEntity.appendTurn(role: .assistant, text: "この日で確定して、ほかの候補を解放しました", at: self.now)
             }
         }
         guard saved else { return false }
         await NotificationService.shared.cancelAdjustmentReminder(id: sessionID)
-        toast = "日程を確定して、ほかの候補を解放したにゃ"
+        toast = "日程を確定して、ほかの候補を解放しました"
         return true
     }
 
@@ -201,7 +201,7 @@ extension MiraStore {
             await refreshInvitationReminder(invitation)
             await refreshAdjustmentReminder(entity)
         }
-        toast = "検討中から調整中へ移したにゃ"
+        toast = "検討中から調整中へ移しました"
         return true
     }
 
@@ -298,11 +298,11 @@ extension MiraStore {
     func declinePending(_ invitation: PendingInvitationEntity) -> Bool {
         guard markPending(invitation, as: .declined) else { return false }
         if let caseEntity = conversationCase(id: invitation.conversationCaseID) {
-            caseEntity.appendTurn(role: .assistant, text: "今回は見送ることにしたにゃ", at: now)
+            caseEntity.appendTurn(role: .assistant, text: "今回は見送ることにしました", at: now)
             try? context.save()
             try? refresh()
         }
-        toast = "今回は見送ることにしたにゃ"
+        toast = "今回は見送ることにしました"
         return true
     }
 
@@ -321,7 +321,7 @@ extension MiraStore {
         }
         if let caseEntity = conversationCase(id: session.conversationCaseID) {
             caseEntity.status = .completed
-            caseEntity.appendTurn(role: .assistant, text: "候補日を解放したにゃ", at: now)
+            caseEntity.appendTurn(role: .assistant, text: "候補日を解放しました", at: now)
         }
         do {
             try context.save()
@@ -333,7 +333,7 @@ extension MiraStore {
             return false
         }
         await NotificationService.shared.cancelAdjustmentReminder(id: session.id)
-        toast = "候補日を解放したにゃ"
+        toast = "候補日を解放しました"
         return true
     }
 }

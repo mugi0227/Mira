@@ -40,11 +40,11 @@ extension MiraStore {
             }
         } catch {
             if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !sink.hasCards {
-                sink.setText("AIがうまく動かなかったにゃ。少し時間をおいてもう一度試してね。")
+                sink.setText("AIを利用できませんでした。少し時間をおいて、もう一度お試しください。")
             }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sink.setText(sink.hasCards ? "こんな感じでどうかにゃ？" : "うまく読み取れなかったにゃ。日付や相手を入れてもう一度教えてね。")
+            sink.setText(sink.hasCards ? "この案はいかがですか？" : "うまく読み取れませんでした。日付や相手を入れてもう一度教えてね。")
         }
         updateChatMessage(reply.id) { $0.isStreaming = false }
         persistChat()
@@ -134,7 +134,7 @@ extension MiraStore {
                 proposal.state = .applied
                 replaceChatCard(messageID: messageID, with: .moveProposal(proposal))
                 persistChat()
-                toast = "\(preview.title)を動かしたにゃ"
+                toast = "\(preview.title)を動かしました"
                 return true
             } catch {
                 context.rollback()

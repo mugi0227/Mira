@@ -48,7 +48,7 @@ extension MiraStore {
         ) else {
             let hours = Int(SelfTimePlanner().selfTimeHours(in: currentWeek.adding(weeks: 1), items: items).rounded())
             sink.record(MiraToolResult(summary: "置ける時間なし", activity: activity, card: nil))
-            sink.setText("来週もその次の週も、予定とぶつからずに置ける時間が見つからなかったにゃ。来週はもう自分の時間が\(hours)時間あるよ。どれかの予定を動かす相談もできるにゃ。")
+            sink.setText("来週もその次の週も、予定とぶつからずに置ける時間が見つかりませんでした。来週はもう自分の時間が\(hours)時間あるよ。どれかの予定を動かす相談もできます。")
             return
         }
         record(suggestion)
@@ -58,8 +58,8 @@ extension MiraStore {
             card: .selfTime(ChatSelfTimeProposal(suggestion: suggestion))
         ))
         sink.setText(suggestion.usesTrend
-            ? "最近のあなたの選び方も見て、置けそうな時間を選んだにゃ。いらない枠はチップをタップして外してね。"
-            : "予定とぶつからない時間を選んだにゃ。いらない枠はチップをタップして外してね。")
+            ? "最近のあなたの選び方も見て、置けそうな時間を選びました。いらない枠はチップをタップして外してね。"
+            : "予定とぶつからない時間を選びました。いらない枠はチップをタップして外してね。")
     }
 
     // MARK: - Proactive
@@ -85,7 +85,7 @@ extension MiraStore {
         chatMessages.append(ChatMessage(
             role: .assistant,
             text: catVoice
-                ? "来週、自分の時間がちょっと少なめだにゃ。こんな置き方はどう？決めるのはあなただよ。"
+                ? "来週、自分の時間がちょっと少なめです。こんな置き方はどう？決めるのはあなただよ。"
                 : "来週は自分の時間が少なめです。こんな置き方はどうでしょう。決めるのはあなたです。",
             activities: [ChatActivity(symbol: "bell.badge", text: "来週の予定と自分の時間を確認")],
             cards: [.selfTime(ChatSelfTimeProposal(suggestion: suggestion))],
@@ -160,8 +160,8 @@ extension MiraStore {
         }
         recalculateBalance(for: applicable[0].startDate)
         toast = applicable.count == chosen.count
-            ? "自分の時間を\(applicable.count)枠置いたにゃ"
-            : "空いていた\(applicable.count)枠だけ置いたにゃ"
+            ? "自分の時間を\(applicable.count)枠置きました"
+            : "空いていた\(applicable.count)枠だけ置きました"
         return true
     }
 
@@ -211,7 +211,7 @@ extension MiraStore {
             $0.status = .undone
             $0.resolvedAt = now
         }
-        toast = "元に戻したにゃ"
+        toast = "元に戻しました"
     }
 
     private func replaceSelfTimeCard(messageID: UUID, with proposal: ChatSelfTimeProposal) {

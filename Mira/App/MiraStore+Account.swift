@@ -14,7 +14,7 @@ extension MiraStore {
     func signInToMira(identityToken: String) async -> Bool {
         do {
             applyAccount(try await MiraAccountService.shared.signIn(identityToken: identityToken))
-            toast = "サインインしたにゃ"
+            toast = "サインインしました"
             return true
         } catch {
             toast = error.localizedDescription

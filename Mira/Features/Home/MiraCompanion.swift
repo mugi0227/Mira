@@ -27,7 +27,7 @@ struct MiraCompanionButton: View {
     }
 
     private var showsBubble: Bool {
-        needsAttention && dismissedBubbleTitle != message.title
+        message.mood == .warning && dismissedBubbleTitle != message.title
     }
 
     private var bubble: some View {
@@ -82,7 +82,7 @@ struct MiraCompanionButton: View {
                         .accessibilityHidden(true)
                 }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: 56, height: 56)
             .overlay(alignment: .topTrailing) {
                 if needsAttention {
                     Circle()

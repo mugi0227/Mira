@@ -50,7 +50,7 @@ extension MiraStore {
             }
             try refresh()
             if provisional {
-                toast = "前の月と同じ余白を、いったん置いておいたにゃ"
+                toast = "前の月と同じ余白を、いったん置いておきました"
             }
         } catch {
             context.rollback()
@@ -85,8 +85,8 @@ extension MiraStore {
             updateMarginRecommendation(for: month)
             recalculateBalance(for: month)
             toast = proposal.unmetGoals.isEmpty
-                ? "余白をいい感じに置いたにゃ"
-                : "置けなかった余白もあるので、あとで見直してにゃ"
+                ? "余白をいい感じに置きました"
+                : "置けなかった余白もあるので、あとで見直してください"
         } catch {
             context.rollback()
             toast = "余白を配置できませんでした"
@@ -225,8 +225,8 @@ extension MiraStore {
                 let sameDay = Calendar.mira.isDate(entity.startDate, inSameDayAs: newStart)
                 try commitChange(preview, to: entity, undoTitle: sameDay ? "時間の変更" : "予定の移動")
                 toast = sameDay
-                    ? "\(after.title)を\(newStart.formatted(Date.FormatStyle.mira.hour().minute()))からにしたにゃ"
-                    : "\(after.title)を\(newStart.japaneseShortDate)へ移したにゃ"
+                    ? "\(after.title)を\(newStart.formatted(Date.FormatStyle.mira.hour().minute()))からにしました"
+                    : "\(after.title)を\(newStart.japaneseShortDate)へ移しました"
             } else {
                 pendingChangePreview = preview
             }
@@ -276,7 +276,7 @@ extension MiraStore {
             finishCalendarMutation(undo)
             updateMarginRecommendation(for: affectedDate)
             recalculateBalance(for: affectedDate)
-            toast = rememberKeyword ? "似た予定にも覚えておくにゃ" : "この予定だけ直したにゃ"
+            toast = rememberKeyword ? "似た予定にも覚えておきます" : "この予定だけ直しました"
         } catch {
             context.rollback()
             toast = "負荷を変更できませんでした"
