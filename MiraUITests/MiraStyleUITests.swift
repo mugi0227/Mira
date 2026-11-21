@@ -26,7 +26,13 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(monday.frame.minY - calendar.frame.minY, 44)
         let scroll = app.scrollViews["homeScroll"]
         XCTAssertTrue(scroll.exists)
-        XCTAssertGreaterThanOrEqual(app.buttons["miraCompanionButton"].frame.minY, scroll.frame.maxY)
+        let companion = app.buttons["miraCompanionButton"]
+        XCTAssertGreaterThanOrEqual(companion.frame.minY, scroll.frame.maxY)
+        // In the demo's five-week month both lower corners must rest above the
+        // fading footer, not behind its avatar or a clipped horizontal band.
+        // Allow one point for fractional row-height rounding.
+        XCTAssertGreaterThanOrEqual(scroll.frame.maxY - calendar.frame.maxY, 7)
+        XCTAssertGreaterThanOrEqual(companion.frame.minY - calendar.frame.maxY, 8)
         capture("roomier-calendar")
     }
 
@@ -52,6 +58,9 @@ final class MiraStyleUITests: XCTestCase {
 
     func testGoalPillsStayInsideScreenGutters() {
         launchHome()
+        let scroll = app.scrollViews["homeScroll"]
+        scroll.swipeUp()
+        scroll.swipeUp()
         let summary = app.descendants(matching: .any)["homeGoalSummary"].firstMatch
         for _ in 0..<4 where !summary.isHittable { app.swipeUp() }
         let pills = summary.descendants(matching: .any).matching(identifier: "homeGoalPill")
@@ -60,7 +69,12 @@ final class MiraStyleUITests: XCTestCase {
             let pill = pills.element(boundBy: index)
             XCTAssertGreaterThanOrEqual(pill.frame.minX - app.frame.minX, 20)
             XCTAssertGreaterThanOrEqual(app.frame.maxX - pill.frame.maxX, 20)
+            XCTAssertLessThanOrEqual(pill.frame.maxY + 20, scroll.frame.maxY)
         }
+        let card = app.descendants(matching: .any)["homeNextStepCard"].firstMatch
+        XCTAssertLessThanOrEqual(card.frame.maxY + 20, scroll.frame.maxY)
+        XCTAssertLessThanOrEqual(card.frame.maxY + 20, app.buttons["miraCompanionButton"].frame.minY)
+        XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "次の余白")).firstMatch.isHittable)
         capture("roomier-goals")
     }
 
@@ -85,32 +99,123 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         app.buttons["前の月"].tap()
         XCTAssertTrue(september.waitForExistence(timeout: 5))
-        let day = app.descendants(matching: .any)["calendar-day-2026-09-02"].firstMatch
-        XCTAssertTrue(day.exists)
-        let dayHeader = day.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
-            .withOffset(CGVector(dx: 0, dy: 15))
+        // A date text's accessibility frame can expand over its event chips.
+        // The explicit header button has its own, non-overlapping hit target.
+        let dayHeader = app.buttons["calendar-date-2026-09-02"]
+        XCTAssertTrue(dayHeader.isHittable)
         dayHeader.tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         capture("rounded-day")
     }
 
-    func testToastLeavesMonthControlsReachable() {
+    func testHomeScrollKeepsHeaderClearAndViewportFixed() {
+        launchHome()
+        let scroll = app.scrollViews["homeScroll"]
+        let statusBar = XCUIApplication(bundleIdentifier: "com.apple.springboard").statusBars.firstMatch
+        XCTAssertTrue(scroll.exists)
+        XCTAssertTrue(statusBar.exists)
+        let viewport = scroll.frame
+        let heading = app.staticTexts["2026年9月"]
+        let initialHeadingY = heading.frame.minY
+        XCTAssertGreaterThanOrEqual(initialHeadingY, statusBar.frame.maxY)
+        let firstDay = app.buttons["calendar-day-2026-08-31"].firstMatch
+        let initialDayY = firstDay.frame.minY
+
+        scroll.swipeUp()
+
+        XCTAssertEqual(scroll.frame.minY, viewport.minY, accuracy: 1)
+        XCTAssertLessThan(firstDay.frame.minY, initialDayY)
+        XCTAssertLessThan(firstDay.frame.maxY, initialHeadingY)
+        XCTAssertTrue(app.buttons["miraCompanionButton"].isHittable)
+        // UIKit includes the top content inset in the scroll's accessibility
+        // frame. The screenshot verifies the rendered safe-area fade as well.
+        capture("calendar-scrolled-safe-area")
+        scroll.swipeDown()
+        XCTAssertEqual(heading.frame.minY, initialHeadingY, accuracy: 1)
+        capture("calendar-returned-header")
+    }
+
+    func testCompactCalendarOverflowOpensAllEventsForTheDay() {
+        launchHome()
+        app.buttons["calendar-date-2026-09-02"].tap()
+        let add = app.buttons["この日に予定を追加"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+        let title = app.textFields["例：友達とご飯"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("Dinner")
+        app.navigationBars["予定を追加"].buttons["追加"].tap()
+        let approve = app.buttons["このまま追加する"]
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        approve.tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        let dinner = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Dinner、")).firstMatch
+        XCTAssertTrue(dinner.waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let overflow = app.buttons["calendar-overflow-2026-09-02"]
+        XCTAssertTrue(overflow.waitForExistence(timeout: 5))
+        XCTAssertTrue(overflow.isHittable)
+        overflow.tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "仕事、")).firstMatch.exists)
+        XCTAssertTrue(dinner.exists)
+        capture("compact-calendar-day-events")
+    }
+
+    func testToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "pixelCat")
+    }
+
+    func testSilhouetteToastLeavesMonthControlsReachable() throws {
+        try assertToastLayout(theme: "silhouetteCat")
+    }
+
+    private func assertToastLayout(theme: String) throws {
+        let themeIndex = try XCTUnwrap(app.launchArguments.firstIndex(of: "-ui-theme"))
+        app.launchArguments[themeIndex + 1] = theme
         app.launchArguments += ["-ui-testing-persistent-toast"]
         launchHome()
+        let calendarPermission = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .buttons.matching(NSPredicate(format: "label IN %@", ["Allow Full Access", "フルアクセスを許可"])).firstMatch
+        if calendarPermission.waitForExistence(timeout: 2) { calendarPermission.tap() }
+
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
         let toastFrame = toast.frame
+        let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
         let month = app.staticTexts["2026年9月"]
-        XCTAssertGreaterThanOrEqual(month.frame.minY, toastFrame.maxY)
+        XCTAssertFalse(month.frame.intersects(toastFrame))
         for label in ["前の月", "次の月", "追加メニュー"] {
             let button = app.buttons[label]
             XCTAssertTrue(button.isHittable)
             XCTAssertFalse(button.frame.intersects(toastFrame))
         }
-        capture("toast-clear-header")
+        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
+        let monthFrame = month.frame
+        let lastRowFrame = lastRow.frame
+        let tabFrame = tabs.frame
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, tabFrame.minY)
+        XCTAssertLessThanOrEqual(lastRowFrame.maxY, app.scrollViews["homeScroll"].frame.maxY)
+        XCTAssertFalse(lastRowFrame.intersects(toastFrame))
+        XCTAssertLessThanOrEqual(toastFrame.maxY, tabFrame.minY)
+        XCTAssertFalse(toastFrame.intersects(app.buttons["miraCompanionButton"].frame))
+        capture("floating-toast-\(theme)")
         app.buttons["次の月"].tap()
         XCTAssertTrue(app.staticTexts["2026年10月"].waitForExistence(timeout: 5))
         XCTAssertTrue(toast.exists)
+        app.buttons["前の月"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" || $0 == "-ui-testing-persistent-toast" }
+        launchHome()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: toast)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed)
+        XCTAssertEqual(month.frame.minY, monthFrame.minY, accuracy: 1)
+        XCTAssertEqual(lastRow.frame.maxY, lastRowFrame.maxY, accuracy: 1)
+        XCTAssertEqual(tabs.frame.minY, tabFrame.minY, accuracy: 1)
     }
 
     func testChatUsesNaturalVoiceAndAccessibleControls() {
@@ -179,11 +284,31 @@ final class MiraStyleUITests: XCTestCase {
 
     private func openColorStyles() {
         app.buttons["miraTab-settings"].tap()
-        let colors = app.descendants(matching: .any)["appColorSettings"].firstMatch
-        for _ in 0..<4 where !colors.isHittable {
+        let colors = app.buttons["appColorSettings"].firstMatch
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        let navigationBar = app.navigationBars.firstMatch
+        let settingsTab = app.buttons["miraTab-settings"]
+        for _ in 0..<6 {
+            if colors.exists {
+                if colors.frame.minY >= navigationBar.frame.maxY + 8,
+                   colors.frame.maxY <= settingsTab.frame.minY - 8 {
+                    break
+                }
+                // SwiftUI may report a row under the navigation bar as
+                // hittable. Bring the whole row back into the content area.
+                if colors.frame.minY < navigationBar.frame.maxY + 8 {
+                    let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+                    let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+                    start.press(forDuration: 0.05, thenDragTo: end)
+                    continue
+                }
+            }
             app.swipeUp()
         }
         XCTAssertTrue(colors.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(colors.frame.minY, navigationBar.frame.maxY + 8)
+        XCTAssertLessThanOrEqual(colors.frame.maxY, settingsTab.frame.minY - 8)
         colors.tap()
         if !app.buttons["appColor-blue"].waitForExistence(timeout: 5) {
             capture("color-picker-unreachable")
@@ -202,6 +327,15 @@ final class MiraStyleUITests: XCTestCase {
             start.tap()
         }
         XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 12))
+        if !app.launchArguments.contains("-ui-testing-persistent-toast") {
+            // Completing onboarding briefly shows a banner that moves Home.
+            // Measure and tap only after that real, transient layout is gone.
+            let toastGone = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"),
+                object: app.staticTexts["appToast"]
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [toastGone], timeout: 5), .completed)
+        }
     }
 
     private func capture(_ name: String) {
