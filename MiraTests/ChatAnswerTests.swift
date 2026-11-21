@@ -19,8 +19,12 @@ final class ChatAnswerTests: XCTestCase {
         XCTAssertEqual(ChatAnswer.trimmed("短いにゃ。"), "短いにゃ。")
         XCTAssertEqual(ChatAnswer.trimmed(""), "")
         XCTAssertEqual(ChatAnswer.trimmed("まとめ\n休もう。\nまとめ\n休もう。"), "まとめ\n休もう。")
-        XCTAssertLessThanOrEqual(ChatAnswer.trimmed(String(repeating: "長", count: 1000)).count, 320)
-        XCTAssertEqual(ChatAnswer.trimmed((1...10).map { "項目\($0)" }.joined(separator: "\n")).components(separatedBy: "\n").count, 5)
+        XCTAssertEqual(ChatAnswer.trimmed(String(repeating: "長", count: 1000)).count, ChatAnswer.characterLimit)
+        XCTAssertEqual(ChatAnswer.trimmed((1...10).map { "項目\($0)" }.joined(separator: "\n")).components(separatedBy: "\n").count, ChatAnswer.lineLimit)
+        let eightLines = (1...8).map { "項目\($0)" }.joined(separator: "\n")
+        XCTAssertEqual(ChatAnswer.trimmed("\n" + eightLines.replacingOccurrences(of: "\n", with: "\n\n") + "\n"), eightLines)
+        let fullAnswer = String(repeating: "根拠", count: 200)
+        XCTAssertEqual(ChatAnswer.trimmed(fullAnswer), fullAnswer)
     }
 
     @MainActor
