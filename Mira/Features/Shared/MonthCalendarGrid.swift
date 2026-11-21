@@ -33,7 +33,7 @@ struct MonthCalendarGrid: View {
                         .foregroundStyle(weekdayColor(for: index))
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
-                            if index < weekStartDay.weekdaySymbols.count - 1 {
+                            if !palette.isCatSkin && index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
                             }
                         }
@@ -41,7 +41,7 @@ struct MonthCalendarGrid: View {
             }
             .background(palette.isCatSkin ? palette.elevatedSurface.opacity(0.7) : palette.background)
 
-            gridLine.frame(height: 0.5)
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
 
             LazyVGrid(columns: columns, spacing: 0) {
                 let days = cells
@@ -51,14 +51,13 @@ struct MonthCalendarGrid: View {
                 }
             }
         }
-        .background(palette.surface.opacity(palette.isCatSkin ? 0.92 : 0.42))
-        .overlay(alignment: .top) { gridLine.frame(height: 0.5) }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 22 : 0, style: .continuous))
+        .padding(.vertical, palette.isCatSkin ? MiraSpacing.xs : 0)
+        .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? MiraRadius.large : 0, style: .continuous))
         .overlay {
             if palette.isCatSkin {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous)
+                    .strokeBorder(palette.cardBorder, lineWidth: 2)
             }
         }
         .accessibilityElement(children: .contain)
@@ -117,7 +116,7 @@ struct MonthCalendarGrid: View {
                 Spacer(minLength: 0)
                 ZStack {
                     if isSelected {
-                        Circle()
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(palette.actionGradient)
                             .frame(width: 30, height: 30)
                             .matchedGeometryEffect(id: "selected-date", in: dateSelection)
@@ -195,15 +194,23 @@ struct MonthCalendarGrid: View {
         .padding(.horizontal, 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
-        .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(palette.accentSoft.opacity(0.28))
+                    .padding(2)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             select(date)
         }
         .overlay(alignment: .trailing) {
-            if column < 6 { gridLine.frame(width: 0.5) }
+            if !palette.isCatSkin && column < 6 { gridLine.frame(width: 0.5) }
         }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
+        .overlay(alignment: .bottom) {
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
+        }
         .dropDestination(for: String.self) { payloads, _ in
             guard allowsDragging, !privacyMode,
                   let raw = payloads.first,
@@ -300,14 +307,14 @@ private struct CalendarEventStrip: View {
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
+            RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous)
                 .stroke(
                     item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28)
                         : (chipTag?.needsOutline == true ? palette.primaryText.opacity(0.22) : Color.clear),
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous))
     }
 
     /// Margins named after their kind read as a short word; a margin the

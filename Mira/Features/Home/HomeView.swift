@@ -45,7 +45,7 @@ struct HomeView: View {
                     onSelectDate: openDay,
                     onSelectItem: { item in if !isFriendView { selectedItem = item } }
                 )
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
+                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.md : 0)
 
                 if !isFriendView {
                     nextStepCard
@@ -255,38 +255,36 @@ struct HomeView: View {
     }
 
     private var skyMonthHeader: some View {
-        HStack(spacing: 4) {
-            Button { changeMonth(by: -1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.bold))
-                    .frame(width: 44, height: 44)
-                    .background(palette.surface.opacity(0.7), in: Circle())
-            }
-            .accessibilityLabel("前の月")
-
-            VStack(spacing: 4) {
+        HStack(spacing: MiraSpacing.sm) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.system(.title2, design: .rounded, weight: .heavy))
+                    .font(.system(.title, design: .rounded, weight: .heavy))
                     .foregroundStyle(palette.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.65)
                 friendViewButton
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button { changeMonth(by: 1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.body.weight(.bold))
-                    .frame(width: 44, height: 44)
-                    .background(palette.surface, in: Circle())
+            HStack(spacing: 0) {
+                Button { changeMonth(by: -1) } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("前の月")
+                Button { changeMonth(by: 1) } label: {
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("次の月")
             }
-            .accessibilityLabel("次の月")
+            .font(.body.weight(.heavy))
+            .background(palette.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 2) }
 
             addMenu
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
-        .padding(.vertical, 4)
+        .padding(.vertical, MiraSpacing.xs)
     }
 
     private var friendViewButton: some View {
@@ -397,9 +395,9 @@ struct HomeView: View {
                 .frame(width: palette.isCatSkin ? 52 : 44, height: palette.isCatSkin ? 52 : 44)
                 .background {
                     if palette.isCatSkin {
-                        Circle().fill(palette.actionGradient)
-                            .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
-                            .shadow(color: palette.shadow, radius: 10, y: 4)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(palette.accent)
+                            .shadow(color: palette.accent.opacity(0.16), radius: 0, y: 4)
                     }
                 }
         }

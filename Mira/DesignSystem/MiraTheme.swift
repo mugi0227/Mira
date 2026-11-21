@@ -162,7 +162,7 @@ enum MiraSpacing {
 enum MiraRadius {
     static let small: CGFloat = 16
     static let medium: CGFloat = 24
-    static let large: CGFloat = 30
+    static let large: CGFloat = 34
 }
 
 enum MiraMotion {
@@ -189,7 +189,7 @@ struct MiraCardModifier: ViewModifier {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
-                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
+                    .strokeBorder(palette.cardBorder, lineWidth: 2)
             }
             .shadow(color: palette.shadow, radius: 12, y: 4)
     }

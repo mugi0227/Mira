@@ -195,12 +195,12 @@ struct MainTabView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     }
-                    .foregroundStyle(selectedTab == tab ? palette.accent : palette.secondaryText)
+                    .foregroundStyle(selectedTab == tab ? palette.onAccent : palette.secondaryText)
                     .frame(maxWidth: .infinity, minHeight: 58)
                     .padding(.vertical, 2)
                     .background {
                         if selectedTab == tab {
-                            Capsule().fill(palette.accentSoft)
+                            Capsule().fill(palette.accent)
                                 .matchedGeometryEffect(id: "tab-selection", in: tabSelection)
                         }
                     }

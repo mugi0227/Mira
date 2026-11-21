@@ -52,7 +52,7 @@ final class MiraStyleUITests: XCTestCase {
     }
 
     func testLargeTextKeepsChatEntryReachable() {
-        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launchArguments += ["-ui-testing-large-text"]
         launchHome()
         XCTAssertTrue(app.buttons["miraCompanionButton"].isHittable)
         app.buttons["miraCompanionButton"].tap()
@@ -60,7 +60,15 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         XCTAssertTrue(input.isHittable)
         XCTAssertTrue(app.buttons["閉じる"].isHittable)
+        let apply = app.buttons["selfTimeApply"].firstMatch
+        for _ in 0..<6 where !apply.isHittable {
+            app.scrollViews.firstMatch.swipeUp()
+        }
+        let dismiss = app.buttons["selfTimeDismiss"].firstMatch
         capture("large-text-chat")
+        XCTAssertTrue(apply.isHittable)
+        XCTAssertTrue(dismiss.isHittable)
+        XCTAssertGreaterThanOrEqual(dismiss.frame.minY, apply.frame.maxY - 1)
     }
 
     func testColorsCanChangeAndSurviveRelaunch() {

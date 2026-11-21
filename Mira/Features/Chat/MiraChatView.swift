@@ -7,6 +7,7 @@ struct MiraChatView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let palette: MiraThemePalette
 
     @State private var draft = ""
@@ -21,6 +22,8 @@ struct MiraChatView: View {
     ]
 
     var body: some View {
+        let arguments = ProcessInfo.processInfo.arguments
+        let usesLargeText = arguments.contains("-ui-testing") && arguments.contains("-ui-testing-large-text")
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -75,6 +78,7 @@ struct MiraChatView: View {
                 }
             }
         }
+        .environment(\.dynamicTypeSize, usesLargeText ? .accessibility5 : dynamicTypeSize)
         .tint(palette.accent)
         .presentationDragIndicator(.visible)
     }
@@ -203,9 +207,9 @@ private struct ChatBubble: View {
                 Text(message.text)
                     .font(.body)
                     .foregroundStyle(palette.onAccent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                     .textSelection(.enabled)
             }
         } else {
@@ -221,11 +225,11 @@ private struct ChatBubble: View {
                         Text(message.text)
                             .font(.body)
                             .foregroundStyle(palette.primaryText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
                                     .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
                             }
                             .textSelection(.enabled)
@@ -288,6 +292,7 @@ private struct TypingIndicator: View {
 }
 
 private struct ChatCardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(MiraStore.self) private var store
     let card: ChatCard
     let messageID: UUID
@@ -457,13 +462,20 @@ private struct ChatCardView: View {
     private func proposalActions(state: ChatProposalState, needsCare: Bool, applyTitle: String, appliedTitle: String, cardID: UUID) -> some View {
         switch state {
         case .pending:
-            HStack(spacing: MiraSpacing.xs) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: MiraSpacing.xs))
+                : AnyLayout(HStackLayout(spacing: MiraSpacing.xs))
+            layout {
                 Button {
                     store.applyChatCard(messageID: messageID, cardID: cardID)
                 } label: {
                     Text(needsCare ? "それでも\(applyTitle)" : applyTitle)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(palette.onAccent)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(needsCare ? palette.warning : palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
                 }
@@ -472,7 +484,8 @@ private struct ChatCardView: View {
                 Button("やめる") { store.dismissChatCard(messageID: messageID, cardID: cardID) }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.secondaryText)
-                    .frame(minWidth: 64, minHeight: 44)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
             }
         case .applied:
             Label(appliedTitle, systemImage: "checkmark.circle.fill")
