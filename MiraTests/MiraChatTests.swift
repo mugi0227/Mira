@@ -16,9 +16,11 @@ final class MiraChatTests: XCTestCase {
     func testExplicitAddOverridesColloquialDrinksInvitation() async throws {
         let store = try makeStore()
         store.chatAgent = FailingChatAgent()
-        await store.sendChat("明日の19時に友達と飲みに行く予定を追加して")
-        guard case .eventProposal(let proposal) = store.chatMessages.last?.cards.first else { return XCTFail("expected event proposal, not slots") }
-        XCTAssertEqual(proposal.event.startDate, store.now.addingDays(1).setting(hour: 19))
+        for ending in ["して", "してね", "してよ！", "してください。", "してほしい", "してほしいです！"] {
+            await store.sendChat("明日の19時に友達と飲みに行く予定を追加\(ending)")
+            guard case .eventProposal(let proposal) = store.chatMessages.last?.cards.first else { return XCTFail("expected event proposal, not slots: \(ending)") }
+            XCTAssertEqual(proposal.event.startDate, store.now.addingDays(1).setting(hour: 19))
+        }
     }
     func testTerseDatedEventCreatesProposal() async throws {
         let store = try makeStore()
