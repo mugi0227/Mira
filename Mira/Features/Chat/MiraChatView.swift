@@ -287,6 +287,7 @@ private struct TypingIndicator: View {
 
 private struct ChatCardView: View {
     @Environment(MiraStore.self) private var store
+    @State private var timelineProposal: DayTimelineProposal?
     let card: ChatCard
     let messageID: UUID
     let palette: MiraThemePalette
@@ -305,6 +306,13 @@ private struct ChatCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .miraCard(palette, padding: MiraSpacing.sm)
+        .sheet(item: $timelineProposal) { proposal in
+            NavigationStack {
+                DayTimelineView(date: proposal.event.startDate, palette: palette, proposal: proposal)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private func scheduleCard(_ summary: ChatScheduleSummary) -> some View {
@@ -403,6 +411,13 @@ private struct ChatCardView: View {
                 }
             }
             impactLines(conflicts: proposal.conflicts, margins: proposal.impact.overlappingMargins)
+            Button("この日の予定を見る") {
+                withAnimation(.spring()) {
+                    timelineProposal = DayTimelineProposal(event: proposal.event,
+                        conflicts: store.eventEntryConflictDetails(for: proposal.event))
+                }
+            }
+            .accessibilityIdentifier("proposal.showDay")
             proposalActions(state: proposal.state, needsCare: proposal.needsCare, applyTitle: "カレンダーに追加", appliedTitle: "追加しました", cardID: proposal.id)
         }
     }
