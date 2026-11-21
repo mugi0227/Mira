@@ -365,21 +365,22 @@ private struct CalendarEventStrip: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            if let symbol {
+            if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
             }
 
             Text(chipTitle)
-                .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .lineLimit(palette.isCatSkin ? 2 : 1)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
         .foregroundStyle(chipTag.map(palette.chipText(for:)) ?? palette.primaryText)
-        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
-        .padding(.trailing, 3)
-        .frame(minHeight: 18, alignment: .leading)
+        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 2)
+        .padding(.trailing, palette.isCatSkin ? 1 : 3)
+        .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .leading)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {
