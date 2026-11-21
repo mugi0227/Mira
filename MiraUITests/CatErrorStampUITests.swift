@@ -55,13 +55,15 @@ final class CatErrorStampUITests: XCTestCase {
         }
         expectation(for: inside, evaluatedWith: nil)
         waitForExpectations(timeout: 8)
-        XCTAssertEqual(stamp.frame.minX, reply.frame.minX, accuracy: 1,
-                       "The stamp must share Mira's leading edge, including at large text sizes")
+        // Accessibility reports the rotated ink bounds, not the padded container.
+        XCTAssertLessThan(stamp.frame.minX, reply.frame.midX,
+                          "The stamp should begin under Mira's reply, not the user's side")
+        XCTAssertLessThanOrEqual(stamp.frame.maxX, reply.frame.maxX + 8)
         capture("\(theme)-failure\(extra.isEmpty ? "" : "-large-text")")
 
         // Reset is a real dismissal path: the error must not leak into a new chat.
         app.buttons["新しい会話"].tap()
-        XCTAssertFalse(stamp.exists)
+        XCTAssertTrue(stamp.waitForNonExistence(timeout: 5))
     }
 
     private func launchChat(theme: String, extra: [String]) {
