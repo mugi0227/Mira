@@ -84,6 +84,7 @@ struct HomeView: View {
                     .padding(.top, MiraSpacing.xs)
                     .padding(.bottom, MiraSpacing.lg)
                 }
+                .safeAreaPadding(.bottom, palette.isCatSkin ? 0 : 80)
                 // A scroll view's layout frame alone does not contain its drawing.
                 .scrollClipDisabled()
                 .mask {
