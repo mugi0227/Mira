@@ -118,6 +118,19 @@ final class HomeWhitespaceUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 3)
     }
 
+    func testSoftMinimalHomeReachesBottomCard() {
+        launchHome(theme: "softMinimal")
+        capture("home-initial")
+        let scroll = app.scrollViews["homeScroll"]
+        XCTAssertGreaterThanOrEqual(scroll.frame.maxY, app.frame.maxY - 1)
+        for _ in 0..<6 { scroll.swipeUp(velocity: .fast) }
+        capture("home-bottom")
+        let goals = element("homeGoalSummary")
+        XCTAssertTrue(goals.isHittable)
+        XCTAssertGreaterThanOrEqual(goals.frame.minY, scroll.frame.minY)
+        XCTAssertLessThanOrEqual(goals.frame.maxY, app.tabBars.firstMatch.frame.minY)
+    }
+
     private func element(_ id: String) -> XCUIElement {
         app.descendants(matching: .any)[id].firstMatch
     }
