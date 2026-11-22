@@ -43,7 +43,11 @@ struct AppRootView: View {
                     }.padding(MiraSpacing.lg)
                 } else if !store.isReady {
                     VStack(spacing: MiraSpacing.md) {
-                        MiraCatView(mood: .thinking, size: 84)
+                        if store.theme.isCat {
+                            MiraCatView(mood: .thinking, size: 84)
+                        } else {
+                            MiraRingMark(palette: palette, size: 84, spins: !reduceMotion)
+                        }
                         ProgressView("余白を準備中…")
                             .tint(palette.accent)
                             .foregroundStyle(palette.primaryText)
@@ -57,6 +61,9 @@ struct AppRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui-hold-loading") { return }
+            #endif
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
         .onChange(of: scenePhase) { _, phase in
