@@ -15,7 +15,6 @@ struct InlineDayPanel: View {
                 Text(DateFormatter.mira("M月d日(E)").string(from: date))
                     .font(.headline)
                 Spacer(minLength: 0)
-                if let workDayAccessory { workDayAccessory() }
                 Button(action: onAdd) {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
@@ -23,6 +22,8 @@ struct InlineDayPanel: View {
                 .accessibilityLabel("\(date.japaneseShortDate)に予定を追加")
                 .accessibilityIdentifier("inlineDayAdd")
             }
+
+            if let workDayAccessory { workDayAccessory() }
 
             Button(action: onOpenTimeline) {
                 VStack(spacing: 8) {

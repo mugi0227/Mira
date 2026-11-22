@@ -10,6 +10,7 @@ struct FriendShareCard: View {
     var baseRules: [BaseAvailabilityRule] = []
     var level: FriendShareLevel = .freeOnly
     var recipientName: String?
+    var workDays = WorkDayResolver()
 
     var body: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -34,7 +35,8 @@ struct FriendShareCard: View {
                     allowsDragging: false,
                     privacyMode: true,
                     friendLevel: level,
-                    baseRules: baseRules
+                    baseRules: baseRules,
+                    workDays: workDays
                 )
                 .clipShape(RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
                 Text(level.explanation)

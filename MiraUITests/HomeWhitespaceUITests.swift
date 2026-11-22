@@ -103,6 +103,8 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["friendViewToggle"].tap()
         XCTAssertFalse(element("whitespace-2026-09-01").exists)
         XCTAssertFalse(app.buttons["monthWhitespaceSummary"].exists)
+        XCTAssertFalse(element("workDayMark-2026-09-01").exists)
+        XCTAssertFalse(app.buttons["calendar-date-2026-09-01"].label.contains("仕事の日"))
         capture("whitespace-friend-privacy")
     }
 
@@ -154,6 +156,25 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
     }
 
+    func testInlinePanelWorkDayToggleUpdatesMonthAndExplains() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-09-03"].tap()
+        let toggle = app.buttons["workDayToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let mark = element("workDayMark-2026-09-03")
+        XCTAssertTrue(mark.exists)
+        XCTAssertEqual(toggle.value as? String, "オン")
+        toggle.tap()
+        XCTAssertTrue(mark.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "オフ")
+        toggle.tap()
+        XCTAssertTrue(mark.waitForExistence(timeout: 5))
+        capture("panel-work-day")
+        app.buttons["workDayInfoButton"].tap()
+        XCTAssertTrue(element("workDayExplanation").waitForExistence(timeout: 5))
+        capture("panel-work-day-explanation")
+    }
+
     func testInlinePanelSeveralEventsScreenshotAndAdd() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-02"].tap()
@@ -173,6 +194,12 @@ final class HomeWhitespaceUITests: XCTestCase {
         let dismissUndo = app.buttons["取り消しの案内を閉じる"]
         if dismissUndo.exists { dismissUndo.tap() }
         XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 6))
+        let panel = element("inlineDayPanel")
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<4 where panel.frame.maxY > app.tabBars.firstMatch.frame.minY - 16 {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7))
+                .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.55)))
+        }
         capture("panel-several-events")
     }
 
@@ -190,6 +217,19 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(element("monthCalendar").waitForExistence(timeout: 12))
         // The onboarding success toast otherwise temporarily covers the header.
         Thread.sleep(forTimeInterval: 3)
+    }
+
+    func testSoftMinimalHomeReachesBottomCard() {
+        launchHome(theme: "softMinimal")
+        capture("home-initial")
+        let scroll = app.scrollViews["homeScroll"]
+        XCTAssertGreaterThanOrEqual(scroll.frame.maxY, app.frame.maxY - 1)
+        for _ in 0..<6 { scroll.swipeUp(velocity: .fast) }
+        capture("home-bottom")
+        let goals = element("homeGoalSummary")
+        XCTAssertTrue(goals.isHittable)
+        XCTAssertGreaterThanOrEqual(goals.frame.minY, scroll.frame.minY)
+        XCTAssertLessThanOrEqual(goals.frame.maxY, app.tabBars.firstMatch.frame.minY)
     }
 
     private func element(_ id: String) -> XCUIElement {

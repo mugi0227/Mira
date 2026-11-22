@@ -37,7 +37,7 @@ extension MiraStore {
         let candidateTitles = adjustments.reduce(into: [UUID: String]()) { titles, adjustment in
             for candidate in adjustment.candidates { titles[candidate.id] = adjustment.title }
         }
-        return ConflictEngine(calendar: .mira).conflictDetailEntries(
+        return ConflictEngine(calendar: .mira, workDays: workDayResolver).conflictDetailEntries(
             candidate: candidate,
             events: items.filter { $0.id != excludedID },
             otherCandidates: heldCandidates,
