@@ -26,7 +26,8 @@ enum TestFixtures {
         duration: Int = 2,
         load: LoadClass = .normal,
         kind: CalendarItemKind = .confirmed,
-        marginKind: MarginKind? = nil
+        marginKind: MarginKind? = nil,
+        occupiesTime: Bool? = nil
     ) -> CalendarItemSnapshot {
         let start = date(day: day, hour: hour)
         return CalendarItemSnapshot(
@@ -42,7 +43,8 @@ enum TestFixtures {
             bufferBeforeMinutes: 0,
             bufferAfterMinutes: 0,
             isImportantTime: false,
-            sourceID: nil
+            sourceID: nil,
+            occupiesTime: occupiesTime
         )
     }
 

@@ -99,7 +99,7 @@ final class MiraScreenshotUITests: XCTestCase {
             tap(app.buttons["friendViewToggle"], in: app)
         }
 
-        if tap(app.buttons["miraCompanionButton"], in: app) {
+        if tap(app.miraChatButton, in: app) {
             settle(0.8)
             capture("07a-chat-welcome")
             let suggestions = app.buttons.matching(identifier: "chatSuggestion")

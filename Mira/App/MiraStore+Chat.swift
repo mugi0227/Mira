@@ -311,7 +311,7 @@ extension MiraStore {
             let value = progress(for: goal)
             return ChatBalanceLine(kind: goal.kind, current: value.current, target: value.target, customTitle: goal.customTitle)
         }
-        let busy = items.filter { $0.kind == .confirmed && key.interval.contains($0.startDate) }
+        let busy = items.filter { $0.countsAgainstWhitespace && key.interval.contains($0.startDate) }
         let heavy = busy.filter { $0.loadClass >= .heavy }.count
         let summary = "対象期間：\(rangeLabel(key.interval.start, key.interval.end))。\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
             + lines.map { "\($0.title) \($0.current)/\($0.target)" }.joined(separator: "、")

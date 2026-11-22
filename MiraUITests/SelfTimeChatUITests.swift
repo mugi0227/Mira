@@ -109,7 +109,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     func testProactiveSuggestionIsReadableFromTheCompanion() throws {
-        let companion = app.buttons["miraCompanionButton"]
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         let hasSuggestion = app.buttons["提案を見る"].exists || app.staticTexts["来週の自分の時間、提案があります"].exists
         companion.tap()
@@ -142,8 +142,8 @@ final class SelfTimeChatUITests: XCTestCase {
         require(text, "share as text")
     }
 
-    func testHomeScrollEndsJustAboveCompanion() {
-        let companion = app.buttons["miraCompanionButton"]
+    func testHomeScrollEndsJustAboveTabs() {
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         let home = app.scrollViews["homeScroll"]
         require(home, "home scroll")
@@ -156,9 +156,8 @@ final class SelfTimeChatUITests: XCTestCase {
         let gap = companion.frame.minY - progress.frame.maxY
         XCTAssertGreaterThanOrEqual(gap, 0)
         XCTAssertLessThanOrEqual(gap, 48, "Home should not scroll into unused space above Mira")
-        let tabGap = app.buttons["miraTab-home"].frame.minY - companion.frame.maxY
-        XCTAssertGreaterThanOrEqual(tabGap, 0)
-        XCTAssertLessThanOrEqual(tabGap, 32, "The tab bar already reserves its own space")
+        let tabGap = app.buttons["ホーム"].frame.minY - companion.frame.minY
+        XCTAssertLessThanOrEqual(abs(tabGap), 2, "Chat should share the tab row")
     }
 
     func testLatestChatActionStaysAboveKeyboardAndComposer() {
@@ -209,7 +208,7 @@ final class SelfTimeChatUITests: XCTestCase {
         let lastMonth = app.buttons["12月"]
         require(lastMonth, "last month shortcut")
         captureScrollState("margins-scroll-end")
-        let gap = app.buttons["miraTab-margins"].frame.minY - lastMonth.frame.maxY
+        let gap = app.buttons["マイ余白"].frame.minY - lastMonth.frame.maxY
         XCTAssertGreaterThan(gap, 0)
         XCTAssertLessThan(gap, 75, "Margins should not scroll an extra tab bar's height")
     }
@@ -271,7 +270,7 @@ final class SelfTimeChatUITests: XCTestCase {
     }
 
     private func openCompanion() {
-        let companion = app.buttons["miraCompanionButton"]
+        let companion = app.miraChatButton
         require(companion, "companion", timeout: 12)
         companion.tap()
         require(app.descendants(matching: .any)["miraChatInput"], "chat input")
@@ -321,6 +320,6 @@ final class SelfTimeChatUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.buttons["miraCompanionButton"].waitForExistence(timeout: 12)
+        _ = app.miraChatButton.waitForExistence(timeout: 12)
     }
 }

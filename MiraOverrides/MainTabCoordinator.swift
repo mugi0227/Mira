@@ -10,6 +10,7 @@ struct MainTabView: View {
 
     @State private var selectedTab: MiraTab = .home
     @State private var keyboardIsVisible = false
+    @State private var showChat = false
     @State private var reminderAdjustment: AdjustmentEntity?
     @State private var reminderInvitation: PendingInvitationEntity?
     @AppStorage("mira.ui.pendingReminderDestination") private var pendingReminderRawValue = ""
@@ -17,18 +18,15 @@ struct MainTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $selectedTab) {
+            TabView(selection: tabSelectionBinding) {
                 NavigationStack {
                     HomeView(palette: palette)
                         .anchorPreference(key: MiraOverlayLayoutKey.self, value: .bottom) {
                             MiraOverlayLayout(nativeTabBarTop: palette.isCatSkin ? nil : $0)
                         }
                 }
-                .transformPreference(MiraOverlayLayoutKey.self) { layout in
-                    if selectedTab != .home { layout.companionBounds = nil }
-                }
                 .tabItem { Label("ホーム", systemImage: "calendar") }
-                .tag(MiraTab.home)
+                .tag(MiraTab.home.rawValue)
                 .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
                 NavigationStack {
@@ -38,8 +36,16 @@ struct MainTabView: View {
                         }
                 }
                 .tabItem { Label("調整", systemImage: "arrow.trianglehead.2.clockwise.rotate.90") }
-                .tag(MiraTab.adjustments)
+                .tag(MiraTab.adjustments.rawValue)
                 .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
+
+                if !palette.isCatSkin && store.assistantEnabled {
+                    Color.clear
+                        .tabItem { Label("チャット", systemImage: "bubble.left.and.text.bubble.right") }
+                        .tag("chat")
+                        .badge(chatNeedsAttention ? "" : nil as String?)
+                        .toolbar(.visible, for: .tabBar)
+                }
 
                 NavigationStack {
                     MarginsView(palette: palette)
@@ -48,7 +54,7 @@ struct MainTabView: View {
                         }
                 }
                 .tabItem { Label("マイ余白", systemImage: "leaf") }
-                .tag(MiraTab.margins)
+                .tag(MiraTab.margins.rawValue)
                 .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
 
                 NavigationStack {
@@ -58,7 +64,7 @@ struct MainTabView: View {
                         }
                 }
                 .tabItem { Label("設定", systemImage: "gearshape") }
-                .tag(MiraTab.settings)
+                .tag(MiraTab.settings.rawValue)
                 .toolbar(palette.isCatSkin ? .hidden : .visible, for: .tabBar)
             }
             .tint(palette.accent)
@@ -67,6 +73,17 @@ struct MainTabView: View {
             }
         }
         .background(palette.background)
+        .sheet(isPresented: $showChat) {
+            MiraChatView(palette: palette)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .miraOpenChat)) { _ in
+            showChat = true
+        }
+        .task {
+            if UserDefaults.standard.bool(forKey: MiraStore.openChatRequestKey) {
+                showChat = true
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
             Task { await store.refreshDeviceCalendar() }
         }
@@ -127,6 +144,19 @@ struct MainTabView: View {
         }
     }
 
+    private var tabSelectionBinding: Binding<String> {
+        Binding(
+            get: { selectedTab.rawValue },
+            set: { selection in
+                if selection == "chat" {
+                    showChat = true
+                } else if let tab = MiraTab(rawValue: selection) {
+                    selectedTab = tab
+                }
+            }
+        )
+    }
+
     @MainActor
     private func receivePendingReminder() async {
         guard store.isReady,
@@ -174,7 +204,7 @@ struct MainTabView: View {
             store.activeDeclineDraft != nil || store.pendingChangePreview != nil ||
             store.pendingEventCreationPreview != nil || store.presentedEventForm != nil ||
             (store.isRebalanceProposalPresented && store.activeRebalanceProposal != nil) ||
-            reminderAdjustment != nil || reminderInvitation != nil { return true }
+            showChat || reminderAdjustment != nil || reminderInvitation != nil { return true }
         guard let root = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .filter({ $0.activationState == .foregroundActive })
@@ -195,6 +225,9 @@ struct MainTabView: View {
     private var floatingTabBar: some View {
         HStack(spacing: 4) {
             ForEach(MiraTab.allCases) { tab in
+                if tab == .margins && store.assistantEnabled {
+                    chatButton
+                }
                 Button {
                     withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                         selectedTab = tab
@@ -246,6 +279,43 @@ struct MainTabView: View {
                 Color.clear.preference(key: MiraOverlayLayoutKey.self, value: MiraOverlayLayout(tabBarHeight: geometry.size.height))
             }
         }
+    }
+
+    private var chatButton: some View {
+        Button {
+            showChat = true
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                    .font(.system(size: 23, weight: .semibold))
+                    .overlay(alignment: .topTrailing) {
+                        if chatNeedsAttention {
+                            Circle()
+                                .fill(palette.accent)
+                                .frame(width: 7, height: 7)
+                                .overlay { Circle().strokeBorder(palette.elevatedSurface, lineWidth: 1) }
+                                .offset(x: 5, y: -3)
+                        }
+                    }
+                Text("チャット")
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .foregroundStyle(palette.accent)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .padding(.vertical, 2)
+            .background(palette.accentSoft.opacity(0.65), in: RoundedRectangle(cornerRadius: MiraRadius.medium))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MiraPressStyle())
+        .accessibilityLabel("チャット")
+        .accessibilityValue(chatNeedsAttention ? "新しいメッセージ" : "")
+        .accessibilityIdentifier("miraChatButton")
+    }
+
+    private var chatNeedsAttention: Bool {
+        store.hasUnreadMiraSuggestion || store.currentAssistantMessage.actionTitle != nil || store.currentAssistantMessage.mood == .warning
     }
 
     private var schedulingPresented: Binding<Bool> {

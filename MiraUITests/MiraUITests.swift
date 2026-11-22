@@ -1,5 +1,11 @@
 import XCTest
 
+extension XCUIApplication {
+    var miraChatButton: XCUIElement {
+        buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", "miraChatButton", "チャット")).firstMatch
+    }
+}
+
 final class MiraUITests: XCTestCase {
     func testOnboardingReachesHome() {
         let app = XCUIApplication()
@@ -14,7 +20,7 @@ final class MiraUITests: XCTestCase {
             start.tap()
         }
 
-        XCTAssertTrue(app.buttons["miraCompanionButton"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.miraChatButton.waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["調整"].exists)
         XCTAssertTrue(app.buttons["マイ余白"].exists)
     }

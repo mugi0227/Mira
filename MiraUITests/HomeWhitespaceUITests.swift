@@ -142,6 +142,9 @@ final class HomeWhitespaceUITests: XCTestCase {
         }
         XCTAssertTrue(panel.exists)
         capture("panel-last-week")
+        for _ in 0..<4 { scroll.swipeUp(velocity: .fast) }
+        XCTAssertLessThan(panel.frame.maxY, app.tabBars.firstMatch.frame.minY - 16)
+        capture("panel-last-week-max-scroll")
     }
 
     func testInlinePanelOpensNeighborMonthDay() {
