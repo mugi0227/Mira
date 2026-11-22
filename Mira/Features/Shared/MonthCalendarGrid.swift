@@ -70,6 +70,7 @@ struct MonthCalendarGrid: View {
                                        onAdd: { onAddEvent?(date) },
                                        onOpenTimeline: { onOpenTimeline?(date) },
                                        onSelectItem: { onSelectItem?($0) },
+                                       workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
                                        workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) })
                                 .padding(16)
                         }

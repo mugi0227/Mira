@@ -7,6 +7,7 @@ struct InlineDayPanel: View {
     let onAdd: () -> Void
     let onOpenTimeline: () -> Void
     let onSelectItem: (CalendarItemSnapshot) -> Void
+    var workIntervals: [DateInterval] = []
     var workDayAccessory: (() -> AnyView)? = nil
 
     var body: some View {
@@ -30,6 +31,17 @@ struct InlineDayPanel: View {
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
                             Capsule().fill(palette.primaryText.opacity(0.06))
+                            ForEach(Array(workIntervals.enumerated()), id: \.offset) { _, interval in
+                                let start = Calendar.mira.startOfDay(for: date)
+                                let end = Calendar.mira.date(byAdding: .day, value: 1, to: start) ?? start
+                                let length = end.timeIntervalSince(start)
+                                let lower = max(0, min(1, interval.start.timeIntervalSince(start) / length))
+                                let upper = max(lower, min(1, interval.end.timeIntervalSince(start) / length))
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(palette.secondaryText.opacity(0.3))
+                                    .frame(width: geometry.size.width * (upper - lower))
+                                    .offset(x: geometry.size.width * lower)
+                            }
                             ForEach(items.filter { $0.countsAgainstWhitespace && $0.exactTimeKnown }) { item in
                                 let start = Calendar.mira.startOfDay(for: date)
                                 let end = Calendar.mira.date(byAdding: .day, value: 1, to: start) ?? start
@@ -59,6 +71,9 @@ struct InlineDayPanel: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(date.japaneseShortDate)の時間割を開く、予定\(items.count)件")
+            .accessibilityValue(workIntervals.map {
+                "仕事 \(DateFormatter.mira("H:mm").string(from: $0.start))–\(DateFormatter.mira("H:mm").string(from: $0.end))"
+            }.joined(separator: "、"))
             .accessibilityIdentifier("inlineDayTimeBar")
 
             if items.isEmpty {

@@ -170,7 +170,10 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(panel.waitForExistence(timeout: 5))
         app.buttons["calendar-date-2026-09-09"].tap()
         XCTAssertTrue(panel.exists)
-        XCTAssertGreaterThan(panel.frame.minY, app.buttons["calendar-date-2026-09-09"].frame.maxY)
+        let belowWeek = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            panel.exists && panel.frame.minY > self.app.buttons["calendar-date-2026-09-09"].frame.maxY
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [belowWeek], timeout: 5), .completed)
         app.buttons["calendar-date-2026-09-09"].tap()
         XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
     }
@@ -183,11 +186,14 @@ final class HomeWhitespaceUITests: XCTestCase {
         let mark = element("workDayMark-2026-09-03")
         XCTAssertTrue(mark.exists)
         XCTAssertEqual(toggle.value as? String, "オン")
+        XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")
         toggle.tap()
         XCTAssertTrue(mark.waitForNonExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "オフ")
+        XCTAssertFalse((app.buttons["inlineDayTimeBar"].value as? String ?? "").contains("仕事"))
         toggle.tap()
         XCTAssertTrue(mark.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")
         capture("panel-work-day")
         app.buttons["workDayInfoButton"].tap()
         XCTAssertTrue(element("workDayExplanation").waitForExistence(timeout: 5))
