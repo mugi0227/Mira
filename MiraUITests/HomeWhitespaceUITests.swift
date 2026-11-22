@@ -154,6 +154,13 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["calendar-date-2026-08-31"].tap()
         XCTAssertTrue(element("inlineDayPanel").waitForExistence(timeout: 5))
         XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<6 where !app.buttons["inlineDayTimeBar"].isHittable {
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(app.buttons["inlineDayTimeBar"].isHittable)
+        XCTAssertGreaterThan(element("inlineDayPanel").frame.height, 100)
+        capture("panel-neighbor-new-week")
     }
 
     func testInlinePanelMotionOpenMoveAndClose() {

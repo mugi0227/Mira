@@ -129,7 +129,7 @@ struct InlineDayPanelSlot<Content: View>: View {
             .modifier(InlineDayPanelReveal(progress: progress))
             .allowsHitTesting(date != nil)
             .accessibilityHidden(date == nil)
-            .onChange(of: date) { oldDate, newDate in
+            .onChange(of: date, initial: true) { oldDate, newDate in
                 previousDate = newDate ?? oldDate
                 withAnimation(reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.78)) {
                     progress = newDate == nil ? 0 : 1
