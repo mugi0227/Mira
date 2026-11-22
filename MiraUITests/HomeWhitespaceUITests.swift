@@ -43,6 +43,11 @@ final class HomeWhitespaceUITests: XCTestCase {
     func testAllDayEventStaysAboveTheScrollingTimeline() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-07"].tap()
+        let work = element("inlineDayWork-0")
+        XCTAssertTrue(work.waitForExistence(timeout: 5))
+        let inlineEvent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(inlineEvent.exists)
+        XCTAssertLessThan(work.frame.maxY, inlineEvent.frame.minY)
         Thread.sleep(forTimeInterval: 1)
         app.buttons["inlineDayTimeBar"].tap()
         let allDayEvent = app.buttons["美容院、終日"]
@@ -125,7 +130,9 @@ final class HomeWhitespaceUITests: XCTestCase {
         day.tap()
         XCTAssertFalse(panel.exists)
         app.buttons["calendar-date-2026-09-03"].tap()
+        app.buttons["workDayToggle"].tap()
         XCTAssertTrue(element("inlineDayEmpty").waitForExistence(timeout: 5))
+        XCTAssertFalse(element("inlineDayWork-0").exists)
         capture("panel-empty")
         app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
@@ -143,6 +150,13 @@ final class HomeWhitespaceUITests: XCTestCase {
                 .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)))
         }
         XCTAssertTrue(panel.exists)
+        let work = element("inlineDayWork-0")
+        XCTAssertTrue(work.exists)
+        XCTAssertEqual(work.label, "仕事  9:00–18:00")
+        let event = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(event.exists)
+        XCTAssertLessThan(work.frame.maxY, event.frame.minY)
+        XCTAssertFalse(element("inlineDayEmpty").exists)
         capture("panel-last-week")
         for _ in 0..<4 { scroll.swipeUp(velocity: .fast) }
         XCTAssertLessThan(panel.frame.maxY, app.tabBars.firstMatch.frame.minY - 16)
@@ -187,10 +201,17 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(mark.exists)
         XCTAssertEqual(toggle.value as? String, "オン")
         XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")
+        XCTAssertEqual(element("inlineDayWork-0").label, "仕事  9:00–18:00")
+        XCTAssertFalse(element("inlineDayEmpty").exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).count, 0)
+        capture("panel-work-no-events")
         toggle.tap()
         XCTAssertTrue(mark.waitForNonExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "オフ")
         XCTAssertFalse((app.buttons["inlineDayTimeBar"].value as? String ?? "").contains("仕事"))
+        XCTAssertFalse(element("inlineDayWork-0").exists)
+        XCTAssertTrue(element("inlineDayEmpty").exists)
+        capture("panel-nonwork-no-events")
         toggle.tap()
         XCTAssertTrue(mark.waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")

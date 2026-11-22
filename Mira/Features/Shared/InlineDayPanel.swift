@@ -76,7 +76,17 @@ struct InlineDayPanel: View {
             }.joined(separator: "、"))
             .accessibilityIdentifier("inlineDayTimeBar")
 
-            if items.isEmpty {
+            ForEach(Array(workIntervals.enumerated()), id: \.offset) { index, interval in
+                Text("仕事  \(DateFormatter.mira("H:mm").string(from: interval.start))–\(DateFormatter.mira("H:mm").string(from: interval.end))")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.secondaryText.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityIdentifier("inlineDayWork-\(index)")
+            }
+
+            if items.isEmpty && workIntervals.isEmpty {
                 Text("予定なし。ゆっくり過ごせる一日です。")
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
