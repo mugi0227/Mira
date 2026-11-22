@@ -5,7 +5,7 @@ name: AI Build Check
 # type-checked too.
 on:
   push:
-    branches: [main, "feature/**", "claude/**"]
+    branches: [main, "feature/**", "claude/**", "codex/field-review-fixes"]
   pull_request:
     branches: [main]
   workflow_dispatch:

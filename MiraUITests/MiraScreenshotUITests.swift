@@ -8,9 +8,56 @@ final class MiraScreenshotUITests: XCTestCase {
         continueAfterFailure = true
     }
 
+    func testSoftMinimalUndoToastClearsNativeTabs() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "softMinimal", "-ui-testing-persistent-toast", "-AppleInterfaceStyle", "Light"]
+        app.launch()
+        let recommended = app.buttons["おすすめを確認"]
+        if recommended.waitForExistence(timeout: 5) {
+            recommended.tap()
+            let start = app.buttons["余白を置いて始める"]
+            XCTAssertTrue(start.waitForExistence(timeout: 5))
+            start.tap()
+        }
+        let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 10))
+        XCTAssertEqual(heading.label, "2026年9月、11件の予定")
+        app.tabBars.buttons["マイ余白"].tap()
+        let place = app.buttons["おすすめ配置を更新"]
+        XCTAssertTrue(place.waitForExistence(timeout: 5))
+        place.tap()
+        let banner = app.descendants(matching: .any)["calendarUndoBanner"].firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 5))
+        app.tabBars.buttons["調整"].tap()
+        let tabs = app.tabBars.firstMatch
+        let clearOfTabs = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            banner.exists && banner.frame.maxY <= tabs.frame.minY - 12
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [clearOfTabs], timeout: 5), .completed,
+                       "Undo banner \(banner.frame) must clear native tabs \(tabs.frame)")
+        for title in ["ホーム", "調整", "マイ余白", "設定"] {
+            XCTAssertTrue(tabs.buttons[title].isHittable)
+        }
+        let toast = app.staticTexts["appToast"]
+        XCTAssertTrue(toast.exists)
+        XCTAssertLessThanOrEqual(toast.frame.maxY, banner.frame.minY - 8)
+        capture("toast-adjustments-soft-minimal")
+        app.buttons["取り消す"].tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: banner)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
+        XCTAssertTrue(tabs.buttons["ホーム"].isHittable)
+        XCTAssertLessThanOrEqual(toast.frame.maxY, tabs.frame.minY - 12)
+        XCTAssertEqual(toast.frame.midX, app.frame.midX, accuracy: 1)
+        capture("toast-undone-soft-minimal")
+    }
+
     func testCaptureRepresentativeScreens() throws {
+        try? FileManager.default.removeItem(atPath: "/tmp/mira-screenshots")
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing", "-reset-demo"]
+        app.launchArguments += ["-ui-theme", "softMinimal"]
+        app.launchArguments += ["-AppleInterfaceStyle", "Light"]
         app.launch()
 
         ensureOnboarding(in: app)
@@ -52,7 +99,7 @@ final class MiraScreenshotUITests: XCTestCase {
             tap(app.buttons["friendViewToggle"], in: app)
         }
 
-        if tap(app.buttons["miraCompanionButton"], in: app) {
+        if tap(app.miraChatButton, in: app) {
             settle(0.8)
             capture("07a-chat-welcome")
             let suggestions = app.buttons.matching(identifier: "chatSuggestion")
@@ -67,6 +114,20 @@ final class MiraScreenshotUITests: XCTestCase {
                     capture("07c-chat-event-proposal")
                 }
             }
+            let input = app.descendants(matching: .any)["miraChatInput"]
+            if input.waitForExistence(timeout: 3) {
+                input.tap()
+                input.typeText("来週は自分の時間を増やしたい")
+                app.buttons["miraChatSend"].tap()
+                let apply = app.buttons.matching(identifier: "selfTimeApply")
+                if apply.firstMatch.waitForExistence(timeout: 20) {
+                    settle(1.0)
+                    capture("07d-chat-self-time-chips")
+                    apply.element(boundBy: apply.count - 1).tap()
+                    settle(1.0)
+                    capture("07e-chat-self-time-applied")
+                }
+            }
             tap(app.buttons["閉じる"], in: app)
         }
 
@@ -76,6 +137,20 @@ final class MiraScreenshotUITests: XCTestCase {
 
         if tap(app.buttons["マイ余白"], in: app) {
             capture("11-my-margins")
+            let review = app.descendants(matching: .any)["weeklyReviewCard"]
+            if review.waitForExistence(timeout: 3) {
+                var attempts = 0
+                while attempts < 4, !review.isHittable || review.frame.maxY > app.frame.maxY - 140 {
+                    app.swipeUp()
+                    settle(0.4)
+                    attempts += 1
+                }
+                capture("11b-weekly-review")
+                app.swipeDown()
+                app.swipeDown()
+                app.swipeDown()
+                settle()
+            }
             let baseHours = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "普段は予定を置かない時間")).firstMatch
             if tap(baseHours, in: app, avoidingTabBar: true), app.navigationBars["基本時間"].waitForExistence(timeout: 3) {
                 capture("12-base-hours-editor")

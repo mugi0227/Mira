@@ -12,7 +12,7 @@ final class MiraStore {
 
     let container: ModelContainer
     let context: ModelContext
-    let scheduler = SchedulerEngine()
+    var scheduler: SchedulerEngine { SchedulerEngine(workDays: workDayResolver) }
     let loadEngine = LoadEngine()
     let protectionEngine = ProtectionEngine()
     let assistantEngine = AssistantEngine()
@@ -20,7 +20,7 @@ final class MiraStore {
     let conversationInterpreter: any ConversationInterpreting
     let declineGenerator: any DeclineDraftGenerating
     let caseSearchEngine = CaseSearchEngine()
-    let schedulingRecommendationEngine = SchedulingRecommendationEngine()
+    var schedulingRecommendationEngine: SchedulingRecommendationEngine { SchedulingRecommendationEngine(workDays: workDayResolver) }
     let marginRecommendationEngine = MarginRecommendationEngine()
     let rebalanceEngine = RebalanceEngine()
     let deviceHolidayService = DeviceHolidayService()
@@ -45,11 +45,21 @@ final class MiraStore {
     var isChatResponding = false
     @ObservationIgnored var chatAgent: (any MiraChatAgent)?
     @ObservationIgnored var chatHistoryRestored = false
+    var selfTimeLog = SelfTimeLog()
+    var hasUnreadMiraSuggestion = false
+    var trendSuggestionsEnabled = true
+    @ObservationIgnored var selfTimeLogLoaded = false
     @ObservationIgnored var lastWidgetSignature: Int?
 
-    var selectedMonth: Date
+    var selectedMonth: Date {
+        didSet {
+            selectRebalanceProposalForDisplayedMonth()
+            if isReady { updateMarginRecommendation(for: selectedMonth) }
+        }
+    }
     var selectedDate: Date
-    var theme: AppThemeKind = .pixelCat
+    var theme: AppThemeKind = .softMinimal
+    var colorStyle: AppColorStyle = .blue
     var onboardingCompleted = false
     var assistantEnabled = true
     var characterNotificationsEnabled = true
@@ -58,6 +68,8 @@ final class MiraStore {
     var marginComfortLevel: MarginComfortLevel = .standard
     var weekStartDay: WeekStartDay = .monday
     var deviceHolidaysEnabled = false
+    var excludeHolidaysFromWorkDays = true
+    var workDayOverrides: [Date: Bool] = [:]
     var presentedAddSheet = false
     var toast: String?
     var calendarSyncStatus: String?
@@ -137,15 +149,24 @@ final class MiraStore {
     }
 
     var selectedDayItems: [CalendarItemSnapshot] {
-        items.filter { Calendar.mira.isDate($0.startDate, inSameDayAs: selectedDate) }
+        items.filter { $0.overlapsDay(selectedDate) }
             .sorted { $0.startDate < $1.startDate }
     }
 
     var currentAssistantMessage: AssistantMessage {
+        if hasUnreadMiraSuggestion {
+            return AssistantMessage(
+                title: theme.isCat ? "来週の自分の時間、提案があります" : "来週の自分の時間の提案があります",
+                body: "トークで確認して、置くかどうか決めてね。",
+                mood: .thinking,
+                severity: 2,
+                actionTitle: "提案を見る"
+            )
+        }
         if let proposal = activeRebalanceProposal,
            Calendar.mira.isDate(proposal.month, equalTo: selectedMonth, toGranularity: .month) {
             return AssistantMessage(
-                title: "今月の余白を組み直せるにゃ",
+                title: "今月の余白を組み直せます",
                 body: proposal.summary,
                 mood: .thinking,
                 severity: 2,
@@ -180,6 +201,12 @@ final class MiraStore {
             }
 
             applySettings()
+            let arguments = ProcessInfo.processInfo.arguments
+            if let index = arguments.firstIndex(of: "-ui-theme"),
+               arguments.indices.contains(index + 1),
+               let forcedTheme = AppThemeKind(rawValue: arguments[index + 1]) {
+                theme = forcedTheme
+            }
             loadColorPreferences()
             Task { await refreshMiraAccount() }
             clock = demoModeEnabled ? DemoClock.standard : SystemClock()
@@ -188,6 +215,15 @@ final class MiraStore {
             if demoModeEnabled { try DemoSeeder.seedBaseline(in: context, clock: clock) }
             try normalizeLegacyMarginKinds()
             try refresh()
+            if ProcessInfo.processInfo.arguments.contains("-friend-share-test"), importantPeople.isEmpty {
+                addImportantPerson(name: "はる", monthlyTarget: nil)
+            }
+            // Previous versions allowed a connected calendar to remain on the demo clock.
+            if deviceCalendarService.enabled && deviceCalendarService.hasAccess,
+               !UserDefaults.standard.bool(forKey: "mira.calendar.everydayClockMigrated") {
+                if demoModeEnabled { await setDemoModeEnabled(false) }
+                UserDefaults.standard.set(true, forKey: "mira.calendar.everydayClockMigrated")
+            }
             if deviceHolidaysEnabled {
                 await refreshDeviceHolidays(for: selectedMonth)
             }
@@ -197,6 +233,7 @@ final class MiraStore {
             loadDrafts()
             await refreshDeviceCalendar()
             await reconcileReminders()
+            await refreshProactiveSelfTimeSuggestion()
             isReady = true
         } catch {
             context.rollback()
@@ -214,8 +251,14 @@ final class MiraStore {
         importantPeople = try context.fetch(FetchDescriptor<ImportantPersonEntity>())
         conversationCases = try context.fetch(FetchDescriptor<ConversationCaseEntity>(sortBy: [SortDescriptor(\.lastActivityAt, order: .reverse)]))
         rebalanceProposalEntities = try context.fetch(FetchDescriptor<RebalanceProposalEntity>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))
-        activeRebalanceProposal = rebalanceProposalEntities.first(where: { !$0.isDismissed })?.proposal
+        selectRebalanceProposalForDisplayedMonth()
         publishWidgetSnapshot()
+    }
+
+    func selectRebalanceProposalForDisplayedMonth() {
+        activeRebalanceProposal = rebalanceProposalEntities.first {
+            !$0.isDismissed && Calendar.mira.isDate($0.month, equalTo: selectedMonth, toGranularity: .month)
+        }?.proposal
     }
 
     func replaceDeviceHolidays(with holidays: [DeviceHolidaySnapshot]) {
@@ -274,14 +317,22 @@ final class MiraStore {
         try context.delete(model: CalendarItemEntity.self)
         try context.delete(model: MarginGoalEntity.self)
         try context.delete(model: BaseRuleEntity.self)
+        try clearWorkDayOverrides()
+        settingsEntity?.excludeHolidaysFromWorkDays = true
+        excludeHolidaysFromWorkDays = true
         try context.delete(model: AdjustmentEntity.self)
         try context.delete(model: PendingInvitationEntity.self)
         try context.delete(model: LoadRuleEntity.self)
         try context.delete(model: ImportantPersonEntity.self)
         try context.delete(model: ConversationCaseEntity.self)
         try context.delete(model: RebalanceProposalEntity.self)
+        resetSelfTimeLog()
+        settingsEntity?.trendSuggestionsEnabled = nil
+        trendSuggestionsEnabled = true
         settingsEntity?.onboardingCompleted = false
-        settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+        settingsEntity?.themeRaw = AppThemeKind.softMinimal.rawValue
+        settingsEntity?.colorStyleRaw = nil
+        colorStyle = .blue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
         settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
         settingsEntity?.deviceHolidaysEnabled = false

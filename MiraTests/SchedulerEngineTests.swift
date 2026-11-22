@@ -55,7 +55,7 @@ final class SchedulerEngineTests: XCTestCase {
     }
 
     func testRestFallsBackToWeekdayEveningWhenWeekendsAreBusy() {
-        let engine = SchedulerEngine(calendar: .mira)
+        let engine = SchedulerEngine(calendar: .mira, workDays: WorkDayResolver(excludeHolidays: false))
         let calendar = Calendar.mira
         let weekendEvents = (1...30).compactMap { day -> CalendarItemSnapshot? in
             let date = TestFixtures.date(day: day, hour: 0)

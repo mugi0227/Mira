@@ -1,0 +1,21 @@
+{
+  "certificateId": "C88N5HN296",
+  "type": "DISTRIBUTION",
+  "expiration": "2027-10-13T10:00:39.000+00:00",
+  "fingerprintSha1": "4FD79A6E11CC148375A255FA7FCBD9D9B26641B0",
+  "issuer": "C=US,O=Apple Inc.,OU=G3,CN=Apple Worldwide Developer Relations Certification Authority",
+  "profiles": {
+    "jp.mugi.mira": {
+      "id": "2PC86627T6",
+      "name": "Mira CI App Store",
+      "uuid": "f357a221-5c8a-4c13-a80d-d8a492c54e3e",
+      "expiration": "2027-10-13T10:00:39.000+00:00"
+    },
+    "jp.mugi.mira.widget": {
+      "id": "NXYKZ6QP54",
+      "name": "Mira Widget CI App Store",
+      "uuid": "c6b20e7a-48f8-43be-bf92-08aa251108ce",
+      "expiration": "2027-10-13T10:00:39.000+00:00"
+    }
+  }
+}

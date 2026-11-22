@@ -35,7 +35,7 @@ final class AdjustmentApprovalTests: XCTestCase {
         XCTAssertFalse(unapproved)
         let preparedReview = await store.prepareCandidateConfirmation(sessionID: session.id, candidateID: candidate.id)
         let review = try XCTUnwrap(preparedReview)
-        XCTAssertTrue(review.conflicts.contains("確定予定と重なっています"))
+        XCTAssertTrue(review.conflicts.contains { $0.contains("すでにある予定") })
         XCTAssertEqual(review.impact.protectionLevel, .finalDefense)
         XCTAssertEqual(session.status, .draft)
         XCTAssertTrue(session.candidates.allSatisfy { $0.status == .held })
@@ -74,7 +74,7 @@ final class AdjustmentApprovalTests: XCTestCase {
 
         let refreshedReview = await store.prepareCandidateConfirmation(sessionID: session.id, candidateID: candidate.id)
         let newReview = try XCTUnwrap(refreshedReview)
-        XCTAssertTrue(newReview.conflicts.contains("確定予定と重なっています"))
+        XCTAssertTrue(newReview.conflicts.contains { $0.contains("確定予定") })
         let approved = await store.confirmCandidate(sessionID: session.id, candidateID: candidate.id, approval: newReview)
         XCTAssertTrue(approved)
     }
@@ -108,7 +108,7 @@ final class AdjustmentApprovalTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == event.id })
 
         let context = store.scheduleReviewContext()
-        XCTAssertTrue(store.eventEntryConflicts(for: event).contains("確定予定と重なっています"))
+        XCTAssertTrue(store.eventEntryConflicts(for: event).contains { $0.contains("確定予定") })
         XCTAssertTrue(store.acceptPending(invitation, approvedEvent: event, reviewContext: context, resolution: .exception))
         XCTAssertEqual(invitation.status, .accepted)
         XCTAssertTrue(store.items.contains { $0.id == event.id })

@@ -35,11 +35,22 @@ extension MiraStore {
             let previous = month.addingMonths(-1)
             let previousKey = MonthKey(date: previous)
             let previousGoals = goals.filter { $0.year == previousKey.year && $0.month == previousKey.month }
-            let targets = Dictionary(uniqueKeysWithValues: previousGoals.map { ($0.kind, $0.targetCount) })
-            try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: targets, calendar: .mira)
+            if previousGoals.isEmpty {
+                try DemoSeeder.seedDefaultGoals(in: context, month: month, targets: [:], calendar: .mira)
+            } else {
+                for goal in previousGoals {
+                    context.insert(MarginGoalEntity(snapshot: MarginGoalSnapshot(
+                        id: UUID(), year: key.year, month: key.month, kind: goal.kind,
+                        targetCount: goal.targetCount, durationHours: goal.durationHours,
+                        priority: goal.priority, isEnabled: goal.isEnabled,
+                        customTitle: goal.customTitle, durationMinutes: goal.durationMinutes
+                    )))
+                }
+                try context.save()
+            }
             try refresh()
             if provisional {
-                toast = "前の月と同じ余白を、いったん置いておいたにゃ"
+                toast = "前の月と同じ余白を、いったん置いておきました"
             }
         } catch {
             context.rollback()
@@ -74,8 +85,8 @@ extension MiraStore {
             updateMarginRecommendation(for: month)
             recalculateBalance(for: month)
             toast = proposal.unmetGoals.isEmpty
-                ? "余白をいい感じに置いたにゃ"
-                : "置けなかった余白もあるので、あとで見直してにゃ"
+                ? "余白をいい感じに置きました"
+                : "置けなかった余白もあるので、あとで見直してください"
         } catch {
             context.rollback()
             toast = "余白を配置できませんでした"
@@ -119,7 +130,8 @@ extension MiraStore {
             bufferAfterMinutes: evaluation.bufferAfterMinutes,
             isImportantTime: isImportant,
             sourceID: nil,
-            colorTag: colorTag
+            colorTag: colorTag,
+            occupiesTime: true
         )
     }
 
@@ -139,18 +151,21 @@ extension MiraStore {
     }
 
     @discardableResult
-    func addMargin(kind: MarginKind, on date: Date) -> Bool {
+    func addMargin(kind: MarginKind, on date: Date, goalID: UUID? = nil) -> Bool {
         let kind = kind.canonicalKind
-        let duration = kind.defaultDurationHours
+        let key = MonthKey(date: date)
+        let matching = goals.filter { $0.year == key.year && $0.month == key.month && $0.kind == kind && $0.isEnabled }
+        let goal = matching.first { $0.id == goalID } ?? matching.first
+        let duration = goal?.effectiveDurationMinutes ?? kind.defaultDurationHours * 60
         let startHour = kind == .rest ? 9 : 13
         let start = date.setting(hour: startHour)
-        let end = Calendar.mira.date(byAdding: .hour, value: duration, to: start) ?? start
+        let end = start.addingTimeInterval(Double(duration) * 60)
         let snapshot = CalendarItemSnapshot(
             id: UUID(),
-            title: kind.title,
+            title: goal?.title ?? kind.title,
             startDate: start,
             endDate: end,
-            isAllDay: kind == .rest,
+            isAllDay: kind == .rest && duration >= 10 * 60,
             kind: .margin,
             marginKind: kind,
             loadClass: .light,
@@ -158,7 +173,7 @@ extension MiraStore {
             bufferBeforeMinutes: 0,
             bufferAfterMinutes: 0,
             isImportantTime: false,
-            sourceID: nil
+            sourceID: goal?.id
         )
         let undo = captureCalendarUndo(title: "余白の追加")
         do {
@@ -186,17 +201,23 @@ extension MiraStore {
     /// Moves a plan to a new start, keeping its length. A move the person made
     /// themselves is already an explicit choice, so it saves at once with undo
     /// and only stops to ask when it would cost a margin or collide.
-    func rescheduleItem(id: UUID, toStart newStart: Date) {
+    func rescheduleItem(id: UUID, toStart newStart: Date, durationSeconds: TimeInterval? = nil) {
         do {
             guard let entity = try entity(id: id) else { return }
             guard entity.snapshot.deviceEvent == nil else {
                 toast = "この予定の詳細から「カレンダーで編集」を選んでください"
                 return
             }
-            guard newStart != entity.startDate else { return }
+            let duration = durationSeconds ?? entity.endDate.timeIntervalSince(entity.startDate)
+            guard duration.isFinite, duration > 0 else { return }
+            let newEnd = newStart.addingTimeInterval(duration)
+            guard newStart != entity.startDate || newEnd != entity.endDate else { return }
             var after = entity.snapshot
             after.startDate = newStart
-            after.endDate = newStart.addingTimeInterval(entity.endDate.timeIntervalSince(entity.startDate))
+            after.endDate = newEnd
+            if after.kind == .margin, after.marginKind == .rest {
+                after.isAllDay = duration >= 10 * 3600
+            }
             let impact = previewImpact(for: after, excludingItemID: id)
             let conflicts = eventEntryConflicts(for: after, excludingItemID: id)
             let preview = ChangePreview(caseID: after.conversationCaseID, itemID: id, title: after.title,
@@ -205,8 +226,8 @@ extension MiraStore {
                 let sameDay = Calendar.mira.isDate(entity.startDate, inSameDayAs: newStart)
                 try commitChange(preview, to: entity, undoTitle: sameDay ? "時間の変更" : "予定の移動")
                 toast = sameDay
-                    ? "\(after.title)を\(newStart.formatted(Date.FormatStyle.mira.hour().minute()))からにしたにゃ"
-                    : "\(after.title)を\(newStart.japaneseShortDate)へ移したにゃ"
+                    ? "\(after.title)を\(newStart.formatted(Date.FormatStyle.mira.hour().minute()))からにしました"
+                    : "\(after.title)を\(newStart.japaneseShortDate)へ移しました"
             } else {
                 pendingChangePreview = preview
             }
@@ -256,7 +277,7 @@ extension MiraStore {
             finishCalendarMutation(undo)
             updateMarginRecommendation(for: affectedDate)
             recalculateBalance(for: affectedDate)
-            toast = rememberKeyword ? "似た予定にも覚えておくにゃ" : "この予定だけ直したにゃ"
+            toast = rememberKeyword ? "似た予定にも覚えておきます" : "この予定だけ直しました"
         } catch {
             context.rollback()
             toast = "負荷を変更できませんでした"
@@ -267,7 +288,7 @@ extension MiraStore {
         let key = MonthKey(year: goal.year, month: goal.month)
         let current: Int
         if goal.kind == .importantPeople {
-            current = items.filter { $0.isImportantTime && key.interval.contains($0.startDate) }.count
+            current = items.filter { ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.isImportantTime && key.interval.contains($0.startDate) }.count
         } else if goal.kind == .freeEvening {
             let engine = FreeEveningEngine()
             let days = daysInMonth(key.firstDay)
@@ -276,13 +297,13 @@ extension MiraStore {
             }.rounded(.down))
         } else {
             current = items.filter {
-                $0.kind == .margin && $0.marginKind == goal.kind && key.interval.contains($0.startDate)
+                goal.matches($0) && key.interval.contains($0.startDate)
             }.count
         }
         return (current, goal.targetCount)
     }
 
-    func updateGoal(_ goal: MarginGoalSnapshot, target: Int) {
+    func updateGoal(_ goal: MarginGoalSnapshot, target: Int, durationMinutes: Int? = nil, title: String? = nil) {
         do {
             let goalID = goal.id
             var descriptor = FetchDescriptor<MarginGoalEntity>(predicate: #Predicate { $0.id == goalID })
@@ -290,6 +311,11 @@ extension MiraStore {
             if let entity = try context.fetch(descriptor).first {
                 entity.targetCount = max(0, target)
                 entity.isEnabled = target > 0
+                if let durationMinutes { entity.durationMinutes = min(24 * 60, max(30, durationMinutes)) }
+                if goal.kind == .custom, let title {
+                    let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !cleaned.isEmpty { entity.customTitle = cleaned }
+                }
                 try context.save()
                 try refresh()
                 recalculateBalance(for: MonthKey(year: goal.year, month: goal.month).firstDay)
@@ -297,6 +323,29 @@ extension MiraStore {
         } catch {
             context.rollback()
             toast = "目標を変更できませんでした"
+        }
+    }
+
+    @discardableResult
+    func addCustomGoal(title: String, target: Int, durationMinutes: Int, month: Date) -> Bool {
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+        let key = MonthKey(date: month)
+        do {
+            context.insert(MarginGoalEntity(snapshot: MarginGoalSnapshot(
+                id: UUID(), year: key.year, month: key.month, kind: .custom,
+                targetCount: max(0, target), durationHours: max(1, durationMinutes / 60),
+                priority: MarginKind.custom.defaultPriority, isEnabled: target > 0,
+                customTitle: cleaned, durationMinutes: min(24 * 60, max(30, durationMinutes))
+            )))
+            try context.save()
+            try refresh()
+            recalculateBalance(for: month)
+            return true
+        } catch {
+            context.rollback()
+            toast = "目標を保存できませんでした"
+            return false
         }
     }
 }

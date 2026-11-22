@@ -3,9 +3,11 @@ import SwiftData
 
 @Model
 final class AppSettingsEntity {
+    var excludeHolidaysFromWorkDays: Bool = true
     @Attribute(.unique) var key: String
     var onboardingCompleted: Bool
     var themeRaw: String
+    var colorStyleRaw: String?
     var assistantEnabled: Bool
     var characterNotificationsEnabled: Bool
     var notificationsEnabled: Bool
@@ -13,13 +15,14 @@ final class AppSettingsEntity {
     var marginComfortRaw: String?
     var weekStartRaw: String?
     var deviceHolidaysEnabled: Bool?
+    var trendSuggestionsEnabled: Bool?
     var createdAt: Date
     var updatedAt: Date
 
     init(
         key: String = "main",
         onboardingCompleted: Bool = false,
-        themeRaw: String = AppThemeKind.pixelCat.rawValue,
+        themeRaw: String = AppThemeKind.softMinimal.rawValue,
         assistantEnabled: Bool = true,
         characterNotificationsEnabled: Bool = true,
         notificationsEnabled: Bool = false,
@@ -64,6 +67,7 @@ final class CalendarItemEntity {
     var conversationCaseID: UUID?
     var deviceEventData: Data?
     var colorTagRaw: String?
+    var occupiesTime: Bool?
     var createdAt: Date
     var updatedAt: Date
 
@@ -87,6 +91,7 @@ final class CalendarItemEntity {
         conversationCaseID = snapshot.conversationCaseID
         deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
         colorTagRaw = snapshot.colorTag?.rawValue
+        occupiesTime = snapshot.occupiesTime
         createdAt = .now
         updatedAt = .now
     }
@@ -111,7 +116,8 @@ final class CalendarItemEntity {
             exactTimeKnown: exactTimeKnown ?? true,
             conversationCaseID: conversationCaseID,
             deviceEvent: deviceEventData.flatMap { try? JSONDecoder().decode(DeviceEventReference.self, from: $0) },
-            colorTag: colorTagRaw.flatMap(EventColorTag.init(rawValue:))
+            colorTag: colorTagRaw.flatMap(EventColorTag.init(rawValue:)),
+            occupiesTime: occupiesTime
         )
     }
 
@@ -134,6 +140,7 @@ final class CalendarItemEntity {
         conversationCaseID = snapshot.conversationCaseID
         deviceEventData = snapshot.deviceEvent.flatMap { try? JSONEncoder().encode($0) }
         colorTagRaw = snapshot.colorTag?.rawValue
+        occupiesTime = snapshot.occupiesTime
         updatedAt = .now
     }
 }
@@ -148,6 +155,8 @@ final class MarginGoalEntity {
     var durationHours: Int
     var priority: Int
     var isEnabled: Bool
+    var customTitle: String? = nil
+    var durationMinutes: Int? = nil
 
     init(snapshot: MarginGoalSnapshot) {
         id = snapshot.id
@@ -158,6 +167,8 @@ final class MarginGoalEntity {
         durationHours = snapshot.durationHours
         priority = snapshot.priority
         isEnabled = snapshot.isEnabled
+        customTitle = snapshot.customTitle
+        durationMinutes = snapshot.durationMinutes
     }
 
     var snapshot: MarginGoalSnapshot {
@@ -169,7 +180,9 @@ final class MarginGoalEntity {
             targetCount: targetCount,
             durationHours: durationHours,
             priority: priority,
-            isEnabled: isEnabled
+            isEnabled: isEnabled,
+            customTitle: customTitle,
+            durationMinutes: durationMinutes
         )
     }
 }
@@ -190,6 +203,17 @@ final class BaseRuleEntity {
 
     var snapshot: BaseAvailabilityRule {
         BaseAvailabilityRule(weekday: weekday, startMinute: startMinute, endMinute: endMinute)
+    }
+}
+
+@Model
+final class WorkDayOverrideEntity {
+    @Attribute(.unique) var day: Date
+    var isWorkDay: Bool
+
+    init(date: Date, isWorkDay: Bool) {
+        day = Calendar.mira.startOfDay(for: date)
+        self.isWorkDay = isWorkDay
     }
 }
 
@@ -312,6 +336,7 @@ final class LoadRuleEntity {
 
 @Model
 final class ImportantPersonEntity {
+    var friendShareLevelRaw: String? = nil
     @Attribute(.unique) var id: UUID
     var name: String
     var monthlyTarget: Int?

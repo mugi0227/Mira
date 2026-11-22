@@ -15,7 +15,9 @@ struct NewItemSheet: View {
     @State private var endTime: Date
     @State private var isAllDay = false
     @State private var isImportant = false
+    @State private var isMemo = false
     @State private var marginKind: MarginKind = .rest
+    @State private var marginGoalID: UUID?
     @State private var colorTag: EventColorTag?
     @State private var colorChosenByUser = false
     @State private var isPreparing = false
@@ -45,7 +47,9 @@ struct NewItemSheet: View {
         _endTime = State(initialValue: value.endTime)
         _isAllDay = State(initialValue: value.isAllDay)
         _isImportant = State(initialValue: value.isImportant)
+        _isMemo = State(initialValue: value.isMemo ?? false)
         _marginKind = State(initialValue: value.marginKind)
+        _marginGoalID = State(initialValue: value.marginGoalID)
         _colorTag = State(initialValue: value.colorTag)
         _colorChosenByUser = State(initialValue: value.colorTag != nil)
     }
@@ -70,6 +74,13 @@ struct NewItemSheet: View {
             .scrollContentBackground(.hidden)
             .miraFormStyle(palette)
             .miraScreenBackground(palette)
+            .safeAreaInset(edge: .bottom, spacing: MiraSpacing.sm) {
+                Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
+                    .buttonStyle(.bordered)
+                    .padding(.vertical, MiraSpacing.sm)
+                    .frame(maxWidth: .infinity)
+                    .background(.regularMaterial)
+            }
             .navigationTitle(mode == .event ? "予定を追加" : "余白を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -84,9 +95,6 @@ struct NewItemSheet: View {
                         Task { await save() }
                     }
                     .disabled(!canSave || isPreparing)
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    Button("下書きを削除", role: .destructive) { showDiscardConfirmation = true }
                 }
             }
             .confirmationDialog(
@@ -159,7 +167,7 @@ struct NewItemSheet: View {
             }
         }
         .task(id: secretaryInputKey) {
-            guard mode == .event, canSave else {
+            guard mode == .event, !isMemo, canSave else {
                 resetSecretaryPreview()
                 return
             }
@@ -176,43 +184,80 @@ struct NewItemSheet: View {
 
     private var eventFields: some View {
         Group {
-            Section("予定") {
+            Section {
                 TextField("例：友達とご飯", text: $title)
                     .textInputAutocapitalization(.never)
                     .onChange(of: title) { _, value in
                         guard !colorChosenByUser else { return }
                         colorTag = store.suggestedColor(forTitle: value)
                     }
+                Toggle("時間を取らない予定", isOn: $isMemo)
+                    .onChange(of: isMemo) { _, value in
+                        if value { isImportant = false }
+                    }
+            } header: {
+                Text("予定")
+            } footer: {
+                Text("メモや人の予定など。空き時間や余白の計算には入りません")
+            }
+            .listRowBackground(palette.surface)
+
+            Section {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("色")
                     EventColorPicker(selection: $colorTag, palette: palette) { _ in
                         colorChosenByUser = true
                     }
                 }
-                DatePicker("日付", selection: $date, displayedComponents: .date)
                 Toggle("終日", isOn: $isAllDay)
                 if !isAllDay {
                     DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("eventStartTime")
                     DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("eventEndTime")
                 }
             }
             .listRowBackground(palette.surface)
 
             Section {
-                Toggle("大切な人との時間", isOn: $isImportant)
-            } footer: {
-                Text("大切さと疲れやすさは別に判定します。")
+                EventRoomCalendar(
+                    selectedDate: $date,
+                    durationMinutes: requestedMinutes,
+                    items: store.items,
+                    baseRules: store.fetchBaseRules(),
+                    referenceDate: store.now,
+                    weekStartDay: store.weekStartDay,
+                    palette: palette,
+                    loadMonth: { await store.refreshDeviceCalendar(around: $0) },
+                    workDays: store.workDayResolver
+                )
+            } header: {
+                HStack {
+                    Text("日付")
+                    Spacer()
+                    Text(date.japaneseShortDate)
+                        .accessibilityIdentifier("eventSelectedDate")
+                }
             }
             .listRowBackground(palette.surface)
 
-            Section {
-                secretaryPreview
-            } header: {
-                Text("Miraの秘書チェック")
-            } footer: {
-                Text("Miraは予定を一方的に禁止しません。影響と別候補を示したうえで、最後はあなたが決められます。")
+            if !isMemo {
+                Section {
+                    Toggle("大切な人との時間", isOn: $isImportant)
+                } footer: {
+                    Text("大切さと疲れやすさは別に判定します。")
+                }
+                .listRowBackground(palette.surface)
+
+                Section {
+                    secretaryPreview
+                } header: {
+                    Text("Miraの秘書チェック")
+                } footer: {
+                    Text("Miraは予定を一方的に禁止しません。影響と別候補を示したうえで、最後はあなたが決められます。")
+                }
+                .listRowBackground(palette.surface)
             }
-            .listRowBackground(palette.surface)
         }
     }
 
@@ -220,8 +265,8 @@ struct NewItemSheet: View {
     private var secretaryPreview: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
             HStack(alignment: .top, spacing: MiraSpacing.sm) {
-                if store.theme == .pixelCat {
-                    PixelCatView(mood: secretaryMood, size: 58)
+                if store.theme.isCat {
+                    MiraCatView(mood: secretaryMood, size: 58)
                 } else {
                     Image(systemName: secretarySymbol)
                         .font(.title2)
@@ -244,7 +289,7 @@ struct NewItemSheet: View {
             if isReviewing {
                 HStack(spacing: MiraSpacing.xs) {
                     ProgressView()
-                    Text("予定の意味・負荷・余白への影響を見ているにゃ")
+                    Text("予定の意味・負荷・余白への影響を確認しています")
                         .font(.caption)
                         .foregroundStyle(palette.secondaryText)
                 }
@@ -306,7 +351,7 @@ struct NewItemSheet: View {
 
                 if !alternativeEventDates.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("別候補なら、今の目標を崩しにくいにゃ")
+                        Text("別候補なら、今の目標を守りやすくなります")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(palette.secondaryText)
 
@@ -342,6 +387,14 @@ struct NewItemSheet: View {
                     }
                 }
                 DatePicker("日付", selection: $date, displayedComponents: .date)
+                if marginKind == .custom && !customGoals.isEmpty {
+                    Picker("目標", selection: $marginGoalID) {
+                        Text("選んでください").tag(Optional<UUID>.none)
+                        ForEach(customGoals) { goal in
+                            Text(goal.title).tag(Optional(goal.id))
+                        }
+                    }
+                }
             }
             .listRowBackground(palette.surface)
 
@@ -352,9 +405,9 @@ struct NewItemSheet: View {
                         .foregroundStyle(palette.accent)
                         .frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(marginKind.title)
+                        Text(selectedMarginGoal?.title ?? marginKind.title)
                             .font(.headline)
-                        Text("最初は大きめに確保し、必要なときだけ動かします。")
+                        Text("所要時間：\(selectedMarginGoal?.durationDescription ?? "\(marginKind.defaultDurationHours)時間")。マイ余白から変更できます。")
                             .font(.caption)
                             .foregroundStyle(palette.secondaryText)
                     }
@@ -364,8 +417,28 @@ struct NewItemSheet: View {
         }
     }
 
+    private var customGoals: [MarginGoalSnapshot] {
+        let key = MonthKey(date: date)
+        return store.goals.filter { $0.year == key.year && $0.month == key.month && $0.kind == .custom && $0.isEnabled }
+    }
+
+    private var selectedMarginGoal: MarginGoalSnapshot? {
+        let key = MonthKey(date: date)
+        let matches = store.goals.filter { $0.year == key.year && $0.month == key.month && $0.kind == marginKind && $0.isEnabled }
+        return matches.first { $0.id == marginGoalID } ?? matches.first
+    }
+
     private var canSave: Bool {
         mode == .margin || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Same rule as the saved event: an end at or before the start runs past midnight.
+    private var requestedMinutes: Int? {
+        guard !isAllDay else { return nil }
+        let start = Calendar.mira.dateComponents([.hour, .minute], from: startTime)
+        let end = Calendar.mira.dateComponents([.hour, .minute], from: endTime)
+        let minutes = ((end.hour ?? 0) * 60 + (end.minute ?? 0)) - ((start.hour ?? 0) * 60 + (start.minute ?? 0))
+        return minutes > 0 ? minutes : minutes + 1440
     }
 
     private var secretaryInputKey: String {
@@ -376,37 +449,38 @@ struct NewItemSheet: View {
             String(startTime.timeIntervalSinceReferenceDate),
             String(endTime.timeIntervalSinceReferenceDate),
             String(isAllDay),
+            String(isMemo),
             String(isImportant)
         ].joined(separator: "|")
     }
 
     private var secretaryTitle: String {
         guard preparedEvent != nil else {
-            return "予定を入力すると、一緒に見ておくにゃ"
+            return "予定を入力すると、一緒に見ておきます"
         }
-        if isReviewing { return "ちょっと確認するにゃ" }
+        if isReviewing { return "ちょっと確認します" }
         if impact.protectionLevel == .finalDefense {
-            return "このままだと大事な余白がなくなるにゃ"
+            return "このままだと大事な余白がなくなります"
         }
         if liveConflicts.contains(where: { $0.contains("確定予定") }) {
-            return "別の予定と重なってるにゃ"
+            return "別の予定と重なっています"
         }
         if liveConflicts.contains(where: { $0.contains("基本的に予定を入れない時間") }) {
-            return "いつもの基本時間と重なってるにゃ"
+            return "いつもの基本時間と重なっています"
         }
         if !worsenedGoalDeficits.isEmpty {
-            return "このままだと目標が遠のきそうだにゃ"
+            return "このままだと目標が遠のきそうです"
         }
         if liveConflicts.contains(where: { $0.contains("余白") }) {
-            return "守ってる余白と重なってるにゃ"
+            return "守ってる余白と重なっています"
         }
         if !liveConflicts.isEmpty {
-            return "この時間、ちょっと気になるにゃ"
+            return "この時間、ちょっと気になります"
         }
         if !projectedGoalDeficits.isEmpty {
-            return "今月の目標も一緒に見ておくにゃ"
+            return "今月の目標も一緒に見ておきます"
         }
-        return "この予定なら大丈夫そうだにゃ"
+        return "この予定なら大丈夫そうです"
     }
 
     private var secretaryBody: String {
@@ -417,18 +491,18 @@ struct NewItemSheet: View {
             return "予定を止めるためではなく、入れた後の生活がどうなるかを見ています。"
         }
         if impact.protectionLevel == .finalDefense {
-            return "最後の余白を使います。別日に移す・今回は例外にする・目標を見直す、から選べるにゃ。"
+            return "最後の余白を使います。別日に移す・今回は例外にする・目標を見直す、から選べます。"
         }
         if !liveConflicts.isEmpty {
-            return "重なりはあるけど、追加は禁止しないにゃ。別候補も見つけておいたので、見比べて決めてにゃ。"
+            return "重なりはあるけど、追加は禁止しません。別候補も見つけておいたので、見比べて決めてください。"
         }
         if let first = worsenedGoalDeficits.keys.sorted(by: { $0.defaultPriority > $1.defaultPriority }).first {
-            return "\(first.title)が今より不足しそう。別候補なら今の目標を守りやすいにゃ。"
+            return "\(first.title)が今より不足しそう。別候補なら今の目標を守りやすくなります。"
         }
         if !projectedGoalDeficits.isEmpty {
-            return "今月はまだ未達の目標があるけど、この予定自体は大きく悪化させなさそうだにゃ。"
+            return "今月はまだ未達の目標があるけど、この予定自体は大きく悪化させなさそうです。"
         }
-        return "今の予定と余白を見た限り、大きな問題はなさそう。楽しんできてにゃ。"
+        return "今の予定と余白を見た限り、大きな問題はなさそう。楽しんできてください。"
     }
 
     private var secretaryMood: CatMood {
@@ -453,13 +527,13 @@ struct NewItemSheet: View {
 
     private var reviewDialogTitle: String {
         if impact.protectionLevel == .finalDefense {
-            return "このまま入れると余白がなくなるにゃ"
+            return "このまま入れると余白がなくなります"
         }
         if !liveConflicts.isEmpty {
-            return "この時間、ちょっと気になるにゃ"
+            return "この時間、ちょっと気になります"
         }
         if !worsenedGoalDeficits.isEmpty {
-            return "目標への影響を確認してにゃ"
+            return "目標への影響を確認してください"
         }
         return "余白を守りながら追加する？"
     }
@@ -512,7 +586,7 @@ struct NewItemSheet: View {
     @MainActor
     private func save() async {
         if mode == .margin {
-            if store.addMargin(kind: marginKind, on: date) { finishAndDismiss() }
+            if store.addMargin(kind: marginKind, on: date, goalID: selectedMarginGoal?.id) { finishAndDismiss() }
             return
         }
 
@@ -522,6 +596,11 @@ struct NewItemSheet: View {
             return
         }
 
+        if isMemo {
+            isPreparing = false
+            if store.commitEvent(event) { finishAndDismiss() }
+            return
+        }
         preparedEvent = event
         impact = store.previewImpact(for: event)
         liveConflicts = store.eventEntryConflicts(for: event)
@@ -559,6 +638,14 @@ struct NewItemSheet: View {
             start = day.setting(hour: startComponents.hour ?? 18, minute: startComponents.minute ?? 0)
             let rawEnd = day.setting(hour: endComponents.hour ?? 20, minute: endComponents.minute ?? 0)
             end = rawEnd > start ? rawEnd : rawEnd.addingTimeInterval(24 * 3600)
+        }
+
+        if isMemo {
+            return CalendarItemSnapshot(id: UUID(), title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                startDate: start, endDate: end, isAllDay: isAllDay, kind: .confirmed,
+                marginKind: nil, loadClass: .light, loadReason: "", bufferBeforeMinutes: 0,
+                bufferAfterMinutes: 0, isImportantTime: false, sourceID: nil, colorTag: colorTag,
+                occupiesTime: false)
         }
 
         return await store.prepareEvent(
@@ -627,7 +714,9 @@ struct NewItemSheet: View {
         value.endTime = endTime
         value.isAllDay = isAllDay
         value.isImportant = isImportant
+        value.isMemo = isMemo ? true : initialDraft.isMemo.map { _ in false }
         value.marginKind = marginKind
+        value.marginGoalID = marginGoalID
         value.isMargin = mode == .margin
         value.colorTag = colorTag
         return value
@@ -655,7 +744,7 @@ private struct EventGoalReviewSheet: View {
                 }
                 Section("\(month.japaneseMonthTitle)に守る時間") {
                     ForEach(monthGoals) { goal in
-                        Stepper("\(goal.kind.title) \(goal.targetCount)回", value: Binding(
+                        Stepper("\(goal.title) \(goal.targetCount)回", value: Binding(
                             get: { monthGoals.first(where: { $0.id == goal.id })?.targetCount ?? goal.targetCount },
                             set: { store.updateGoal(goal, target: $0) }
                         ), in: 0...20)

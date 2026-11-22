@@ -53,8 +53,8 @@ actor NotificationService {
         center.removeDeliveredNotifications(withIdentifiers: [plan.identifier])
         let content = UNMutableNotificationContent()
         content.title = plan.destination.kind == .invitation
-            ? (plan.catVoice ? "返事を決める時間だにゃ" : "誘いへの返事を確認")
-            : (plan.catVoice ? "お返事を確認するにゃ" : "日程調整の返事を確認")
+            ? (plan.catVoice ? "返事を決める時間です" : "誘いへの返事を確認")
+            : (plan.catVoice ? "お返事を確認します" : "日程調整の返事を確認")
         content.body = "「\(plan.title)」を開いて、次の一歩を決められます。"
         content.sound = .default
         content.categoryIdentifier = "mira.reminder"
@@ -91,6 +91,24 @@ actor NotificationService {
         for plan in valid where revisions[plan.identifier] == baselineRevisions[plan.identifier] {
             await schedule(plan, now: now)
         }
+    }
+
+    /// A proactive suggestion: opening it takes the person to the chat, where the card waits.
+    func scheduleSuggestion(id: UUID, title: String, body: String, at date: Date) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["openChat": true]
+        var components = Calendar.mira.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        components.calendar = Calendar.mira
+        components.timeZone = Calendar.mira.timeZone
+        let request = UNNotificationRequest(
+            identifier: "suggestion.\(id.uuidString)",
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     func cancelAdjustmentReminder(id: UUID) {

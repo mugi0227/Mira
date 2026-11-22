@@ -2,10 +2,15 @@ name: iOS CI
 
 on:
   push:
-    branches: [main, "feature/**", "claude/**"]
+    branches: [main, "feature/**", "claude/**", "codex/field-review-fixes"]
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_ui_tests:
+        description: Run the UI suite (disable only for changes with unchanged UI)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -16,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 60
 
     steps:
@@ -24,9 +29,12 @@ jobs:
 
       - name: Select newest installed Xcode
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode*.app/Contents/Developer | sort -V | tail -1)
-          sudo xcode-select -s "$XCODE_PATH"
+          ls -d /Applications/Xcode*.app || true
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          echo "Selecting $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
           xcodebuild -version
+          xcodebuild -showsdks | grep -i ios
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -78,14 +86,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test | tee unit-tests.log
 
-      - name: Run Grill-Me UI tests
+      - name: Run Grill-Me, self-time and style UI tests
+        if: github.event_name != 'workflow_dispatch' || inputs.run_ui_tests != false
         run: |
           set -o pipefail
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl privacy "$SIMULATOR_UDID" grant calendar jp.mugi.mira
           xcodebuild \
             -project Mira.xcodeproj \
             -scheme Mira \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -only-testing:MiraUITests/GrillMeFlowUITests \
+            -only-testing:MiraUITests/SelfTimeChatUITests \
+            -only-testing:MiraUITests/FriendShareLevelUITests \
+            -only-testing:MiraUITests/MiraStyleUITests \
+            -only-testing:MiraUITests/OneLineCatSkinUITests \
+            -only-testing:MiraUITests/CatErrorStampUITests \
+            -only-testing:MiraUITests/HomeWhitespaceUITests \
+            -only-testing:MiraUITests/PeekingCatCardUITests \
             CODE_SIGNING_ALLOWED=NO \
             test | tee ui-tests.log
 
@@ -98,4 +116,5 @@ jobs:
             build.log
             unit-tests.log
             ui-tests.log
+            /tmp/mira-field-review/*.png
           if-no-files-found: ignore

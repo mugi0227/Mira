@@ -2,6 +2,50 @@ import XCTest
 @testable import Mira
 
 final class ProtectionConflictTests: XCTestCase {
+    func testTimeUnknownConflictUsesTheEventsDisplayLabel() {
+        let slot = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 19),
+            endDate: TestFixtures.date(day: 12, hour: 21), timeOfDay: .evening)
+        var event = TestFixtures.event(title: "食事", day: 12, hour: 19)
+        event.exactTimeKnown = false
+        event.schedulingTimeBand = .evening
+        let details = ConflictEngine().conflictDetails(candidate: slot, events: [event], otherCandidates: [])
+        XCTAssertEqual(details, ["夜・時間未定『食事』（確定予定）と重なっています"])
+        XCTAssertFalse(details.joined().contains("19:00"))
+    }
+
+    func testConflictDetailsNameEachKindAndLimitToTwo() {
+        let slot = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 13),
+            endDate: TestFixtures.date(day: 12, hour: 18), timeOfDay: .afternoon)
+        let event = TestFixtures.event(title: "会議", day: 12, hour: 14, duration: 2)
+        let margin = TestFixtures.event(title: "読書", day: 12, hour: 13, duration: 2, kind: .margin, marginKind: .reading)
+        let hold = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 16),
+            endDate: TestFixtures.date(day: 12, hour: 17), timeOfDay: .afternoon)
+        let rule = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: slot.startDate),
+            startMinute: 9 * 60, endMinute: 18 * 60)
+        let engine = ConflictEngine()
+        XCTAssertEqual(engine.conflictDetails(candidate: slot, events: [event], otherCandidates: []),
+            ["14:00〜16:00『会議』（確定予定）と重なっています"])
+        XCTAssertEqual(engine.conflictDetails(candidate: slot, events: [margin], otherCandidates: []),
+            ["13:00〜15:00『読書』（守っている余白）と重なっています"])
+        XCTAssertEqual(engine.conflictDetails(candidate: slot, events: [], otherCandidates: [hold], candidateTitles: [hold.id: "ランチの調整"]),
+            ["16:00〜17:00『ランチの調整』（仮押さえ）と重なっています"])
+        XCTAssertEqual(engine.conflictDetails(candidate: slot, events: [], otherCandidates: [], baseRules: [rule]),
+            ["09:00〜18:00『基本時間（予定を入れない時間）』と重なっています"])
+        let multiple = engine.conflictDetails(candidate: slot, events: [event, margin], otherCandidates: [hold], baseRules: [rule])
+        XCTAssertEqual(multiple.count, 3)
+        XCTAssertEqual(multiple.last, "ほか2件")
+        XCTAssertTrue(engine.conflictDetails(candidate: slot, events: [], otherCandidates: []).isEmpty)
+    }
+
+    func testConflictDetailBoundariesAndUnnamedHold() {
+        let slot = CandidateSlotSnapshot(startDate: TestFixtures.date(day: 12, hour: 18),
+            endDate: TestFixtures.date(day: 12, hour: 20), timeOfDay: .evening)
+        let touching = TestFixtures.event(title: "終了済み", day: 12, hour: 16, duration: 2)
+        XCTAssertEqual(ConflictEngine().conflictDetails(candidate: slot, events: [touching], otherCandidates: []).isEmpty,
+            ConflictEngine().conflicts(candidate: slot, events: [touching], otherCandidates: []).isEmpty)
+        let hold = CandidateSlotSnapshot(startDate: slot.startDate, endDate: slot.endDate, timeOfDay: .evening)
+        XCTAssertTrue(ConflictEngine().conflictDetails(candidate: slot, events: [], otherCandidates: [hold]).first?.contains("別の日程調整") == true)
+    }
     func testFinalRestTriggersFinalDefense() {
         let margin = TestFixtures.event(
             title: "何もしない・休息",

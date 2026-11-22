@@ -5,6 +5,10 @@ import Foundation
 enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
     case softMinimal
     case pixelCat
+    case silhouetteCat
+    case onelineCat
+
+    var isCat: Bool { self != .softMinimal }
 
     var id: String { rawValue }
 
@@ -12,6 +16,8 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .softMinimal: "Soft Minimal"
         case .pixelCat: "Pixel Cat"
+        case .silhouetteCat: "くすみシルエット"
+        case .onelineCat: "One-line Cat"
         }
     }
 }
@@ -258,6 +264,12 @@ struct CalendarItemSnapshot: Identifiable, Codable, Hashable, Sendable {
     var conversationCaseID: UUID? = nil
     var deviceEvent: DeviceEventReference? = nil
     var colorTag: EventColorTag? = nil
+    /// nil preserves old data: timed events occupy time; all-day memos do not.
+    var occupiesTime: Bool? = nil
+
+    var countsAgainstWhitespace: Bool {
+        kind == .confirmed && (occupiesTime ?? !isAllDay)
+    }
 
     var occupiedInterval: DateInterval {
         let start = Calendar.mira.date(byAdding: .minute, value: -bufferBeforeMinutes, to: startDate) ?? startDate
@@ -285,6 +297,20 @@ struct MarginGoalSnapshot: Identifiable, Hashable, Sendable {
     var durationHours: Int
     var priority: Int
     var isEnabled: Bool
+    var customTitle: String? = nil
+    var durationMinutes: Int? = nil
+
+    var title: String { kind == .custom ? (customTitle ?? kind.title) : kind.title }
+    var effectiveDurationMinutes: Int { max(30, durationMinutes ?? durationHours * 60) }
+    var durationDescription: String {
+        let minutes = effectiveDurationMinutes
+        let hours = minutes / 60
+        return minutes % 60 == 0 ? "\(hours)時間" : (hours == 0 ? "\(minutes)分" : "\(hours)時間\(minutes % 60)分")
+    }
+    func matches(_ item: CalendarItemSnapshot) -> Bool {
+        item.kind == .margin && item.marginKind == kind
+            && (kind != .custom || item.sourceID == id)
+    }
 }
 
 struct CandidateSlotSnapshot: Identifiable, Codable, Hashable, Sendable {

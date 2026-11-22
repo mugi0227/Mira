@@ -15,9 +15,9 @@ struct PrimaryButton: View {
                         .accessibilityHidden(true)
                 }
                 Text(title)
-                    .font(.headline)
+                    .font(.headline.weight(.bold))
             }
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .foregroundStyle(palette.onAccent)
             .background {
                 if isDisabled {
@@ -26,13 +26,11 @@ struct PrimaryButton: View {
                     palette.actionGradient
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 26 : MiraRadius.medium, style: .continuous))
+            .clipShape(Capsule())
             .overlay {
-                if palette.isCatSkin {
-                    Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)
-                }
+                Capsule().strokeBorder(palette.cardBorder.opacity(0.65), lineWidth: 1)
             }
-            .shadow(color: palette.isCatSkin && !isDisabled ? palette.shadow : .clear, radius: 10, y: 4)
+            .shadow(color: !isDisabled ? palette.shadow : .clear, radius: 10, y: 4)
         }
         .buttonStyle(MiraPressStyle())
         .disabled(isDisabled)
@@ -48,7 +46,7 @@ struct ProgressPill: View {
     let palette: MiraThemePalette
 
     var body: some View {
-        HStack(spacing: palette.isCatSkin ? 4 : 6) {
+        HStack(spacing: 4) {
             Image(systemName: symbol)
                 .font(.caption.weight(.semibold))
                 .accessibilityHidden(true)
@@ -59,13 +57,11 @@ struct ProgressPill: View {
                 .font(.caption.monospacedDigit().weight(.semibold))
         }
         .foregroundStyle(palette.primaryText)
-        .padding(.horizontal, palette.isCatSkin ? 8 : 11)
+        .padding(.horizontal, 8)
         .frame(minHeight: 36)
-        .background(palette.isCatSkin ? palette.goalTint(for: symbol) : palette.accentSoft, in: Capsule())
+        .background(palette.goalTint(for: symbol), in: Capsule())
         .overlay {
-            if palette.isCatSkin {
-                Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5)
-            }
+            Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) \(current)回、目標\(target)回")
@@ -157,5 +153,32 @@ struct FlowLayout: Layout {
     private struct Arrangement {
         var size: CGSize
         var points: [CGPoint]
+    }
+}
+
+/// The app icon's 余白 meter ring, used as the Soft Minimal loading mark.
+struct MiraRingMark: View {
+    let palette: MiraThemePalette
+    var size: CGFloat = 84
+    var spins = true
+
+    var body: some View {
+        TimelineView(.animation(paused: !spins)) { context in
+            let angle = spins ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4 * 360 : 0
+            ZStack {
+                Circle()
+                    .stroke(palette.accentSoft, lineWidth: size * 0.16)
+                Circle()
+                    .trim(from: 0, to: 0.7)
+                    .stroke(palette.accent, style: StrokeStyle(lineWidth: size * 0.16, lineCap: .round))
+                    .rotationEffect(.degrees(angle - 90))
+                Circle()
+                    .fill(palette.accent.opacity(0.9))
+                    .frame(width: size * 0.23, height: size * 0.23)
+            }
+            .padding(size * 0.08)
+            .frame(width: size, height: size)
+        }
+        .accessibilityHidden(true)
     }
 }

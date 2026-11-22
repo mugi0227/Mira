@@ -64,6 +64,23 @@ make test
 
 Developer Programへの登録は、Simulatorでのビルド・動作確認には不要です。
 
+### ビジュアル余白レビュー
+
+画面端・カードの隅・文字の重なりなどは、UIを変更するたびにDevinがスクリーンショットを見て確認します。そのための入力として、代表画面のスクリーンショットと座標監査を出力します。UIは自動変更しません。
+
+```bash
+xcodegen generate
+xcrun simctl boot 'iPhone 17 Pro' # 起動済みなら不要
+xcrun simctl privacy booted grant calendar jp.mugi.mira
+xcodebuild -project Mira.xcodeproj -scheme Mira -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO -only-testing:MiraUITests/MiraScreenshotUITests/testCaptureRepresentativeScreens -only-testing:MiraUITests/MiraLayoutAuditUITests test
+```
+
+スクリーンショットは `/tmp/mira-screenshots/*.png`、座標監査（画面端16pt未満・文字の重なり・はみ出し）は `/tmp/mira-layout-audit/*.json` に出力されます。
+座標監査は通常は参考情報で、厳格化する場合は `TEST_RUNNER_MIRA_LAYOUT_AUDIT_STRICT=1` をxcodebuildに渡します。
+PRでは `.github/workflows/visual-review.yml` が同じものを撮影し、Actions artifactに保存します。
+
+実機向けのTestFlight配信はGitHub Actionsで自動化しています。初回設定は [`docs/testflight.md`](docs/testflight.md) を参照してください。
+
 ## デモ
 
 新規起動は現在日時を使い、サンプル予定は追加しません。設定のデモリセットを使うと、`2026-09-01 10:00 Asia/Tokyo` の固定時計とサンプル予定で試せます。既存のデモ利用者は、設定からローカルのサンプルを片付けて日常用へ移れます。
@@ -128,3 +145,4 @@ Jevは `backend/README.md` のバックエンドを配置し、設定画面で�
 - [`docs/design-system/MASTER.md`](docs/design-system/MASTER.md)
 - [`docs/implementation-status.md`](docs/implementation-status.md)
 - [`docs/demo-script.md`](docs/demo-script.md)
+- [`docs/testflight.md`](docs/testflight.md)

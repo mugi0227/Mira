@@ -7,43 +7,74 @@ struct MiraChatView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let palette: MiraThemePalette
 
     @State private var draft = ""
+    @State private var followsLatest = true
     @FocusState private var isInputFocused: Bool
 
     private let suggestions = [
         "今週の予定は？",
         "来週、友達とご飯に行ける日を探して",
         "土曜の誘いを断る文を作って",
-        "今月ちゃんと休めてる？"
+        "今月ちゃんと休めてる？",
+        "来週は自分の時間を増やしたい"
     ]
 
     var body: some View {
+        let arguments = ProcessInfo.processInfo.arguments
+        let usesLargeText = arguments.contains("-ui-testing") && arguments.contains("-ui-testing-large-text")
+        let transcriptInset = MiraSpacing.lg
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
-                        if store.chatMessages.isEmpty {
-                            welcome
+                    VStack(spacing: 0) {
+                        LazyVStack(alignment: .leading, spacing: MiraSpacing.md) {
+                            if lastUserMessageID == nil {
+                                welcome
+                            }
+                            ForEach(store.chatMessages) { message in
+                                ChatBubble(message: message, palette: palette)
+                                    .id(message.id)
+                                    .transition(reduceMotion ? .opacity : .offset(y: 12).combined(with: .opacity))
+                            }
                         }
-                        ForEach(store.chatMessages) { message in
-                            ChatBubble(message: message, palette: palette)
-                                .id(message.id)
-                        }
-                        Color.clear.frame(height: 1).id("chat-bottom")
+                        .padding([.top, .horizontal], transcriptInset)
+
+                        Color.clear.frame(height: transcriptInset).id("chat-bottom")
                     }
-                    .padding(MiraSpacing.md)
+                    .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: store.chatMessages.map(\.id))
+                    .id("chat-content")
                 }
+                .accessibilityIdentifier("miraChatTranscript")
+                .scrollBounceBehavior(.basedOnSize)
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: store.chatMessages) { _, _ in
-                    withAnimation(reduceMotion ? nil : MiraMotion.quick) {
+                .defaultScrollAnchor(store.chatMessages.isEmpty ? .top : .bottom, for: .initialOffset)
+                .defaultScrollAnchor(followsLatest && !store.chatMessages.isEmpty ? .bottom : nil, for: .sizeChanges)
+                .onScrollPhaseChange { previous, phase, context in
+                    if phase == .interacting {
+                        followsLatest = false
+                    } else if phase == .idle, previous == .interacting || previous == .decelerating {
+                        let geometry = context.geometry
+                        followsLatest = geometry.contentSize.height - geometry.visibleRect.maxY <= MiraSpacing.md
+                    }
+                }
+                .onChange(of: lastUserMessageID) { _, id in
+                    followsLatest = true
+                    if id == nil {
+                        proxy.scrollTo("chat-content", anchor: .top)
+                    } else {
                         proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }
                 }
                 .onAppear {
                     store.restoreChatIfNeeded()
-                    proxy.scrollTo("chat-bottom", anchor: .bottom)
+                    store.markMiraSuggestionsRead()
+                }
+                .task {
+                    await store.refreshProactiveSelfTimeSuggestion()
+                    store.markMiraSuggestionsRead()
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { composer }
@@ -67,6 +98,7 @@ struct MiraChatView: View {
                 }
             }
         }
+        .environment(\.dynamicTypeSize, usesLargeText ? .accessibility5 : dynamicTypeSize)
         .tint(palette.accent)
         .presentationDragIndicator(.visible)
     }
@@ -85,7 +117,7 @@ struct MiraChatView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Text("予定のこと、なんでも話しかけてね。カレンダーを見てから答えるにゃ。決めるのはあなた。")
+            Text("予定も、自分の時間も。カレンダーを見ながら、一緒に整えましょう。決めるのはあなたです。")
                 .font(.subheadline)
                 .foregroundStyle(palette.secondaryText)
             VStack(alignment: .leading, spacing: MiraSpacing.xs) {
@@ -97,7 +129,7 @@ struct MiraChatView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(palette.accent)
                             .padding(.horizontal, MiraSpacing.sm)
-                            .frame(minHeight: 40)
+                            .frame(minHeight: 44)
                             .background(palette.accentSoft.opacity(0.6), in: Capsule())
                     }
                     .buttonStyle(MiraPressStyle())
@@ -121,7 +153,7 @@ struct MiraChatView: View {
                 .background(palette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(palette.primaryText.opacity(0.08), lineWidth: 1)
+                        .strokeBorder(palette.cardBorder, lineWidth: 1.5)
                 }
                 .accessibilityIdentifier("miraChatInput")
 
@@ -152,6 +184,10 @@ struct MiraChatView: View {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isChatResponding
     }
 
+    private var lastUserMessageID: UUID? {
+        store.chatMessages.last(where: { $0.role == .user })?.id
+    }
+
     private func send(_ text: String) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty, !store.isChatResponding else { return }
@@ -169,8 +205,8 @@ struct MiraAvatar: View {
     var body: some View {
         ZStack {
             Circle().fill(palette.elevatedSurface)
-            if store.theme == .pixelCat {
-                PixelCatView(mood: mood, size: size * 0.9)
+            if store.theme.isCat {
+                MiraCatView(mood: mood, size: size * (store.theme == .pixelCat ? 0.9 : 0.6))
             } else {
                 Image(systemName: "leaf.fill")
                     .font(.system(size: size * 0.42, weight: .semibold))
@@ -179,7 +215,9 @@ struct MiraAvatar: View {
         }
         .frame(width: size, height: size)
         .overlay { Circle().strokeBorder(palette.accent.opacity(0.2), lineWidth: 1) }
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mira")
+        .accessibilityIdentifier("miraAvatar")
     }
 }
 
@@ -195,14 +233,14 @@ private struct ChatBubble: View {
                 Text(message.text)
                     .font(.body)
                     .foregroundStyle(palette.onAccent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(palette.accent, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                     .textSelection(.enabled)
             }
         } else {
             HStack(alignment: .top, spacing: MiraSpacing.xs) {
-                MiraAvatar(palette: palette, size: 32, mood: message.isStreaming ? .thinking : .happy)
+                MiraAvatar(palette: palette, size: 32, mood: message.isStreaming ? .thinking : (message.failure == nil ? .happy : .tired))
                 VStack(alignment: .leading, spacing: MiraSpacing.xs) {
                     if !message.activities.isEmpty {
                         ActivityTrail(activities: message.activities, palette: palette)
@@ -210,18 +248,27 @@ private struct ChatBubble: View {
                     if message.text.isEmpty && message.isStreaming {
                         TypingIndicator(palette: palette)
                     } else if !message.text.isEmpty {
-                        Text(message.text)
+                        Text(ChatAnswer.markdown(message.text))
                             .font(.body)
                             .foregroundStyle(palette.primaryText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(palette.surface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
                                     .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
                             }
                             .textSelection(.enabled)
-                            .accessibilityIdentifier(message.isStreaming ? "chatAssistantStreaming" : "chatAssistantText")
+                            .accessibilityIdentifier(message.isStreaming
+                                ? "chatAssistantStreaming"
+                                : (message.isProactive == true ? "chatProactiveText" : "chatAssistantText"))
+                    }
+                    if message.failure != nil && !message.isStreaming && store.theme.isCat {
+                        HStack {
+                            CatErrorStamp(theme: store.theme, palette: palette)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.top, MiraSpacing.xs)
                     }
                     ForEach(message.cards) { card in
                         ChatCardView(card: card, messageID: message.id, palette: palette)
@@ -278,7 +325,10 @@ private struct TypingIndicator: View {
 }
 
 private struct ChatCardView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(MiraStore.self) private var store
+    @State private var timelineProposal: DayTimelineProposal?
     let card: ChatCard
     let messageID: UUID
     let palette: MiraThemePalette
@@ -292,10 +342,18 @@ private struct ChatCardView: View {
             case .moveProposal(let proposal): moveCard(proposal)
             case .message(let draft): messageCard(draft)
             case .balance(let balance): balanceCard(balance)
+            case .selfTime(let proposal): SelfTimeProposalCard(proposal: proposal, messageID: messageID, palette: palette)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .miraCard(palette, padding: MiraSpacing.sm)
+        .sheet(item: $timelineProposal) { proposal in
+            NavigationStack {
+                DayTimelineView(date: proposal.event.startDate, palette: palette, proposal: proposal)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private func scheduleCard(_ summary: ChatScheduleSummary) -> some View {
@@ -368,7 +426,7 @@ private struct ChatCardView: View {
         let result = await store.toolProposeEvent(title: title, start: slot.start, end: slot.end, isAllDay: slot.band == .allDay)
         store.chatMessages.append(ChatMessage(
             role: .assistant,
-            text: "\(slot.start.japaneseShortDate)\(slot.band.title)の案だにゃ。",
+            text: "\(slot.start.japaneseShortDate)\(slot.band.title)の案です。",
             activities: [result.activity],
             cards: result.card.map { [$0] } ?? [],
             createdAt: store.now
@@ -394,6 +452,13 @@ private struct ChatCardView: View {
                 }
             }
             impactLines(conflicts: proposal.conflicts, margins: proposal.impact.overlappingMargins)
+            Button("この日の予定を見る") {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+                    timelineProposal = DayTimelineProposal(event: proposal.event,
+                        conflicts: store.eventEntryConflictDetails(for: proposal.event))
+                }
+            }
+            .accessibilityIdentifier("proposal.showDay")
             proposalActions(state: proposal.state, needsCare: proposal.needsCare, applyTitle: "カレンダーに追加", appliedTitle: "追加しました", cardID: proposal.id)
         }
     }
@@ -425,9 +490,9 @@ private struct ChatCardView: View {
 
     @ViewBuilder
     private func impactLines(conflicts: [String], margins: [CalendarItemSnapshot]) -> some View {
-        let notes = conflicts + margins.map { "余白「\($0.title)」と重なります" }
+        let notes = conflicts.isEmpty ? margins.map { "余白「\($0.title)」と重なります" } : conflicts
         if notes.isEmpty {
-            Label("余白も他の予定も守れるにゃ", systemImage: "checkmark.circle.fill")
+            Label("余白も他の予定も守れます", systemImage: "checkmark.circle.fill")
                 .font(.caption)
                 .foregroundStyle(palette.success)
         } else {
@@ -446,13 +511,20 @@ private struct ChatCardView: View {
     private func proposalActions(state: ChatProposalState, needsCare: Bool, applyTitle: String, appliedTitle: String, cardID: UUID) -> some View {
         switch state {
         case .pending:
-            HStack(spacing: MiraSpacing.xs) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: MiraSpacing.xs))
+                : AnyLayout(HStackLayout(spacing: MiraSpacing.xs))
+            layout {
                 Button {
                     store.applyChatCard(messageID: messageID, cardID: cardID)
                 } label: {
                     Text(needsCare ? "それでも\(applyTitle)" : applyTitle)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(palette.onAccent)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(needsCare ? palette.warning : palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
                 }
@@ -461,7 +533,8 @@ private struct ChatCardView: View {
                 Button("やめる") { store.dismissChatCard(messageID: messageID, cardID: cardID) }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.secondaryText)
-                    .frame(minWidth: 64, minHeight: 44)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
             }
         case .applied:
             Label(appliedTitle, systemImage: "checkmark.circle.fill")
@@ -487,7 +560,7 @@ private struct ChatCardView: View {
             HStack(spacing: MiraSpacing.xs) {
                 Button {
                     UIPasteboard.general.string = draft.text
-                    store.toast = "コピーしたにゃ"
+                    store.toast = "コピーしました"
                 } label: {
                     Label("コピー", systemImage: "doc.on.doc")
                         .font(.subheadline.weight(.semibold))
@@ -511,12 +584,12 @@ private struct ChatCardView: View {
             Label("\(balance.month.japaneseMonthTitle)の余白", systemImage: "leaf")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(palette.secondaryText)
-            ForEach(balance.lines, id: \.kind) { line in
+            ForEach(Array(balance.lines.enumerated()), id: \.offset) { _, line in
                 HStack(spacing: MiraSpacing.xs) {
                     Image(systemName: line.kind.symbolName)
                         .foregroundStyle(palette.accent)
                         .frame(width: 20)
-                    Text(line.kind.title)
+                    Text(line.title)
                         .font(.subheadline)
                         .foregroundStyle(palette.primaryText)
                     Spacer()

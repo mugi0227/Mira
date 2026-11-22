@@ -4,6 +4,7 @@ import SwiftData
 @MainActor
 extension MiraStore {
     func updateMarginRecommendation(for month: Date) {
+        guard Calendar.mira.isDate(month, equalTo: selectedMonth, toGranularity: .month) else { return }
         currentMarginRecommendation = marginRecommendationEngine.recommend(
             month: month,
             items: items,
@@ -21,8 +22,6 @@ extension MiraStore {
                 if let entity = existing.first(where: { $0.kindRaw == kind.rawValue }) {
                     entity.targetCount = target
                     entity.isEnabled = target > 0
-                    entity.durationHours = kind.defaultDurationHours
-                    entity.priority = kind.defaultPriority
                 } else {
                     context.insert(MarginGoalEntity(snapshot: MarginGoalSnapshot(
                         id: UUID(),
@@ -39,7 +38,7 @@ extension MiraStore {
             try context.save()
             try refresh()
             autoPlaceMargins(for: recommendation.month)
-            toast = "予定負荷に合わせて余白を組んだにゃ"
+            toast = "予定負荷に合わせて余白を組みました"
         } catch {
             toast = "おすすめ余白を反映できませんでした"
         }
@@ -70,10 +69,18 @@ extension MiraStore {
                 return
             }
 
+            if existing.contains(where: {
+                $0.isDismissed && $0.proposal.map { rebalanceEngine.matches($0, proposal, items: items) } == true
+            }) {
+                return
+            }
+
             if let current = existing.first(where: {
                 !$0.isDismissed && $0.proposal.map { rebalanceEngine.matches($0, proposal, items: items) } == true
             }) {
-                activeRebalanceProposal = current.proposal
+                if Calendar.mira.isDate(month, equalTo: selectedMonth, toGranularity: .month) {
+                    activeRebalanceProposal = current.proposal
+                }
                 return
             }
 
@@ -81,7 +88,7 @@ extension MiraStore {
             context.insert(RebalanceProposalEntity(proposal: proposal))
             try context.save()
             try refresh()
-            activeRebalanceProposal = proposal
+            selectRebalanceProposalForDisplayedMonth()
         } catch {
             context.rollback()
             // Rebalancing is advisory. A persistence failure must never block calendar edits.
@@ -138,7 +145,7 @@ extension MiraStore {
                         bufferBeforeMinutes: 0,
                         bufferAfterMinutes: 0,
                         isImportantTime: false,
-                        sourceID: proposal.id
+                        sourceID: move.goalID
                     )))
                 }
             }
@@ -149,7 +156,7 @@ extension MiraStore {
             try refresh()
             finishCalendarMutation(undo)
             activeRebalanceProposal = nil
-            toast = "余白の完成案を反映したにゃ"
+            toast = "余白の完成案を反映しました"
             return true
         } catch {
             context.rollback()

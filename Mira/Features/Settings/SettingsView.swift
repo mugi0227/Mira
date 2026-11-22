@@ -7,30 +7,29 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var showImportantPeople = false
     @State private var showEverydayConfirmation = false
+    @State private var showBaseRulesEditor = false
 
     var body: some View {
         List {
-            if palette.isCatSkin {
-                Section {
-                    HStack(spacing: MiraSpacing.md) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Miraを、あなたらしく")
-                                .font(.title3.bold())
-                                .foregroundStyle(palette.primaryText)
-                            Text("毎日に合う、心地よい使い方へ。")
-                                .font(.subheadline)
-                                .foregroundStyle(palette.secondaryText)
-                        }
-                        Spacer(minLength: 0)
-                        MiraBotanicalAccent(palette: palette)
-                            .frame(width: 48, height: 64)
-                            .accessibilityHidden(true)
+            Section {
+                HStack(spacing: MiraSpacing.md) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Miraを、あなたらしく")
+                            .font(.title3.bold())
+                            .foregroundStyle(palette.primaryText)
+                        Text("毎日に合う、心地よい使い方へ。")
+                            .font(.subheadline)
+                            .foregroundStyle(palette.secondaryText)
                     }
-                    .padding(.vertical, MiraSpacing.xs)
+                    Spacer(minLength: 0)
+                    MiraBotanicalAccent(palette: palette)
+                        .frame(width: 48, height: 64)
+                        .accessibilityHidden(true)
                 }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 0, leading: MiraSpacing.md, bottom: 0, trailing: MiraSpacing.md))
             }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
             Section {
                 Toggle("日常の日時を使う", isOn: Binding(
@@ -40,6 +39,10 @@ struct SettingsView: View {
                 NavigationLink { DeviceCalendarSettingsView(palette: palette) } label: {
                     Label("iPhoneカレンダーと接続", systemImage: "calendar.badge.plus")
                 }
+                Button { showBaseRulesEditor = true } label: {
+                    Label("仕事・学校の時間", systemImage: "briefcase")
+                }
+                .foregroundStyle(palette.primaryText)
                 if store.demoModeEnabled {
                     Button("サンプルを片付けて日常用に始める") { showEverydayConfirmation = true }
                 }
@@ -61,11 +64,17 @@ struct SettingsView: View {
                 } label: {
                     SettingsRow(symbol: "swatchpalette.fill", title: "色のラベル", value: "\(store.colorLabels.count)色", tint: palette.accent)
                 }
+                NavigationLink {
+                    ColorStylePickerView()
+                } label: {
+                    SettingsRow(symbol: "circle.lefthalf.filled", title: "アプリの色", value: store.colorStyle.title, tint: palette.accent)
+                }
+                .accessibilityIdentifier("appColorSettings")
                 Toggle("案内役を表示", systemImage: "bubble.left.and.bubble.right.fill", isOn: Binding(
                     get: { store.assistantEnabled },
                     set: { store.setAssistantEnabled($0) }
                 ))
-                Toggle("通知でもキャラ口調", systemImage: "bell.badge.fill", isOn: Binding(
+                Toggle("やわらかな通知メッセージ", systemImage: "bell.badge.fill", isOn: Binding(
                     get: { store.characterNotificationsEnabled },
                     set: { store.setCharacterNotificationsEnabled($0) }
                 ))
@@ -100,10 +109,14 @@ struct SettingsView: View {
                     get: { store.deviceHolidaysEnabled },
                     set: { enabled in Task { await store.setDeviceHolidaysEnabled(enabled) } }
                 ))
+                Toggle("祝日を仕事の日から除く", systemImage: "briefcase.fill", isOn: Binding(
+                    get: { store.excludeHolidaysFromWorkDays },
+                    set: { store.setExcludeHolidaysFromWorkDays($0) }
+                ))
             } header: {
                 Text("カレンダー表示")
             } footer: {
-                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。")
+                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。仕事の日から除くと、その日の基本時間は空き時間になります。日ごとの指定が優先されます。")
             }
             .listRowBackground(palette.surface)
 
@@ -126,14 +139,19 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
-                Toggle("返事や日程調整の期限を知らせる", systemImage: "bell.fill", isOn: Binding(
+                Toggle("返事の期限とMiraの提案を知らせる", systemImage: "bell.fill", isOn: Binding(
                     get: { store.notificationsEnabled },
                     set: { enabled in Task { await store.setNotificationsEnabled(enabled) } }
                 ))
+                Toggle("最近の傾向に沿って提案する", systemImage: "chart.line.uptrend.xyaxis", isOn: Binding(
+                    get: { store.trendSuggestionsEnabled },
+                    set: { store.setTrendSuggestionsEnabled($0) }
+                ))
+                .accessibilityIdentifier("trendSuggestionsToggle")
             } header: {
-                Text("通知")
+                Text("通知と提案")
             } footer: {
-                Text("同じ内容を何度も通知せず、返事期限など重要なものを優先します。")
+                Text("Miraは提案だけをして、予定を勝手に変えません。提案の通知は1日1回まで。傾向はMiraの提案を置いた・見送った記録だけから出し、あなたが決めた時間や目標が常に優先されます。")
             }
             .listRowBackground(palette.surface)
 
@@ -195,15 +213,20 @@ struct SettingsView: View {
                         .foregroundStyle(palette.secondaryText)
                 }
                 .padding(.vertical, 4)
+                .accessibilityIdentifier("settingsFooter")
             }
             .listRowBackground(palette.surface)
         }
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, MiraSpacing.xs, for: .scrollContent)
         .miraFormStyle(palette)
         .miraScreenBackground(palette)
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showImportantPeople) { ImportantPeopleSheet(palette: palette) }
+        .sheet(isPresented: $showBaseRulesEditor) {
+            BaseRulesEditorSheet(initialRules: store.fetchBaseRules(), palette: palette)
+        }
         .confirmationDialog("Mira内のデータを片付けて始めますか？", isPresented: $showEverydayConfirmation) {
             Button("空のカレンダーで始める", role: .destructive) { Task { await store.startEverydayCalendar() } }
             Button("やめる", role: .cancel) {}
@@ -241,6 +264,7 @@ private struct SettingsRow: View {
 private struct ThemePickerView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let palette: MiraThemePalette
 
     var body: some View {
@@ -249,9 +273,9 @@ private struct ThemePickerView: View {
                 ForEach(AppThemeKind.allCases) { theme in
                     ThemePreviewCard(
                         theme: theme,
-                        palette: MiraThemePalette(kind: theme, colorScheme: colorScheme),
+                        palette: MiraThemePalette(kind: theme, colorScheme: colorScheme, colorStyle: store.colorStyle),
                         selected: theme == store.theme
-                    ) { withAnimation(MiraMotion.standard) { store.setTheme(theme) } }
+                    ) { withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) { store.setTheme(theme) } }
                 }
             }
             .padding(MiraSpacing.md)
@@ -274,7 +298,7 @@ private struct ThemePreviewCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(theme.displayName).font(.title3.bold())
-                        Text(theme == .pixelCat ? "空色とやわらかな光、猫と過ごす毎日" : "静かで大人っぽい、余白中心の見た目")
+                        Text(theme == .silhouetteCat ? "くすみカラーの丸いシルエット猫" : theme == .onelineCat ? "太い丸線の猫が、のびのびと寄り添う" : theme.isCat ? "まるく、やわらかな遊び心" : "静かで大人っぽい、余白中心の見た目")
                             .font(.caption).foregroundStyle(palette.secondaryText)
                     }
                     Spacer()
@@ -282,13 +306,13 @@ private struct ThemePreviewCard: View {
                 }
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {
                     HStack(spacing: MiraSpacing.sm) {
-                        if theme == .pixelCat {
-                            PixelCatView(mood: .relaxed, size: 64)
+                        if theme.isCat {
+                            MiraCatArtwork(theme: theme, mood: .relaxed, size: 64)
                         } else {
                             Image(systemName: "leaf.circle.fill").font(.system(size: 48)).foregroundStyle(palette.accent).frame(width: 64)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです").font(.headline)
+                            Text(theme.isCat ? "いい感じです" : "今月はいいバランスです").font(.headline)
                             Text("予定も余白も、ちゃんと居場所があります。")
                                 .font(.caption).foregroundStyle(palette.secondaryText)
                         }
@@ -316,6 +340,7 @@ private struct ThemePreviewCard: View {
             .miraCard(palette)
         }
         .buttonStyle(MiraPressStyle())
+        .accessibilityIdentifier("theme-\(theme.rawValue)")
         .accessibilityLabel("\(theme.displayName)スキン" + (selected ? "、選択中" : ""))
     }
 
@@ -344,8 +369,8 @@ private struct AIStatusView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: MiraSpacing.lg) {
-                if store.theme == .pixelCat {
-                    PixelCatView(mood: .thinking, size: 108)
+                if store.theme.isCat {
+                    MiraCatView(mood: .thinking, size: 108)
                 } else {
                     Image(systemName: "brain.head.profile").font(.system(size: 68)).foregroundStyle(palette.accent)
                 }

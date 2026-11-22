@@ -14,6 +14,7 @@ struct ProtectionEngine: Sendable {
         goals: [MarginGoalSnapshot],
         relocationCandidates: [Date]
     ) -> ScheduleImpact {
+        guard proposedEvent.kind != .confirmed || proposedEvent.countsAgainstWhitespace else { return .none }
         let monthKey = MonthKey(date: month, calendar: calendar)
         let overlapping = items.filter {
             $0.kind == .margin && $0.occupiedInterval.intersects(proposedEvent.occupiedInterval)
@@ -24,6 +25,20 @@ struct ProtectionEngine: Sendable {
         var worst: ProtectionLevel = .flexible
 
         for kind in Set(overlapping.compactMap(\.marginKind)) {
+            if kind == .custom {
+                for goal in goals where goal.kind == .custom && goal.isEnabled
+                    && goal.year == monthKey.year && goal.month == monthKey.month {
+                    let consumed = overlapping.filter { goal.matches($0) && monthKey.interval.contains($0.startDate) }.count
+                    guard consumed > 0 else { continue }
+                    let current = items.filter { goal.matches($0) && monthKey.interval.contains($0.startDate) }.count
+                    let after = max(0, current - consumed)
+                    deficits[kind, default: 0] += max(0, goal.targetCount - after)
+                    let level: ProtectionLevel = after == 0 && goal.targetCount > 0 ? .finalDefense
+                        : (after < goal.targetCount ? .strong : (after == goal.targetCount ? .caution : .flexible))
+                    worst = maxLevel(worst, level)
+                }
+                continue
+            }
             let target = goals.first(where: { $0.kind == kind })?.targetCount ?? 0
             let current = items.filter {
                 $0.kind == .margin && $0.marginKind == kind && monthKey.interval.contains($0.startDate)
@@ -48,7 +63,7 @@ struct ProtectionEngine: Sendable {
             worst = maxLevel(worst, level)
         }
 
-        let firstKind = overlapping.first?.marginKind?.title ?? "余白"
+        let firstKind = overlapping.first?.title ?? "余白"
         let message: String
         switch worst {
         case .flexible:
@@ -79,9 +94,11 @@ struct ProtectionEngine: Sendable {
 
 struct ConflictEngine: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func conflicts(
@@ -91,7 +108,7 @@ struct ConflictEngine: Sendable {
         baseRules: [BaseAvailabilityRule] = []
     ) -> [String] {
         var result: [String] = []
-        if events.contains(where: { $0.kind == .confirmed && $0.occupiedInterval.intersects(candidate.interval) }) {
+        if events.contains(where: { $0.countsAgainstWhitespace && $0.occupiedInterval.intersects(candidate.interval) }) {
             result.append("確定予定と重なっています")
         }
         if events.contains(where: { $0.kind == .margin && $0.occupiedInterval.intersects(candidate.interval) }) {
@@ -106,6 +123,71 @@ struct ConflictEngine: Sendable {
             result.append("基本的に予定を入れない時間と重なっています")
         }
         return result
+    }
+
+    struct Detail: Identifiable {
+        var id: String { "\(start.timeIntervalSince1970)-\(text)-\(itemID?.uuidString ?? "")" }
+        let start: Date
+        let text: String
+        var itemID: UUID? = nil
+        var baseRuleInterval: DateInterval? = nil
+    }
+
+    func conflictDetails(
+        candidate: CandidateSlotSnapshot,
+        events: [CalendarItemSnapshot],
+        otherCandidates: [CandidateSlotSnapshot],
+        candidateTitles: [UUID: String] = [:],
+        baseRules: [BaseAvailabilityRule] = []
+    ) -> [String] {
+        let details = conflictDetailEntries(candidate: candidate, events: events,
+            otherCandidates: otherCandidates, candidateTitles: candidateTitles, baseRules: baseRules)
+        var lines = details.prefix(2).map(\.text)
+        if details.count > 2 { lines.append("ほか\(details.count - 2)件") }
+        return lines
+    }
+
+    func conflictDetailEntries(
+        candidate: CandidateSlotSnapshot,
+        events: [CalendarItemSnapshot],
+        otherCandidates: [CandidateSlotSnapshot],
+        candidateTitles: [UUID: String] = [:],
+        baseRules: [BaseAvailabilityRule] = []
+    ) -> [Detail] {
+        var details: [Detail] = []
+        for event in events where (event.countsAgainstWhitespace || event.kind == .margin)
+            && event.occupiedInterval.intersects(candidate.interval) {
+            let kind = event.kind == .margin ? "守っている余白" : "確定予定"
+            let title = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = title.isEmpty ? kind : title
+            let time = !event.exactTimeKnown ? event.timeDescription
+                : (event.isAllDay ? "終日" : timeRange(event.startDate, event.endDate))
+            details.append(Detail(start: event.startDate, text: "\(time)『\(label)』（\(kind)）と重なっています", itemID: event.id))
+        }
+        for other in otherCandidates where other.status == .held && other.id != candidate.id
+            && coarseCandidatesConflict(other, candidate) {
+            let title = candidateTitles[other.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = title.flatMap { $0.isEmpty ? nil : $0 } ?? "別の日程調整"
+            let time = other.exactTimeKnown == false ? other.displayTimeBand.title : timeRange(other.startDate, other.endDate)
+            details.append(Detail(start: other.startDate, text: "\(time)『\(label)』（仮押さえ）と重なっています"))
+        }
+        var day = calendar.startOfDay(for: candidate.startDate)
+        while day < candidate.endDate {
+            for rule in workDays.effectiveRules(on: day, rules: baseRules, calendar: calendar) {
+                guard let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
+                      let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
+                      start < end, start < candidate.endDate, candidate.startDate < end else { continue }
+                details.append(Detail(start: start, text: "\(timeRange(start, end))『基本時間（予定を入れない時間）』と重なっています", baseRuleInterval: DateInterval(start: start, end: end)))
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next > day else { break }
+            day = next
+        }
+        return details.sorted { $0.start == $1.start ? $0.text < $1.text : $0.start < $1.start }
+    }
+
+    private func timeRange(_ start: Date, _ end: Date) -> String {
+        let formatter = DateFormatter.mira("HH:mm")
+        return "\(formatter.string(from: start))〜\(formatter.string(from: end))"
     }
 
     private func coarseCandidatesConflict(
@@ -135,8 +217,7 @@ struct ConflictEngine: Sendable {
         var day = startDay
 
         while day <= endDay {
-            let weekday = calendar.component(.weekday, from: day)
-            for rule in rules where rule.weekday == weekday {
+            for rule in workDays.effectiveRules(on: day, rules: rules, calendar: calendar) {
                 guard let ruleStart = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let ruleEnd = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       ruleStart < ruleEnd else { continue }
@@ -167,7 +248,7 @@ struct FreeEveningEngine: Sendable {
         let start = date.setting(hour: 18, calendar: calendar)
         let end = date.addingDays(1, calendar: calendar).setting(hour: 0, calendar: calendar)
         let evening = DateInterval(start: start, end: end)
-        let confirmedItems = items.filter { $0.kind == .confirmed }
+        let confirmedItems = items.filter { $0.countsAgainstWhitespace }
         let occupiedSeconds = confirmedItems
             .filter { $0.occupiedInterval.intersects(evening) }
             .reduce(0.0) { partial, item in
@@ -200,20 +281,20 @@ struct AssistantEngine: Sendable {
 
         if restActual == 0, restTarget > 0 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "おやすみがないにゃ" : "休息日がありません",
-                body: theme == .pixelCat ? "今月のおやすみを1日、先に置いておくと安心だにゃ。" : "今月の休息日を1日、先に確保するのがおすすめです。",
+                title: theme.isCat ? "ひと息つける日を、先に" : "休息日がありません",
+                body: theme.isCat ? "今月のおやすみを1日、先に置いておくと安心です。" : "今月の休息日を1日、先に確保するのがおすすめです。",
                 mood: .warning,
                 severity: 3,
                 actionTitle: "余白を整える"
             )
         }
 
-        let heavyDays = Set(items.filter { $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
+        let heavyDays = Set(items.filter { ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy && key.interval.contains($0.startDate) }
             .map { calendar.startOfDay(for: $0.startDate) }).count
         if heavyDays >= 5 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "今月ちょっとぎゅうぎゅうだにゃ" : "今月は予定が多めです",
-                body: theme == .pixelCat ? "重めの日が続いてるにゃ。次の予定は来週へずらすと、のんびりできそう。" : "重い予定が続いています。次の予定を来週へ移すと余白を残せます。",
+                title: theme.isCat ? "今月ちょっとぎゅうぎゅうです" : "今月は予定が多めです",
+                body: theme.isCat ? "重めの日が続いています。次の予定は来週へずらすと、のんびりできそう。" : "重い予定が続いています。次の予定を来週へ移すと余白を残せます。",
                 mood: .tired,
                 severity: 2,
                 actionTitle: "再配置を見る"
@@ -223,8 +304,8 @@ struct AssistantEngine: Sendable {
         let remaining = max(0, restTarget - restActual)
         if remaining > 0 {
             return AssistantMessage(
-                title: theme == .pixelCat ? "あと\(remaining)日だにゃ" : "休息日があと\(remaining)日必要です",
-                body: theme == .pixelCat ? "おやすみをあと\(remaining)日置けると、いい感じだにゃ。" : "休息日をあと\(remaining)日確保すると、今月の目標を満たせます。",
+                title: theme.isCat ? "おやすみを、あと\(remaining)日" : "休息日があと\(remaining)日必要です",
+                body: theme.isCat ? "おやすみをあと\(remaining)日置けると、いい感じです。" : "休息日をあと\(remaining)日確保すると、今月の目標を満たせます。",
                 mood: .thinking,
                 severity: 1,
                 actionTitle: "おすすめ配置"
@@ -232,8 +313,8 @@ struct AssistantEngine: Sendable {
         }
 
         return AssistantMessage(
-            title: theme == .pixelCat ? "いい感じだにゃ" : "今月はいいバランスです",
-            body: theme == .pixelCat ? "予定も余白も、ちゃんと居場所があるにゃ。" : "予定と自分の時間をバランスよく確保できています。",
+            title: theme.isCat ? "いい感じです" : "今月はいいバランスです",
+            body: theme.isCat ? "予定も余白も、ちゃんと居場所があります。" : "予定と自分の時間をバランスよく確保できています。",
             mood: .relaxed,
             severity: 0,
             actionTitle: nil

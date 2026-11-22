@@ -87,7 +87,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         ScrollView {
           VStack(spacing: MiraSpacing.lg) {
-            PixelCatView(mood: .inviting, size: 104)
+            MiraCatView(mood: .inviting, size: 104)
             VStack(spacing: MiraSpacing.sm) {
                 Text("空いている時間を埋める前に")
                     .font(.title3.weight(.semibold))
@@ -288,8 +288,8 @@ struct OnboardingView: View {
         ScrollView {
             VStack(spacing: MiraSpacing.lg) {
                 Spacer(minLength: MiraSpacing.lg)
-                PixelCatView(mood: .celebrating, size: 124)
-                onboardingTitle("あなたの余白を置いてみるにゃ", subtitle: "今ある予定と基本時間を避けて、休む日や自分の時間をおすすめ配置します。")
+                MiraCatView(mood: .celebrating, size: 124)
+                onboardingTitle("あなたの余白を置いてみましょう", subtitle: "今ある予定と基本時間を避けて、休む日や自分の時間をおすすめ配置します。")
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: MiraSpacing.sm) {

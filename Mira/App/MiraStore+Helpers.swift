@@ -5,8 +5,11 @@ import SwiftData
 extension MiraStore {
     func applySettings() {
         guard let settingsEntity else { return }
+        excludeHolidaysFromWorkDays = settingsEntity.excludeHolidaysFromWorkDays
+        loadWorkDayOverrides()
         onboardingCompleted = settingsEntity.onboardingCompleted
-        theme = AppThemeKind(rawValue: settingsEntity.themeRaw) ?? .pixelCat
+        theme = AppThemeKind(rawValue: settingsEntity.themeRaw) ?? .softMinimal
+        colorStyle = AppColorStyle(rawValue: settingsEntity.colorStyleRaw ?? "") ?? .blue
         assistantEnabled = settingsEntity.assistantEnabled
         characterNotificationsEnabled = settingsEntity.characterNotificationsEnabled
         notificationsEnabled = settingsEntity.notificationsEnabled
@@ -14,6 +17,7 @@ extension MiraStore {
         marginComfortLevel = MarginComfortLevel(rawValue: settingsEntity.marginComfortRaw ?? "") ?? .standard
         weekStartDay = WeekStartDay(rawValue: settingsEntity.weekStartRaw ?? "") ?? .monday
         deviceHolidaysEnabled = settingsEntity.deviceHolidaysEnabled ?? false
+        trendSuggestionsEnabled = settingsEntity.trendSuggestionsEnabled ?? true
     }
 
     func fetchBaseRules() -> [BaseAvailabilityRule] {

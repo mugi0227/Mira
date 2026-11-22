@@ -5,6 +5,21 @@ extension Notification.Name {
     static let miraRetryStorage = Notification.Name("mira.retryStorage")
 }
 
+struct MiraOverlayLayout {
+    var tabBarHeight: CGFloat = 0
+    var nativeTabBarTop: Anchor<CGPoint>?
+}
+
+struct MiraOverlayLayoutKey: PreferenceKey {
+    static var defaultValue = MiraOverlayLayout()
+
+    static func reduce(value: inout MiraOverlayLayout, nextValue: () -> MiraOverlayLayout) {
+        let next = nextValue()
+        value.tabBarHeight = max(value.tabBarHeight, next.tabBarHeight)
+        value.nativeTabBarTop = next.nativeTabBarTop ?? value.nativeTabBarTop
+    }
+}
+
 struct AppRootView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
@@ -12,34 +27,39 @@ struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme)
+        let palette = MiraThemePalette(kind: store.theme, colorScheme: colorScheme, colorStyle: store.colorStyle)
 
         ZStack {
             MiraScreenBackground(palette: palette)
-
-            if store.isEmergencyStorage {
-                VStack(spacing: MiraSpacing.lg) {
-                    Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle)
-                    Text("保存済みのデータを開けませんでした").font(.title2.bold())
-                    Text("予定を失わないよう、データはそのまま残しています。空き容量を確認し、もう一度読み込んでください。")
-                    Button("もう一度読み込む") {
-                        NotificationCenter.default.post(name: .miraRetryStorage, object: nil)
-                    }.buttonStyle(.borderedProminent).frame(minHeight: 44)
-                }.padding(MiraSpacing.lg)
-            } else if !store.isReady {
-                VStack(spacing: MiraSpacing.md) {
-                    PixelCatView(mood: .thinking, size: 84)
-                    ProgressView("余白を準備中…")
-                        .tint(palette.accent)
-                        .foregroundStyle(palette.primaryText)
+            Group {
+                if store.isEmergencyStorage {
+                    VStack(spacing: MiraSpacing.lg) {
+                        Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle)
+                        Text("保存済みのデータを開けませんでした").font(.title2.bold())
+                        Text("予定を失わないよう、データはそのまま残しています。空き容量を確認し、もう一度読み込んでください。")
+                        Button("もう一度読み込む") {
+                            NotificationCenter.default.post(name: .miraRetryStorage, object: nil)
+                        }.buttonStyle(.borderedProminent).frame(minHeight: 44)
+                    }.padding(MiraSpacing.lg)
+                } else if !store.isReady {
+                    VStack(spacing: MiraSpacing.md) {
+                        // The saved skin is only loaded by bootstrap(), so every skin shows the ring here.
+                        MiraRingMark(palette: palette, size: 84, spins: !reduceMotion)
+                        Text("余白を準備中…")
+                            .foregroundStyle(palette.primaryText)
+                    }
+                } else if !store.onboardingCompleted {
+                    OnboardingView(palette: palette)
+                } else {
+                    MainTabView(palette: palette)
                 }
-            } else if !store.onboardingCompleted {
-                OnboardingView(palette: palette)
-            } else {
-                MainTabView(palette: palette)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui-hold-loading") { return }
+            #endif
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -51,73 +71,116 @@ struct AppRootView: View {
             if store.isReady { Task { await store.refreshDeviceCalendar() } }
         }
         .safeAreaInset(edge: .bottom) {
-            if let issue = store.persistenceIssue ?? store.draftPersistenceIssue {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(issue, systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline)
-                    if store.draftPersistenceIssue != nil {
-                        Button("下書きの保存を再試行") { store.persistDraftArchive() }
-                            .frame(minHeight: 44)
-                    }
-                    if store.persistenceIssue != nil {
-                        Button("この案内を閉じる") { store.persistenceIssue = nil }
-                            .frame(minHeight: 44)
-                    }
-                }.padding().background(palette.surface)
-            } else if let undo = store.undoEntry {
-                HStack(spacing: MiraSpacing.xs) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(palette.success)
-                        .accessibilityHidden(true)
-                    Text("\(undo.title)を保存しました")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(palette.primaryText)
-                        .lineLimit(2)
-                    Spacer(minLength: 0)
-                    Button("取り消す") { Task { await store.undoLastCalendarMutation() } }
-                        .font(.subheadline.weight(.bold))
-                        .frame(minHeight: 44)
-                    Button { store.undoEntry = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                        .foregroundStyle(palette.secondaryText)
-                        .accessibilityLabel("取り消しの案内を閉じる")
-                }
-                .padding(.leading, MiraSpacing.md)
-                .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
-                        .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
-                }
-                .shadow(color: palette.shadow, radius: 14, y: 4)
-                .padding(.horizontal, MiraSpacing.md)
-                .padding(.bottom, MiraSpacing.xs)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .task(id: undo.after) {
-                    // Keep the way back visible long enough to notice, then step aside.
-                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
-                    if store.undoEntry?.after == undo.after { store.undoEntry = nil }
-                }
+            if palette.isCatSkin && (store.persistenceIssue != nil || store.draftPersistenceIssue != nil || store.undoEntry != nil) {
+                mutationBanner(palette: palette)
+                    .padding(.bottom, store.persistenceIssue == nil && store.draftPersistenceIssue == nil ? MiraSpacing.xs : 0)
             }
         }
-        .overlay(alignment: .top) {
-            if let toast = store.toast {
-                Text(toast)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.primaryText)
-                    .padding(.horizontal, MiraSpacing.md)
-                    .padding(.vertical, MiraSpacing.sm)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .shadow(color: palette.shadow, radius: 12, y: 5)
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .task(id: toast) {
-                        do { try await Task.sleep(for: .seconds(2.6)) }
-                        catch { return }
-                        guard store.toast == toast else { return }
-                        withAnimation(reduceMotion ? nil : MiraMotion.standard) { store.toast = nil }
+        .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
+            GeometryReader { geometry in
+                if palette.isCatSkin {
+                    let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
+                    VStack {
+                        Spacer(minLength: 0)
+                        toastBanner(palette: palette)
+                            .padding(.bottom, bottomClearance + MiraSpacing.xs)
                     }
+                    .allowsHitTesting(false)
+                } else {
+                    let bottomClearance = layout.nativeTabBarTop.map {
+                        max(0, geometry.size.height - geometry[$0].y)
+                    } ?? 0
+                    VStack {
+                        Spacer(minLength: 0)
+                        VStack(spacing: MiraSpacing.xs) {
+                            toastBanner(palette: palette)
+                                .allowsHitTesting(false)
+                            mutationBanner(palette: palette)
+                        }
+                        .padding(.bottom, bottomClearance + MiraSpacing.md)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
         }
         .animation(reduceMotion ? nil : MiraMotion.standard, value: store.onboardingCompleted)
         .preferredColorScheme(nil)
+    }
+
+    @ViewBuilder
+    private func mutationBanner(palette: MiraThemePalette) -> some View {
+        if let issue = store.persistenceIssue ?? store.draftPersistenceIssue {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(issue, systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                if store.draftPersistenceIssue != nil {
+                    Button("下書きの保存を再試行") { store.persistDraftArchive() }
+                        .frame(minHeight: 44)
+                }
+                if store.persistenceIssue != nil {
+                    Button("この案内を閉じる") { store.persistenceIssue = nil }
+                        .frame(minHeight: 44)
+                }
+            }.padding().background(palette.surface)
+        } else if let undo = store.undoEntry {
+            HStack(spacing: MiraSpacing.xs) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(palette.success)
+                    .accessibilityHidden(true)
+                Text("\(undo.title)を保存しました")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Button("取り消す") { Task { await store.undoLastCalendarMutation() } }
+                    .font(.subheadline.weight(.bold))
+                    .frame(minHeight: 44)
+                Button { store.undoEntry = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .foregroundStyle(palette.secondaryText)
+                    .accessibilityLabel("取り消しの案内を閉じる")
+            }
+            .padding(.leading, MiraSpacing.md)
+            .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MiraRadius.medium, style: .continuous)
+                    .strokeBorder(palette.primaryText.opacity(0.06), lineWidth: 1)
+            }
+            .shadow(color: palette.shadow, radius: 14, y: 4)
+            .padding(.horizontal, MiraSpacing.md)
+            .accessibilityIdentifier("calendarUndoBanner")
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: undo.after) {
+                let arguments = ProcessInfo.processInfo.arguments
+                guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
+                // Keep the way back visible long enough to notice, then step aside.
+                do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                if store.undoEntry?.after == undo.after { store.undoEntry = nil }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func toastBanner(palette: MiraThemePalette) -> some View {
+        if let toast = store.toast {
+            Text(toast)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, MiraSpacing.md)
+                .padding(.vertical, MiraSpacing.xs)
+                .background(.ultraThinMaterial, in: Capsule())
+                .shadow(color: palette.shadow, radius: 12, y: 5)
+                .padding(.horizontal, MiraSpacing.lg)
+                .accessibilityIdentifier("appToast")
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: toast) {
+                    let arguments = ProcessInfo.processInfo.arguments
+                    guard !(arguments.contains("-ui-testing") && arguments.contains("-ui-testing-persistent-toast")) else { return }
+                    do { try await Task.sleep(for: .seconds(2.6)) }
+                    catch { return }
+                    guard store.toast == toast else { return }
+                    withAnimation(reduceMotion ? nil : MiraMotion.standard) { store.toast = nil }
+                }
+        }
     }
 }

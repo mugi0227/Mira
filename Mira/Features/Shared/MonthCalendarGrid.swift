@@ -1,16 +1,27 @@
 import SwiftUI
 
 struct MonthCalendarGrid: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var dateSelection
     let month: Date
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
     let palette: MiraThemePalette
+    /// Home can use spare space within day cells to keep the whole month in
+    /// view. Dense/small screens still scroll rather than shrinking text.
+    var preferredHeight: CGFloat? = nil
     var weekStartDay: WeekStartDay = .monday
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
     var allowsDragging = true
-    /// Friend view: every day with anything on it reads only "予定あり".
+    /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
+    var friendLevel: FriendShareLevel = .freeOnly
+    var baseRules: [BaseAvailabilityRule] = []
+    var openedDate: Date? = nil
+    var onAddEvent: ((Date) -> Void)?
+    var onOpenTimeline: ((Date) -> Void)?
+    var workDays = WorkDayResolver()
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
     var onSelectItem: ((CalendarItemSnapshot) -> Void)?
@@ -23,14 +34,14 @@ struct MonthCalendarGrid: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            LazyVGrid(columns: columns, spacing: 0) {
+            HStack(spacing: 0) {
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(weekdayColor(for: index))
-                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
-                            if index < weekStartDay.weekdaySymbols.count - 1 {
+                            if !palette.isCatSkin && index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
                             }
                         }
@@ -38,31 +49,86 @@ struct MonthCalendarGrid: View {
             }
             .background(palette.isCatSkin ? palette.elevatedSurface.opacity(0.7) : palette.background)
 
-            gridLine.frame(height: 0.5)
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
 
-            LazyVGrid(columns: columns, spacing: 0) {
-                let days = cells
-                let cellHeight: CGFloat = days.count > 35 ? 88 : 104
-                ForEach(Array(days.enumerated()), id: \.offset) { index, date in
-                    dayCell(date, index: index, cellHeight: cellHeight)
+            let days = cells
+            let cellHeight = rowHeight(dayCount: days.count)
+            ForEach(0..<(days.count / 7), id: \.self) { week in
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        ForEach(week * 7..<week * 7 + 7, id: \.self) { index in
+                            dayCell(days[index], index: index, cellHeight: cellHeight)
+                                .frame(minWidth: 0, maxWidth: .infinity)
+                        }
+                    }
+                    if !privacyMode {
+                        let weekDate = openedDate.flatMap { date in
+                            days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: date) }) ? date : nil
+                        }
+                        InlineDayPanelSlot(date: weekDate) { date in
+                            InlineDayPanel(date: date, items: itemsForDay(date), palette: palette,
+                                       onAdd: { onAddEvent?(date) },
+                                       onOpenTimeline: { onOpenTimeline?(date) },
+                                       onSelectItem: { onSelectItem?($0) },
+                                       workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
+                                       workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) })
+                                .padding(16)
+                        }
+                    }
                 }
             }
         }
-        .background(palette.surface.opacity(palette.isCatSkin ? 0.92 : 0.42))
-        .overlay(alignment: .top) { gridLine.frame(height: 0.5) }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 22 : 0, style: .continuous))
+        // Inset the entire grid rather than every cell so all seven columns
+        // stay aligned, including the leading/trailing days near the corners.
+        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.lg : (privacyMode ? 0 : 6))
+        .padding(.top, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .padding(.bottom, palette.isCatSkin ? MiraSpacing.lg : 0)
+        .background(palette.surface.opacity(palette.isCatSkin ? 1 : 0.42))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? MiraRadius.large : 0, style: .continuous))
         .overlay {
             if palette.isCatSkin {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(palette.cardBorder, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: MiraRadius.large, style: .continuous)
+                    .strokeBorder(palette.cardBorder, lineWidth: 2)
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("monthCalendar")
     }
 
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
+    private var friendTitlePreviewLimit: Int {
+        // Preserve the preview count from the original single-line layout,
+        // before adding height for legible time/title pairs.
+        var height: CGFloat = cells.count > 35 ? 88 : 104
+        if palette.isCatSkin, let preferredHeight {
+            let chrome = 30 + MiraSpacing.lg * 2
+            height = min(height, (preferredHeight - chrome) / CGFloat(cells.count / 7))
+        }
+        return height < 100 ? 2 : 3
+    }
+
+    private func rowHeight(dayCount: Int) -> CGFloat {
+        let hasPairedPreviews = privacyMode && friendLevel == .titles
+        // Each time/title pair can use three fixed-size lines, without
+        // reducing the original two or three previews to make room.
+        let pairedRowHeight = CGFloat(friendTitlePreviewLimit) * 40 + 44
+        let regular: CGFloat = hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)
+        guard palette.isCatSkin, let preferredHeight else { return regular }
+        let chrome = 30 + MiraSpacing.lg * 2
+        let hasOverflow = cells.contains { date in
+            let count = items.filter { $0.overlapsDay(date, calendar: calendar) }.count
+            let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
+            return count > (privacyMode ? (hasHoliday ? 1 : 2) : (hasHoliday ? 0 : 1))
+        }
+        // Keep the ring, two-line title and overflow link inside each row;
+        // friend mode instead reserves room for availability bands or pairs.
+        let minimum: CGFloat = if hasPairedPreviews {
+            pairedRowHeight
+        } else if privacyMode {
+            hasOverflow ? 88 : 76
+        } else {
+            hasOverflow ? 92 : 76
+        }
+        return max(minimum, min(regular, (preferredHeight - chrome) / CGFloat(dayCount / 7)))
     }
 
     /// Only the weeks the month actually spans, so the space a trailing row of
@@ -94,46 +160,82 @@ struct MonthCalendarGrid: View {
         }
     }
 
-    @ViewBuilder
-    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
-        let dayItems = items
-            .filter { calendar.isDate($0.startDate, inSameDayAs: date) }
+    func itemsForDay(_ date: Date) -> [CalendarItemSnapshot] {
+        items
+            .filter {
+                privacyMode && friendLevel != .freeOnly
+                    ? $0.overlapsFriendShareDay(date, calendar: calendar)
+                    : $0.overlapsDay(date, calendar: calendar)
+            }
             .sorted { lhs, rhs in
                 if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }
                 return lhs.startDate < rhs.startDate
             }
-        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+    }
+
+    @ViewBuilder
+    private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
+        let dayItems = itemsForDay(date)
+        let isSelected = openedDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
         let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
-        let visibleItemLimit = holiday == nil ? 3 : 2
+        // Leave space for the overflow link instead of clipping a third chip
+        // when the calendar uses a shorter row on a compact viewport.
+        let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight < 104
+        let visibleItemLimit = if privacyMode {
+            isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
+        } else {
+            isCompact ? (holiday == nil ? 1 : 0) : (holiday == nil ? 2 : 1)
+        }
 
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Spacer(minLength: 0)
-                ZStack {
-                    if isSelected {
-                        Circle()
-                            .fill(palette.actionGradient)
-                            .frame(width: 27, height: 27)
-                    } else if isToday {
-                        Circle()
-                            .stroke(palette.accent, lineWidth: 1.5)
-                            .frame(width: 27, height: 27)
+        VStack(alignment: .leading, spacing: 2) {
+            Button {
+                select(date)
+            } label: {
+                HStack {
+                    Spacer(minLength: 0)
+                    ZStack {
+                        if isToday {
+                            Circle().fill(palette.accent)
+                                .frame(width: 27, height: 27)
+                        } else if isSelected {
+                            RoundedRectangle(cornerRadius: privacyMode ? 12 : 14, style: .continuous)
+                                .fill(palette.primaryText.opacity(0.08))
+                                .frame(width: privacyMode ? 30 : 27, height: privacyMode ? 30 : 27)
+                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
+                        }
+
+                        Text("\(calendar.component(.day, from: date))")
+                            .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
+                            .foregroundStyle(dateForeground(
+                                isSelected: isToday,
+                                isInDisplayedMonth: isInDisplayedMonth,
+                                date: date,
+                                isHoliday: holiday != nil
+                            ))
                     }
-
-                    Text("\(calendar.component(.day, from: date))")
-                        .font(.caption.weight(isSelected || isToday ? .bold : .medium).monospacedDigit())
-                        .foregroundStyle(dateForeground(
-                            isSelected: isSelected,
-                            isInDisplayedMonth: isInDisplayedMonth,
-                            date: date,
-                            isHoliday: holiday != nil
-                        ))
+                    .frame(height: 26)
+                    Spacer(minLength: 0)
                 }
-                .frame(height: 28)
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
+            }
+            .frame(height: privacyMode ? 26 : 34)
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+            .overlay {
+                if !privacyMode {
+                    let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
+                    WhitespaceRing(fraction: whitespace.fraction, palette: palette)
+                        .frame(width: 32, height: 32)
+                        .opacity(isInDisplayedMonth ? 1 : 0.3)
+                        .allowsHitTesting(false)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
+                        .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+                }
             }
 
             VStack(spacing: 2) {
@@ -147,7 +249,52 @@ struct MonthCalendarGrid: View {
                 }
 
                 if privacyMode {
-                    if !dayItems.isEmpty { BusyStrip(palette: palette) }
+                    if friendLevel != .freeOnly {
+                        let content = FriendDayContent(date: date, items: dayItems, baseRules: baseRules, level: friendLevel, calendar: calendar, workDays: workDays)
+                        if friendLevel == .titles {
+                            ForEach(Array(content.gridEntries.prefix(friendTitlePreviewLimit).enumerated()), id: \.offset) { _, entry in
+                                Text("\(entry.time)\n\(entry.title)")
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(3)
+                                    .lineSpacing(1)
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.bottom, 2)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
+                        } else {
+                            ForEach(Array(content.gridLines.prefix(visibleItemLimit).enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.secondaryText)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier("friendDayContent")
+                            }
+                        }
+                        let limit = friendLevel == .titles ? friendTitlePreviewLimit : visibleItemLimit
+                        if content.gridLines.count > limit {
+                            Text("ほか \(content.gridLines.count - limit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        let availability = FriendAvailability(date: date, items: dayItems, baseRules: baseRules, calendar: calendar, workDays: workDays)
+                        if availability.hasAllDayEvent || availability.bands.allSatisfy({ !$0.isBusy }) {
+                            Text(availability.summary)
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundStyle(availability.hasAllDayEvent ? palette.secondaryText : palette.accent)
+                        } else {
+                            ForEach(availability.bands) { band in
+                                Text(band.label)
+                                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(band.isBusy ? palette.secondaryText : palette.accent)
+                            }
+                        }
+                    }
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
                         HStack(spacing: 0) {
@@ -165,11 +312,20 @@ struct MonthCalendarGrid: View {
                     }
 
                     if dayItems.count > visibleItemLimit {
-                        Text("ほか \(dayItems.count - visibleItemLimit)件")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 2)
+                        Button {
+                            select(date)
+                        } label: {
+                            Text("ほか \(dayItems.count - visibleItemLimit)件")
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.secondaryText)
+                                .frame(maxWidth: .infinity, minHeight: 14, alignment: .leading)
+                                .padding(.horizontal, 2)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("ほか\(dayItems.count - visibleItemLimit)件の予定を表示")
+                        .accessibilityHint("この日の予定をすべて開く")
+                        .accessibilityIdentifier("calendar-overflow-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
                     }
                 }
             }
@@ -177,19 +333,39 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
-        .padding(.horizontal, 2)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
-        .background(isSelected ? palette.accentSoft.opacity(0.32) : Color.clear)
+        .overlay(alignment: .bottomTrailing) {
+            if !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) {
+                Image(systemName: WorkDayToggle.symbol(isWorkDay: true))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 11)
+                    .foregroundStyle(palette.secondaryText.opacity(isInDisplayedMonth ? 1 : 0.45))
+                    .padding(6)
+                    .allowsHitTesting(false)
+                    .accessibilityLabel("仕事の日")
+                    .accessibilityIdentifier("workDayMark-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
+            }
+        }
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(palette.primaryText.opacity(0.025))
+                    .padding(2)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
         .overlay(alignment: .trailing) {
-            if column < 6 { gridLine.frame(width: 0.5) }
+            if !palette.isCatSkin && column < 6 { gridLine.frame(width: 0.5) }
         }
-        .overlay(alignment: .bottom) { gridLine.frame(height: 0.5) }
+        .overlay(alignment: .bottom) {
+            if !palette.isCatSkin { gridLine.frame(height: 0.5) }
+        }
         .dropDestination(for: String.self) { payloads, _ in
             guard allowsDragging, !privacyMode,
                   let raw = payloads.first,
@@ -200,10 +376,17 @@ struct MonthCalendarGrid: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("calendar-day-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
         .accessibilityAction(named: "日付を開く") {
-            selectedDate = date
-            onSelectDate?(date)
+            select(date)
         }
+    }
+
+    private func select(_ date: Date) {
+        withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
+            selectedDate = date
+        }
+        onSelectDate?(date)
     }
 
     private func dateForeground(
@@ -223,8 +406,26 @@ struct MonthCalendarGrid: View {
 
     private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
-        let suffix = items.isEmpty ? "予定なし" : (privacyMode ? "予定あり" : items.map(\.title).joined(separator: "、"))
-        return "\(formatter.string(from: date))、\(suffix)"
+        let suffix = privacyMode
+            ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar, workDays: workDays).lines.joined(separator: "、")
+            : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
+        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar, workDays: workDays)
+        let workDayLabel = !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""
+        return "\(formatter.string(from: date))、\(suffix)" + workDayLabel + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
+    }
+}
+
+private struct WhitespaceRing: View {
+    let fraction: Double
+    let palette: MiraThemePalette
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(palette.accent.opacity(0.12), lineWidth: 2.5)
+            Circle().trim(from: 0, to: min(1, max(0, fraction)))
+                .stroke(palette.accent.opacity(0.75), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
     }
 }
 
@@ -255,21 +456,23 @@ private struct CalendarEventStrip: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            if let symbol {
+            if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
             }
 
             Text(chipTitle)
-                .font(.system(size: palette.isCatSkin ? 10.5 : 10, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .lineLimit(palette.isCatSkin ? 2 : 1)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
-        .foregroundStyle(chipTag.map(palette.chipText(for:)) ?? palette.primaryText)
-        .padding(.leading, item.kind != .margin && item.colorTag != nil ? 5 : 3)
-        .padding(.trailing, 3)
-        .frame(minHeight: 18, alignment: .leading)
+        .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
+        .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {
@@ -277,14 +480,14 @@ private struct CalendarEventStrip: View {
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous)
+            RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous)
                 .stroke(
                     item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28)
                         : (chipTag?.needsOutline == true ? palette.primaryText.opacity(0.22) : Color.clear),
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 5 : 2.5, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous))
     }
 
     /// Margins named after their kind read as a short word; a margin the
@@ -305,6 +508,7 @@ private struct CalendarEventStrip: View {
 
     private var symbol: String? {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return nil

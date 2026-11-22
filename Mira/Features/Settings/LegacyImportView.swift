@@ -138,8 +138,8 @@ struct LegacyImportView: View {
 
     private func reading(done: Int, total: Int) -> some View {
         VStack(spacing: MiraSpacing.md) {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: .thinking, size: 96)
+            if store.theme.isCat {
+                MiraCatView(mood: .thinking, size: 96)
             }
             ProgressView(value: Double(done), total: Double(max(total, 1)))
                 .tint(palette.accent)
@@ -147,7 +147,7 @@ struct LegacyImportView: View {
             Text("\(done) / \(total)枚 読み取り中…")
                 .font(.headline.monospacedDigit())
                 .foregroundStyle(palette.primaryText)
-            Text("1枚に数十秒かかることがあるにゃ")
+            Text("1枚に数十秒かかることがあります")
                 .font(.caption)
                 .foregroundStyle(palette.secondaryText)
         }
@@ -282,7 +282,7 @@ struct LegacyImportView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(palette.success)
-            Text("\(count)件を引っ越したにゃ")
+            Text("\(count)件を引っ越しました")
                 .font(.title3.bold())
                 .foregroundStyle(palette.primaryText)
             Text("間違いがあれば、画面下の「取り消す」でまとめて戻せます。続けて別の月も取り込めます。")

@@ -3,6 +3,13 @@ import SwiftData
 
 @MainActor
 extension MiraStore {
+    func setColorStyle(_ style: AppColorStyle) {
+        colorStyle = style
+        settingsEntity?.colorStyleRaw = style.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+    }
+
     func setTheme(_ newTheme: AppThemeKind) {
         theme = newTheme
         settingsEntity?.themeRaw = newTheme.rawValue
@@ -76,7 +83,7 @@ extension MiraStore {
         ))
         try? context.save()
         try? refresh()
-        toast = "大切な人を追加したにゃ"
+        toast = "大切な人を追加しました"
     }
 
     func removeImportantPerson(id: UUID) {
@@ -84,6 +91,15 @@ extension MiraStore {
         context.delete(person)
         try? context.save()
         try? refresh()
+    }
+
+    func friendShareLevel(for person: ImportantPersonEntity) -> FriendShareLevel {
+        person.friendShareLevelRaw.flatMap(FriendShareLevel.init(rawValue:)) ?? .freeOnly
+    }
+
+    func setFriendShareLevel(_ level: FriendShareLevel, for person: ImportantPersonEntity) {
+        person.friendShareLevelRaw = level.rawValue
+        try? context.save()
     }
 
     func setNotificationsEnabled(_ enabled: Bool) async {
@@ -137,11 +153,18 @@ extension MiraStore {
             try context.delete(model: PendingInvitationEntity.self)
             try context.delete(model: LoadRuleEntity.self)
             try context.delete(model: BaseRuleEntity.self)
+            try clearWorkDayOverrides()
+            settingsEntity?.excludeHolidaysFromWorkDays = true
+            excludeHolidaysFromWorkDays = true
             try context.delete(model: ImportantPersonEntity.self)
             try context.delete(model: ConversationCaseEntity.self)
             try context.delete(model: RebalanceProposalEntity.self)
+            resetSelfTimeLog()
+            settingsEntity?.trendSuggestionsEnabled = nil
+            trendSuggestionsEnabled = true
             settingsEntity?.onboardingCompleted = false
-            settingsEntity?.themeRaw = AppThemeKind.pixelCat.rawValue
+            settingsEntity?.themeRaw = AppThemeKind.softMinimal.rawValue
+            settingsEntity?.colorStyleRaw = nil
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
             settingsEntity?.deviceHolidaysEnabled = false
@@ -157,7 +180,8 @@ extension MiraStore {
             undoEntry = nil
             clearAllDrafts()
             onboardingCompleted = false
-            theme = .pixelCat
+            theme = .softMinimal
+            colorStyle = .blue
             marginComfortLevel = .standard
             weekStartDay = .monday
             deviceHolidaysEnabled = false

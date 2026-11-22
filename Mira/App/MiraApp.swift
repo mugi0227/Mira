@@ -20,9 +20,13 @@ struct MiraApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView()
+                .fontDesign(.rounded)
                 // Pickers and system date text follow the same calendar the
                 // scheduling engines use, whatever the device region is.
                 .environment(\.locale, Locale(identifier: "ja_JP"))
+                // Kanji shared with Chinese must be drawn with Japanese glyphs,
+                // even when the device language is English or Chinese.
+                .typesettingLanguage(.init(identifier: "ja"))
                 .environment(\.timeZone, Calendar.mira.timeZone)
                 .environment(\.calendar, .mira)
                 .id(ObjectIdentifier(store))
@@ -44,6 +48,7 @@ struct MiraApp: App {
             CalendarItemEntity.self,
             MarginGoalEntity.self,
             BaseRuleEntity.self,
+            WorkDayOverrideEntity.self,
             AdjustmentEntity.self,
             PendingInvitationEntity.self,
             LoadRuleEntity.self,

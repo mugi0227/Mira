@@ -6,7 +6,7 @@ final class GrillMeFlowUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-reset-demo", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchArguments += ["-reset-demo", "-ui-theme", "pixelCat", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
         app.launch()
         completeOnboardingIfNeeded()
     }
@@ -33,9 +33,19 @@ final class GrillMeFlowUITests: XCTestCase {
 
     func testChatSuggestionAnswersFromTheCalendar() throws {
         openCompanion()
-        let suggestion = app.buttons["chatSuggestion"].firstMatch
+        let suggestion = app.buttons["今週の予定は？"]
         XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        let conversation = app.scrollViews.containing(.button, identifier: "chatSuggestion").firstMatch
+        let navigationBar = app.navigationBars["Mira"]
+        // A proactive card opens the conversation at the bottom. Its first
+        // suggestion can exist behind the navigation bar without being visible.
+        for _ in 0..<4 where !suggestion.isHittable || suggestion.frame.minY < navigationBar.frame.maxY + 8 {
+            conversation.swipeDown()
+        }
+        XCTAssertTrue(suggestion.isHittable)
+        XCTAssertGreaterThanOrEqual(suggestion.frame.minY, navigationBar.frame.maxY + 8)
         suggestion.tap()
+        XCTAssertTrue(suggestion.waitForNonExistence(timeout: 5), "The prompt must actually be sent")
         XCTAssertTrue(waitForAssistantReply())
         capture("03-chat-schedule-answer")
     }
@@ -44,7 +54,7 @@ final class GrillMeFlowUITests: XCTestCase {
         let home = app.buttons["miraTab-home"]
         XCTAssertTrue(home.waitForExistence(timeout: 10))
         XCTAssertTrue(home.isHittable)
-        XCTAssertTrue(app.buttons["miraCompanionButton"].exists)
+        XCTAssertTrue(app.miraChatButton.exists)
         capture("cat-skin-01-home")
 
         let destinations = [
@@ -74,6 +84,10 @@ final class GrillMeFlowUITests: XCTestCase {
         XCTAssertTrue(addMenu.waitForExistence(timeout: 4))
         addMenu.tap()
         let addItem = app.buttons["予定・余白を追加"]
+        // A menu can close if the screen redraws while it opens; open it once more before judging.
+        if !addItem.waitForExistence(timeout: 3) {
+            addMenu.tap()
+        }
         XCTAssertTrue(addItem.waitForExistence(timeout: 3))
         addItem.tap()
         let itemSheet = app.navigationBars["予定を追加"]
@@ -112,12 +126,12 @@ final class GrillMeFlowUITests: XCTestCase {
         if finish.waitForExistence(timeout: 4) {
             finish.tap()
         }
-        _ = app.buttons["miraCompanionButton"].waitForExistence(timeout: 12)
+        _ = app.miraChatButton.waitForExistence(timeout: 12)
     }
 
     /// Talking to Mira starts from the companion in the home corner.
     private func openCompanion() {
-        let companion = app.buttons["miraCompanionButton"]
+        let companion = app.miraChatButton
         XCTAssertTrue(companion.waitForExistence(timeout: 12))
         companion.tap()
         XCTAssertTrue(app.descendants(matching: .any)["miraChatInput"].waitForExistence(timeout: 5))
@@ -166,9 +180,59 @@ final class GrillMeFlowUITests: XCTestCase {
     }
 
     private func capture(_ name: String) {
+        let folder = URL(fileURLWithPath: "/tmp/mira-field-review", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: folder.appendingPathComponent(name + ".png"))
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testSettingsFooterScrollsAboveTabsAndWorkHoursAreEditable() throws {
+        let tab = app.buttons["設定"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 5))
+        tab.tap()
+        let work = app.buttons["仕事・学校の時間"].firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 5))
+        scrollUntilHittable(work)
+        work.tap()
+        let bulk = app.buttons["平日まとめて変更"]
+        XCTAssertTrue(bulk.waitForExistence(timeout: 5))
+        bulk.tap()
+        XCTAssertTrue(app.buttons["適用"].waitForExistence(timeout: 5))
+        capture("field-01-weekday-editor")
+        app.buttons["適用"].tap()
+        app.buttons["保存"].tap()
+        let footer = app.descendants(matching: .any)["settingsFooter"].firstMatch
+        for _ in 0..<6 { app.swipeUp() }
+        XCTAssertTrue(footer.exists)
+        XCTAssertLessThan(footer.frame.maxY, tab.frame.minY, "Last settings content must sit above the tab controls")
+        capture("field-02-settings-bottom")
+    }
+
+    func testOriginalGoalCanBeAddedAndSurvivesRelaunch() throws {
+        app.buttons["マイ余白"].firstMatch.tap()
+        let add = app.buttons["オリジナルの目標を追加"]
+        scrollUntilHittable(add)
+        XCTAssertTrue(add.isHittable)
+        add.tap()
+        let title = app.textFields["customGoalTitle"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText("ギターの練習")
+        app.buttons["保存"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        app.launch()
+        XCTAssertTrue(app.buttons["マイ余白"].firstMatch.waitForExistence(timeout: 12))
+        app.buttons["マイ余白"].firstMatch.tap()
+        let goal = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "ギターの練習")).firstMatch
+        scrollUntilHittable(goal)
+        XCTAssertTrue(goal.isHittable)
+        goal.tap()
+        XCTAssertEqual(app.textFields["customGoalTitle"].value as? String, "ギターの練習")
+        XCTAssertTrue(app.staticTexts["1時間"].exists)
+        capture("field-03-original-goal")
     }
 }

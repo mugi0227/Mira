@@ -3,74 +3,144 @@ import SwiftUI
 struct HomeView: View {
     @Environment(MiraStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let palette: MiraThemePalette
 
     @State private var selectedItem: CalendarItemSnapshot?
     @State private var selectedDayDestination: DayTimelineDestination?
+    @State private var openedDate: Date?
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
-    @State private var showCompanion = false
     @State private var isFriendView = false
     @State private var friendShareImage: Image?
+    @State private var renderedFriendSignature: Int?
+    @State private var friendRecipientID: UUID?
+    @State private var showFriendImagePreview = false
+    @State private var monthHeaderHeight: CGFloat = 88
+    @State private var showWhitespaceExplanation = false
+    @State private var topFadeAmount: CGFloat = 0
+    private let scrollFadeHeight: CGFloat = MiraSpacing.lg
+
+    private var friendRecipient: ImportantPersonEntity? {
+        store.importantPeople.first { $0.id == friendRecipientID }
+    }
+
+    private var friendLevel: FriendShareLevel {
+        friendRecipient.map { store.friendShareLevel(for: $0) } ?? .freeOnly
+    }
 
     var body: some View {
-        ScrollView {
-            // The calendar leads; everything else is secondary and sits below
-            // it, while talking to Mira lives behind the corner companion.
-            VStack(spacing: MiraSpacing.sm) {
-                monthHeader
-                    .padding(.horizontal, MiraSpacing.md)
+        VStack(spacing: 0) {
+            GeometryReader { viewport in
+                ScrollView {
+                    // The calendar leads; everything else is secondary and sits below
+                    // it, while talking to Mira lives in the tab bar.
+                    VStack(spacing: MiraSpacing.lg) {
+                        monthHeader
+                            .padding(.horizontal, screenInset)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthHeaderHeight = $0 }
 
-                if isFriendView {
-                    friendViewBanner
-                        .padding(.horizontal, MiraSpacing.md)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        if isFriendView {
+                            friendViewBanner
+                                .padding(.horizontal, screenInset)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+
+                        MonthCalendarGrid(
+                            month: store.selectedMonth,
+                            selectedDate: Binding(
+                                get: { store.selectedDate },
+                                set: { store.selectedDate = $0 }
+                            ),
+                            items: store.items,
+                            palette: palette,
+                            preferredHeight: palette.isCatSkin
+                                ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - scrollFadeHeight - MiraSpacing.xs
+                                : nil,
+                            weekStartDay: store.weekStartDay,
+                            holidays: store.deviceHolidays,
+                            referenceDate: store.now,
+                            allowsDragging: !isFriendView,
+                            privacyMode: isFriendView,
+                            friendLevel: friendLevel,
+                            baseRules: store.fetchBaseRules(),
+                            openedDate: isFriendView ? nil : openedDate,
+                            onAddEvent: { store.presentedEventForm = ManualEventDraft(date: $0) },
+                            onOpenTimeline: { selectedDayDestination = DayTimelineDestination(date: $0) },
+                            workDays: store.workDayResolver,
+                            onMoveItem: { id, date in store.moveItem(id: id, to: date) },
+                            onSelectDate: openDay,
+                            onSelectItem: { item in if !isFriendView { selectedItem = item } }
+                        )
+                        .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
+
+                        if !isFriendView {
+                            whitespaceSummary
+                                .padding(.horizontal, screenInset)
+
+                            nextStepCard
+                                .padding(.horizontal, screenInset)
+
+                            progressSummary
+                                .padding(.horizontal, screenInset)
+                        }
+                    }
+                    .animation(MiraMotion.selection(reduceMotion: reduceMotion), value: isFriendView)
+                    .padding(.top, MiraSpacing.xs)
+                    .padding(.bottom, MiraSpacing.lg)
                 }
-
-                MonthCalendarGrid(
-                    month: store.selectedMonth,
-                    selectedDate: Binding(
-                        get: { store.selectedDate },
-                        set: { store.selectedDate = $0 }
-                    ),
-                    items: monthItems,
-                    palette: palette,
-                    weekStartDay: store.weekStartDay,
-                    holidays: store.deviceHolidays,
-                    referenceDate: store.now,
-                    allowsDragging: !isFriendView,
-                    privacyMode: isFriendView,
-                    onMoveItem: { id, date in store.moveItem(id: id, to: date) },
-                    onSelectDate: openDay,
-                    onSelectItem: { item in if !isFriendView { selectedItem = item } }
-                )
-                .padding(.horizontal, palette.isCatSkin ? MiraSpacing.xs : 0)
-
-                if !isFriendView {
-                    nextStepCard
-                        .padding(.horizontal, MiraSpacing.md)
-                        .padding(.top, MiraSpacing.xs)
-
-                    progressSummary
-                        .padding(.horizontal, MiraSpacing.md)
+                .safeAreaPadding(.bottom, palette.isCatSkin ? 0 : 80)
+                // A scroll view's layout frame alone does not contain its drawing.
+                .scrollClipDisabled()
+                .mask {
+                    VStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [.white.opacity(1 - topFadeAmount), .white],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: scrollFadeHeight)
+                        Color.white
+                    }
                 }
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    let offset = geometry.contentOffset.y + geometry.contentInsets.top
+                    return min(1, max(0, offset / MiraSpacing.lg))
+                } action: { _, amount in
+                    topFadeAmount = amount
+                }
+                .accessibilityIdentifier("homeScroll")
             }
-            .animation(MiraMotion.standard, value: isFriendView)
-            .padding(.top, MiraSpacing.xs)
-            .padding(.bottom, 96 + floatingTabBarClearance)
+            .ignoresSafeArea(.container, edges: palette.isCatSkin ? [] : .bottom)
         }
         .miraScreenBackground(palette)
-        .overlay(alignment: .bottomTrailing) {
-            if store.assistantEnabled && !isFriendView {
-                MiraCompanionButton(message: store.currentAssistantMessage, palette: palette) {
-                    showCompanion = true
+        .sheet(isPresented: $showWhitespaceExplanation) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: MiraSpacing.lg) {
+                        Label("自分に戻れる時間を、ひと目で。", systemImage: "circle.dotted")
+                            .font(.title2.weight(.semibold))
+                        Text("日ごとのリングは、7:00〜23:00のうち、予定や基本時間で埋まっていない時間の割合です。大きく満ちているほど、余白があります。")
+                        Text("重なる予定は一度だけ数えます。休息や読書などの余白、予定前後のゆとり、誕生日、終日メモは減らしません。時間を使わない予定は、詳細の「時間を使う予定」をオフにできます。")
+                        Text("今月の合計は、過去の日も含むひと月全体の余白です。睡眠時間の個別設定には未対応のため、現在は7:00〜23:00を目安にしています。")
+                            .font(.footnote)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .padding(MiraSpacing.lg)
                 }
-                .padding(.trailing, MiraSpacing.md)
-                .padding(.bottom, MiraSpacing.sm + floatingTabBarClearance)
+                .miraScreenBackground(palette)
+                .navigationTitle("余白メーターについて")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) {
+                    Button("閉じる") { showWhitespaceExplanation = false }
+                } }
             }
+            .tint(palette.accent)
         }
-        .sheet(isPresented: $showCompanion) {
-            MiraChatView(palette: palette)
+        .fullScreenCover(isPresented: $showFriendImagePreview) {
+            if let friendShareImage {
+                FriendShareImagePreview(image: friendShareImage)
+            }
         }
         .navigationTitle("余白")
         .navigationBarTitleDisplayMode(.inline)
@@ -99,22 +169,24 @@ struct HomeView: View {
         .navigationDestination(item: $selectedDayDestination) { destination in
             DayTimelineView(date: destination.date, palette: palette)
         }
+        .onChange(of: store.selectedMonth) { _, month in
+            if let date = openedDate, !Calendar.mira.isDate(date, equalTo: month, toGranularity: .month) {
+                openedDate = nil
+            }
+        }
+        .onChange(of: isFriendView) { _, _ in openedDate = nil }
         .task(id: MonthKey(date: store.selectedMonth)) {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
             await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
     }
 
-    /// The cat skin draws its own floating tab bar over the content instead
-    /// of insetting it, so corner controls must lift themselves above it.
-    private var floatingTabBarClearance: CGFloat {
-        palette.isCatSkin ? 124 : 0
-    }
-
     private var monthItems: [CalendarItemSnapshot] {
         let interval = MonthKey(date: store.selectedMonth).interval
-        return store.items.filter { interval.contains($0.startDate) }
+        return store.items.filter { $0.startDate < interval.end && $0.endDate > interval.start }
     }
+
+    private var screenInset: CGFloat { MiraSpacing.lg }
 
     private var nextStepCard: some View {
         VStack(alignment: .leading, spacing: MiraSpacing.sm) {
@@ -182,11 +254,14 @@ struct HomeView: View {
         }
         .foregroundStyle(palette.primaryText)
         .tint(palette.accent)
-        .miraCard(palette, padding: MiraSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .miraPeekingCatCard(palette, theme: store.theme, padding: MiraSpacing.sm)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("homeNextStepCard")
     }
 
     private var nextEvent: CalendarItemSnapshot? {
-        store.items.filter { $0.kind == .confirmed && $0.endDate > store.now }
+        store.items.filter { $0.countsAgainstWhitespace && $0.endDate > store.now }
             .min { $0.startDate < $1.startDate }
     }
 
@@ -207,7 +282,7 @@ struct HomeView: View {
     private var standardMonthHeader: some View {
         HStack {
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(-1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.updateMarginRecommendation(for: store.selectedMonth)
@@ -220,18 +295,11 @@ struct HomeView: View {
             .accessibilityLabel("前の月")
 
             Spacer()
-            VStack(spacing: 2) {
-                Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.title2.bold())
-                    .foregroundStyle(palette.primaryText)
-                Text(monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
-            }
+            monthHeading
             Spacer()
 
             Button {
-                withAnimation(MiraMotion.standard) {
+                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
                     store.selectedMonth = store.selectedMonth.addingMonths(1)
                     store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
                     store.ensurePlan(for: store.selectedMonth)
@@ -247,43 +315,83 @@ struct HomeView: View {
         .foregroundStyle(palette.accent)
     }
 
+    private var monthHeading: some View {
+        VStack(spacing: 2) {
+            Text(store.selectedMonth.japaneseMonthTitle)
+                .font(.system(.title2, design: .serif, weight: .medium))
+            Text(monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+        }
+        .foregroundStyle(palette.primaryText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(store.selectedMonth.japaneseMonthTitle + "、" + monthItems.filter { $0.kind == .confirmed }.count.description + "件の予定")
+        .accessibilityIdentifier("homeMonthHeading")
+    }
+
     private var skyMonthHeader: some View {
-        HStack(spacing: 4) {
-            Button { changeMonth(by: -1) } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.medium))
-                    .frame(width: 44, height: 44)
-                    .background(palette.surface.opacity(0.7), in: Circle())
-            }
-            .accessibilityLabel("前の月")
-
-            VStack(spacing: 4) {
-                Text(store.selectedMonth.japaneseMonthTitle)
-                    .font(.title2.bold())
-                    .foregroundStyle(palette.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                friendViewButton
-            }
-            .frame(maxWidth: .infinity)
-
-            Button { changeMonth(by: 1) } label: {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("次の月")
-
-            addMenu
-                .background(alignment: .bottomLeading) {
-                    MiraBotanicalAccent(palette: palette)
-                        .frame(width: 45, height: 60)
-                        .offset(x: -20, y: 8)
+        VStack(alignment: .leading, spacing: MiraSpacing.xxs) {
+            HStack(alignment: .center, spacing: MiraSpacing.sm) {
+                monthHeading
+                Spacer(minLength: 0)
+                HStack(spacing: MiraSpacing.xs) {
+                    Button { changeMonth(by: -1) } label: {
+                        Image(systemName: "chevron.left").frame(width: 44, height: 48)
+                    }
+                    .accessibilityLabel("前の月")
+                    Button { changeMonth(by: 1) } label: {
+                        Image(systemName: "chevron.right").frame(width: 44, height: 48)
+                    }
+                    .accessibilityLabel("次の月")
                 }
+                .font(.body.weight(.semibold))
+                .background(palette.surface, in: Capsule())
+                .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
+                .shadow(color: palette.shadow, radius: 8, y: 4)
+                addMenu
+            }
+            HStack(alignment: .center) {
+                friendViewButton
+                Spacer(minLength: MiraSpacing.sm)
+            }
         }
         .foregroundStyle(palette.accent)
         .buttonStyle(MiraPressStyle())
-        .padding(.vertical, 4)
+        .padding(.vertical, MiraSpacing.xxs)
+    }
+
+    private var whitespaceSummary: some View {
+        let calendar = Calendar.mira
+        let month = MonthKey(date: store.selectedMonth)
+        let days = calendar.range(of: .day, in: .month, for: month.firstDay) ?? 1..<31
+        let rules = store.fetchBaseRules()
+        let minutes = days.reduce(0) { total, day in
+            let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) ?? month.firstDay
+            return total + DayWhitespace(date: date, items: monthItems, baseRules: rules, workDays: store.workDayResolver).availableMinutes
+        }
+        return Button { showWhitespaceExplanation = true } label: {
+            HStack(alignment: .firstTextBaseline, spacing: MiraSpacing.sm) {
+                Text("今月の余白")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 0)
+                Text("\(minutes / 60)")
+                    .font(.system(.title, design: .serif, weight: .medium))
+                    .monospacedDigit()
+                Text("時間")
+                    .font(.caption)
+                Image(systemName: "info.circle")
+                    .font(.caption)
+            }
+            .foregroundStyle(palette.accent)
+            .padding(.horizontal, MiraSpacing.lg)
+            .padding(.vertical, MiraSpacing.md)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(palette.surface, in: Capsule())
+            .overlay { Capsule().strokeBorder(palette.cardBorder, lineWidth: 1.5) }
+        }
+        .buttonStyle(MiraPressStyle())
+        .accessibilityLabel("今月の余白、\(minutes / 60)時間。計算方法を見る")
+        .accessibilityIdentifier("monthWhitespaceSummary")
     }
 
     private var friendViewButton: some View {
@@ -306,51 +414,97 @@ struct HomeView: View {
     }
 
     private var friendViewBanner: some View {
-        HStack(spacing: MiraSpacing.sm) {
-            Image(systemName: "eye.slash.fill")
-                .foregroundStyle(palette.accent)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("見せる用モード")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(palette.primaryText)
-                Text("中身は隠して「予定あり」だけ表示中。空いている日がひと目でわかります。")
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading) {
+            FriendShareControls(recipientID: $friendRecipientID, palette: palette)
+            if ProcessInfo.processInfo.arguments.contains("-friend-share-image-preview"),
+               friendLevel != .hidden, renderedFriendSignature == friendShareSignature, friendShareImage != nil {
+                Button("共有画像を確認") { showFriendImagePreview = true }
+                    .accessibilityIdentifier("friendShareExactImagePreview")
             }
-            Spacer(minLength: 0)
-            Button("戻る") { isFriendView = false }
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(palette.accent)
-                .frame(minWidth: 44, minHeight: 44)
-        }
-        .padding(.bottom, friendShareImage == nil ? 0 : 52)
-        .overlay(alignment: .bottom) {
-            if let friendShareImage {
-                ShareLink(
-                    item: friendShareImage,
-                    preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
-                ) {
-                    Label("画像で送る", systemImage: "square.and.arrow.up")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(palette.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+            HStack(spacing: MiraSpacing.sm) {
+                Image(systemName: "eye.slash.fill")
+                    .foregroundStyle(palette.accent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("見せる用モード")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(palette.primaryText)
+                    Text(friendLevel.explanation)
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .accessibilityIdentifier("friendShareImage")
+                Spacer(minLength: 0)
+                Button("戻る") { isFriendView = false }
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(palette.accent)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .padding(.bottom, 52)
+            .overlay(alignment: .bottom) {
+                HStack(spacing: MiraSpacing.xs) {
+                    if friendLevel != .hidden, renderedFriendSignature == friendShareSignature, let friendShareImage {
+                        ShareLink(
+                            item: friendShareImage,
+                            preview: SharePreview("\(store.selectedMonth.japaneseMonthTitle)の空き", image: friendShareImage)
+                        ) {
+                            Label("画像で送る", systemImage: "square.and.arrow.up")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(palette.onAccent)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(palette.accent, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                        }
+                        .accessibilityIdentifier("friendShareImage")
+                    }
+                    if friendLevel != .hidden {
+                        ShareLink(item: FriendAvailabilityText.text(from: store.now, items: store.items, baseRules: store.fetchBaseRules(), level: friendLevel, workDays: store.workDayResolver)) {
+                            Label("文字で送る", systemImage: "text.bubble")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(palette.accent)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
+                        }
+                        .accessibilityIdentifier("friendShareText")
+                    }
+                }
             }
         }
         .miraCard(palette, padding: MiraSpacing.sm)
-        .task(id: "\(MonthKey(date: store.selectedMonth))-\(monthItems.count)") {
+        .task(id: friendShareSignature) {
+            let signature = friendShareSignature
             friendShareImage = FriendShareRenderer.image(for: FriendShareCard(
                 month: store.selectedMonth,
-                items: monthItems,
+                items: store.items,
                 palette: palette,
                 weekStartDay: store.weekStartDay,
-                referenceDate: store.now
+                referenceDate: store.now,
+                baseRules: store.fetchBaseRules(),
+                level: friendLevel,
+                recipientName: friendRecipient?.name,
+                workDays: store.workDayResolver
             ))
+            renderedFriendSignature = signature
         }
+    }
+
+    private var friendShareSignature: Int {
+        var hasher = Hasher()
+        hasher.combine(friendRecipientID)
+        hasher.combine(friendRecipient?.name)
+        hasher.combine(friendLevel)
+        hasher.combine(MonthKey(date: store.selectedMonth))
+        hasher.combine(store.items)
+        hasher.combine(store.weekStartDay)
+        hasher.combine(store.theme)
+        hasher.combine(store.workDayOverrides)
+        hasher.combine(store.excludeHolidaysFromWorkDays)
+        hasher.combine(store.workDayResolver.holidays)
+        for rule in store.fetchBaseRules() {
+            hasher.combine(rule.weekday)
+            hasher.combine(rule.startMinute)
+            hasher.combine(rule.endMinute)
+        }
+        return hasher.finalize()
     }
 
     private var addMenu: some View {
@@ -363,14 +517,14 @@ struct HomeView: View {
             }
         } label: {
             Image(systemName: "plus")
-                .font(palette.isCatSkin ? .system(size: 28, weight: .regular) : .body)
+                .font(palette.isCatSkin ? .system(size: 25, weight: .bold, design: .rounded) : .body)
                 .foregroundStyle(palette.isCatSkin ? palette.onAccent : palette.accent)
                 .frame(width: palette.isCatSkin ? 52 : 44, height: palette.isCatSkin ? 52 : 44)
                 .background {
                     if palette.isCatSkin {
-                        Circle().fill(palette.actionGradient)
-                            .overlay { Circle().strokeBorder(palette.cardBorder, lineWidth: 2) }
-                            .shadow(color: palette.shadow, radius: 10, y: 4)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(palette.accent)
+                            .shadow(color: palette.accent.opacity(0.16), radius: 0, y: 4)
                     }
                 }
         }
@@ -390,21 +544,25 @@ struct HomeView: View {
     @ViewBuilder
     private var progressSummary: some View {
         let visibleGoals = store.currentMonthGoals.filter { [.rest, .reading, .importantPeople].contains($0.kind) }
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: MiraSpacing.xs) {
-                ForEach(visibleGoals) { goal in
-                    let progress = store.progress(for: goal)
-                    ProgressPill(
-                        symbol: goal.kind.symbolName,
-                        title: shortTitle(goal.kind),
-                        current: progress.current,
-                        target: progress.target,
-                        palette: palette
-                    )
-                }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: MiraSpacing.sm))
+            : AnyLayout(FlowLayout(spacing: MiraSpacing.sm))
+        layout {
+            ForEach(visibleGoals) { goal in
+                let progress = store.progress(for: goal)
+                ProgressPill(
+                    symbol: goal.kind.symbolName,
+                    title: shortTitle(goal.kind),
+                    current: progress.current,
+                    target: progress.target,
+                    palette: palette
+                )
+                .accessibilityIdentifier("homeGoalPill")
             }
         }
-        .scrollClipDisabled()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("homeGoalSummary")
     }
 
     private var selectedDaySection: some View {
@@ -447,7 +605,7 @@ struct HomeView: View {
     }
 
     private var dayLoadSummary: String {
-        let values = store.selectedDayItems.filter { $0.kind != .birthday }
+        let values = store.selectedDayItems.filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }
         guard let maxLoad = values.map(\.loadClass).max() else { return "今日はまだ余裕があります" }
         switch maxLoad {
         case .light: return "軽めの日"
@@ -467,7 +625,9 @@ struct HomeView: View {
             store.updateMarginRecommendation(for: date)
             store.recalculateBalance(for: date)
         }
-        selectedDayDestination = DayTimelineDestination(date: date)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.78)) {
+            openedDate = openedDate.map { Calendar.mira.isDate($0, inSameDayAs: date) } == true ? nil : date
+        }
     }
 
     private func shortTitle(_ kind: MarginKind) -> String {
@@ -490,8 +650,8 @@ struct AssistantCard: View {
     var body: some View {
         let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: MiraSpacing.sm)) : AnyLayout(HStackLayout(spacing: MiraSpacing.md))
         layout {
-            if store.theme == .pixelCat {
-                PixelCatView(mood: message.mood, size: 88)
+            if store.theme.isCat {
+                MiraCatView(mood: message.mood, size: 88)
                     .background(palette.accentSoft.opacity(0.3), in: Circle())
             } else {
                 Image(systemName: message.mood == .warning ? "exclamationmark.circle.fill" : "leaf.fill")
@@ -514,23 +674,21 @@ struct AssistantCard: View {
                         HStack(spacing: 8) {
                             Text(actionTitle)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if palette.isCatSkin {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.bold))
-                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
                         }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(palette.accent)
-                        .padding(.horizontal, palette.isCatSkin ? 14 : 0)
+                        .padding(.horizontal, 14)
                         .frame(minHeight: 44)
-                        .background(palette.isCatSkin ? palette.accentSoft.opacity(0.85) : .clear, in: Capsule())
+                        .background(palette.accentSoft.opacity(0.85), in: Capsule())
                     }
                     .buttonStyle(MiraPressStyle())
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, palette.isCatSkin ? 4 : 0)
+        .padding(.vertical, 4)
         .background {
             if palette.isCatSkin { MiraCompanionBackdrop(palette: palette) }
         }
@@ -581,6 +739,7 @@ private struct AgendaRow: View {
 
     private var symbol: String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         return item.exactTimeKnown ? "calendar" : "clock.badge.questionmark"
     }

@@ -29,8 +29,9 @@ struct SchedulingModeView: View {
                         schedulingGrid(draft)
                         selectedSummary(draft)
                     }
-                    .padding(.bottom, 120)
+                    .padding(.bottom, MiraSpacing.md)
                 }
+                .scrollBounceBehavior(.basedOnSize)
                 .miraScreenBackground(palette)
                 .safeAreaInset(edge: .bottom) {
                     bottomAction(draft)
@@ -65,7 +66,7 @@ struct SchedulingModeView: View {
                     Text("仮押さえ済みの候補や確定予定は変わりません。")
                 }
                 .confirmationDialog(
-                    "この候補、ちょっと気になるにゃ",
+                    "この候補、ちょっと気になります",
                     isPresented: Binding(
                         get: { pendingConflictCandidate != nil },
                         set: { if !$0 { pendingConflictCandidate = nil } }
@@ -322,12 +323,12 @@ struct SchedulingModeView: View {
             }
         }
         .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: palette.isCatSkin ? palette.cardRadius : 0, style: .continuous)
-                .stroke(palette.isCatSkin ? palette.cardBorder : palette.primaryText.opacity(0.10), lineWidth: palette.isCatSkin ? 1 : 0.5)
+            RoundedRectangle(cornerRadius: palette.cardRadius, style: .continuous)
+                .stroke(palette.cardBorder, lineWidth: 1)
         }
-        .padding(.horizontal, palette.isCatSkin ? MiraSpacing.sm : 0)
+        .padding(.horizontal, MiraSpacing.sm)
     }
 
     private func schedulingDayCell(_ date: Date, draft: SchedulingDraft) -> some View {
@@ -463,6 +464,8 @@ struct SchedulingModeView: View {
         }
         .miraCard(palette)
         .padding(.horizontal, MiraSpacing.md)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("schedulingSelectedSummary")
     }
 
     private func bottomAction(_ draft: SchedulingDraft) -> some View {
@@ -491,11 +494,14 @@ struct SchedulingModeView: View {
         .padding(.top, MiraSpacing.sm)
         .padding(.bottom, MiraSpacing.xs)
         .background {
-            if palette.isCatSkin {
-                palette.surface
-            } else {
-                Rectangle().fill(.regularMaterial)
+            Group {
+                if palette.isCatSkin {
+                    palette.surface
+                } else {
+                    Rectangle().fill(.regularMaterial)
+                }
             }
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 

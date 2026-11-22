@@ -1,5 +1,15 @@
 import Foundation
 
+#if DEBUG
+@MainActor
+final class MarkdownDemoChatAgent: MiraChatAgent {
+    let displayName = "Mira（デモ）"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        sink.setText("**余白を確認しました。**\n* **読書**の時間を守ろう。\n- 無理せず休んでね。")
+    }
+}
+#endif
+
 /// A chat agent answers one turn by calling Mira's tools and writing a reply
 /// into the sink. Tools only read or propose; the person approves changes.
 @MainActor
@@ -16,7 +26,15 @@ enum MiraChatAgentFactory {
             return FoundationModelsChatAgent()
         }
         #endif
-        return RuleBasedChatAgent()
+        return UnavailableChatAgent()
+    }
+}
+
+@MainActor
+final class UnavailableChatAgent: MiraChatAgent {
+    let displayName = "Mira"
+    func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
+        throw CocoaError(.featureUnsupported)
     }
 }
 
@@ -25,9 +43,14 @@ enum MiraChatAgentFactory {
 @MainActor
 final class RuleBasedChatAgent: MiraChatAgent {
     let displayName = "Mira（ルール）"
+    private let interpreter: (any ConversationInterpreting)?
+
+    init(interpreter: (any ConversationInterpreting)? = nil) {
+        self.interpreter = interpreter
+    }
 
     func respond(to text: String, store: MiraStore, sink: ChatTurnSink) async throws {
-        var interpretation = await store.conversationInterpreter.interpret(
+        var interpretation = await (interpreter ?? store.conversationInterpreter).interpret(
             text: text,
             now: store.now,
             pinnedContext: nil,
@@ -42,6 +65,7 @@ final class RuleBasedChatAgent: MiraChatAgent {
             ?? interpretation.candidateDates.max().map { calendar.date(byAdding: .day, value: 1, to: $0) ?? $0 }
             ?? calendar.date(byAdding: .day, value: 14, to: rangeStart) ?? rangeStart
 
+        await store.refreshDeviceCalendar(around: rangeStart, through: rangeEnd)
         switch interpretation.intent {
         case .addEvent where interpretation.exactStartDate != nil:
             let start = interpretation.exactStartDate ?? rangeStart
@@ -61,35 +85,35 @@ final class RuleBasedChatAgent: MiraChatAgent {
             )
             sink.record(result)
             sink.setText(result.card == nil
-                ? "\(store.rangeLabel(rangeStart, rangeEnd))は、余白を崩さずに入れられる枠が見つからなかったにゃ。期間を広げてみる？"
-                : "余白を守れる候補を探したにゃ。気になる枠をタップすると、そのまま予定の案にできるよ。")
+                ? "\(store.rangeLabel(rangeStart, rangeEnd))は、余白を崩さずに入れられる枠が見つかりませんでした。期間を広げてみる？"
+                : "余白を守れる候補を探しました。気になる枠をタップすると、そのまま予定の案にできるよ。")
 
         case .declineInvitation:
             let draft = await store.declineDraftText(title: interpretation.title, person: interpretation.person, audience: .friend)
             sink.record(store.toolDraftMessage(purpose: "お断り", text: draft))
-            sink.setText("角が立たない断り方を考えたにゃ。そのまま使っても、少し直してもいいよ。断るのは悪いことじゃないにゃ。")
+            sink.setText("やわらかく伝わる文面を考えました。そのままでも、少し直しても大丈夫。無理のない返事を選びましょう。")
 
         case .updateExisting:
             if let day = interpretation.candidateDates.first ?? interpretation.dateRangeStart {
                 let result = store.toolProposeMove(titleQuery: interpretation.title, to: day)
                 sink.record(result)
-                sink.setText(result.card == nil ? "どの予定のことか分からなかったにゃ。予定の名前を入れてもう一度教えてね。" : proposalReply(for: result))
+                sink.setText(result.card == nil ? "どの予定のことか分かりませんでした。予定の名前を入れてもう一度教えてね。" : proposalReply(for: result))
             } else {
-                sink.setText("いつに動かしたいか教えてくれたら、影響をチェックするにゃ。")
+                sink.setText("いつに動かしたいか教えてくれたら、影響をチェックします。")
             }
 
         case .askAboutExisting, .unknown:
             if Self.isBalanceQuestion(text) {
                 let result = store.toolMonthBalance(month: store.selectedMonth)
                 sink.record(result)
-                sink.setText("今月の余白の様子だにゃ。足りないところがあれば、空いている日に置く案も出せるよ。")
+                sink.setText("今月の余白の様子です。足りないところがあれば、空いている日に置く案も出せるよ。")
             } else if interpretation.intent == .askAboutExisting || Self.isScheduleQuestion(text) {
                 let end = interpretation.dateRangeEnd ?? calendar.date(byAdding: .day, value: 7, to: rangeStart) ?? rangeStart
                 let result = store.toolListSchedule(from: rangeStart, to: end)
                 sink.record(result)
-                sink.setText(result.card == nil ? "\(store.rangeLabel(rangeStart, end))は何も入っていないにゃ。のんびりできそう。" : "\(store.rangeLabel(rangeStart, end))の予定だにゃ。")
+                sink.setText(result.card == nil ? "\(store.rangeLabel(rangeStart, end))は何も入っていません。のんびりできそう。" : "\(store.rangeLabel(rangeStart, end))の予定です。")
             } else {
-                sink.setText("予定のことなら任せてにゃ。たとえば「来週ご飯に行ける日を探して」「土曜の誘いを断る文を作って」「今月ちゃんと休めてる？」みたいに話しかけてね。")
+                sink.setText("予定の相談をどうぞ。たとえば「来週ご飯に行ける日を探して」「土曜の誘いを断る文を作って」「今月ちゃんと休めてる？」みたいに話しかけてね。")
             }
         }
     }
@@ -97,11 +121,11 @@ final class RuleBasedChatAgent: MiraChatAgent {
     private func proposalReply(for result: MiraToolResult) -> String {
         switch result.card {
         case .eventProposal(let proposal) where proposal.needsCare:
-            return "入れることはできるけど、気になる点があるにゃ。カードを見て決めてね。"
+            return "入れることはできるけど、気になる点があります。カードを見て決めてね。"
         case .moveProposal(let proposal) where proposal.needsCare:
-            return "動かせるけど、ぶつかるものがあるにゃ。カードで確認してね。"
+            return "動かせるけど、ぶつかるものがあります。カードで確認してね。"
         case .eventProposal, .moveProposal:
-            return "問題なさそうだにゃ。よければカードのボタンで決めてね。"
+            return "問題なさそうです。よければカードのボタンで決めてね。"
         default:
             return result.summary
         }
@@ -125,6 +149,9 @@ final class RuleBasedChatAgent: MiraChatAgent {
             "を予定に追加して", "を予定に入れて", "を入れて", "を追加して", "に行きたい", "行きたい",
             "したい", "を探して", "探して", "の誘いを断りたい", "を断りたい", "を断る文を作って", "断りたい"
         ]
+        value = value.replacingOccurrences(
+            of: "^(?:(?:[0-9]{1,2}/[0-9]{1,2}|(?:[0-9]{1,2}月)?[0-9]{1,2}日)の?)?の?(?:[01]?[0-9]|2[0-3])(?:時(?!間)(?:半|[0-5]?[0-9]分)?|:[0-5][0-9])(?:から|に)?", with: "", options: .regularExpression
+        )
         for ending in requestEndings where value.hasSuffix(ending) && value.count > ending.count {
             value.removeLast(ending.count)
             break
@@ -190,9 +217,9 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     private func stream(_ prompt: String, into sink: ChatTurnSink) async throws {
         let session = self.session ?? makeSession()
         self.session = session
-        let responseStream = session.streamResponse(to: prompt)
+        let responseStream = session.streamResponse(to: prompt, options: GenerationOptions(maximumResponseTokens: 512))
         for try await snapshot in responseStream {
-            sink.setText(snapshot.content)
+            sink.setText(ChatAnswer.trimmed(snapshot.content))
         }
     }
 
@@ -211,9 +238,16 @@ final class FoundationModelsChatAgent: MiraChatAgent {
     }
 
     static let instructions = """
-    あなたは「Mira」。予定管理アプリの、やさしい猫のアシスタント。語尾は時々「にゃ」。返事は日本語で2〜3文、短く。
+    あなたは「Mira」。予定と自分の時間を整える、落ち着いた秘書。親しみやすく自然な日本語で、利用者の判断に役立つ具体的な返事をする。動物の鳴き声やキャラクター口調は使わない。
     利用者は誘いが多く断るのが苦手。自分の休息・読書・一人時間（＝余白）を守りながら予定を入れたい。
     ルール：
+    - 回答は150〜400文字を目安に、秘書として「結論→根拠→次の一手」の順にする。
+    - 最初の1文で質問に直接答える（例：「休息の余白は確保できています」「ちょっと詰まり気味です」）。ただしツールの根拠が足りない場合は判断できないと伝える。
+    - 次に根拠を「- 」で始まる2〜4項目の箇条書きにする。各項目には、ツール結果から写した日付・曜日と、その日の予定または余白を入れる。日付付きの根拠が足りなければ、対象期間の listSchedule で確認する。項目数のために事実を作らない。
+    - 最後は具体的な提案または質問を1つだけ添える（例：ツールで確認したどの日を休息用に守るか、提案カードを作るか）。「無理しないでね」だけの一般論で埋めない。
+    - 特筆することがなければ、その旨を1〜2文で伝えるだけでよい。見出し・「まとめ」・同じ内容や節の繰り返しは禁止。
+    - 日付・曜日・件数・数値は今回のツール結果にあるものだけをそのまま使う。曜日や割合・パーセントを自分で計算しない。結果にない日や期間外の日を挙げない。不明なことは不明と伝える。
+    - 「今月休めてる？」など休息・余白の質問には monthBalance を使う。件数だけから休めていると断定しない。
     - 予定や空きについて答える前に、必ずツールでカレンダーを確認する。推測で日付や予定を言わない。
     - 予定の追加・移動は proposeEvent / proposeMove で「案」を作るだけ。保存は本人がカードで決める。保存したとは言わない。
     - 空きを聞かれたら findOpenSlots。余白や基本時間とぶつからない候補だけを勧める。
@@ -262,7 +296,10 @@ struct ListScheduleTool: Tool {
     func call(arguments: Arguments) async throws -> String {
         guard let start = ToolDates.parseDay(arguments.startDate) else { return "開始日を yyyy-MM-dd で指定してください。" }
         let end = ToolDates.dayAfter(ToolDates.parseDay(arguments.endDate) ?? start)
-        return await context.run { $0.toolListSchedule(from: start, to: end) }
+        return await context.run {
+            await $0.refreshDeviceCalendar(around: start, through: end)
+            return $0.toolListSchedule(from: start, to: end)
+        }
     }
 }
 
@@ -293,7 +330,8 @@ struct FindOpenSlotsTool: Tool {
         let bands = arguments.timeBands.compactMap(SchedulingTimeBand.init(rawValue:))
         let purpose = arguments.purpose
         return await context.run {
-            $0.toolFindOpenSlots(purpose: purpose, from: start, to: end, duration: duration, bands: bands)
+            await $0.refreshDeviceCalendar(around: start, through: end)
+            return $0.toolFindOpenSlots(purpose: purpose, from: start, to: end, duration: duration, bands: bands)
         }
     }
 }
@@ -360,7 +398,11 @@ struct MonthBalanceTool: Tool {
 
     func call(arguments: Arguments) async throws -> String {
         let date = ToolDates.parseDay(arguments.date)
-        return await context.run { $0.toolMonthBalance(month: date ?? $0.selectedMonth) }
+        return await context.run {
+            let month = date ?? $0.selectedMonth
+            await $0.refreshDeviceCalendar(around: month)
+            return $0.toolMonthBalance(month: month)
+        }
     }
 }
 

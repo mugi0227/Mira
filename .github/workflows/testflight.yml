@@ -1,0 +1,149 @@
+name: TestFlight
+
+on:
+  push:
+    branches: [main, codex/testflight-release]
+    paths:
+      - "Mira/**"
+      - "MiraOverrides/**"
+      - "MiraWidget/**"
+      - "Shared/**"
+      - "project.yml"
+      - "ci/**"
+      - ".github/workflows/testflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      APPLE_TEAM_ID: 572NVCGLGQ
+      BUILD_NUMBER: ${{ github.run_number }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      MIRA_SIGNING_P12: ${{ secrets.MIRA_SIGNING_P12 }}
+      MIRA_SIGNING_PASSWORD: ${{ secrets.MIRA_SIGNING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MIRA_SIGNING_P12 MIRA_SIGNING_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub secret $name is not set (see docs/testflight.md)"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Select newest stable Xcode
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app | grep -v -i beta | sed 's/.*Xcode_\{0,1\}\([0-9.]*\).*/\1 &/' | sort -V | tail -1 | cut -d' ' -f2)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Write App Store Connect API key
+        run: |
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          umask 077
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY_PATH"
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Install reusable distribution signing identity
+        run: |
+          python3 -m venv "$RUNNER_TEMP/signing-env"
+          "$RUNNER_TEMP/signing-env/bin/pip" install PyJWT==2.10.1 cryptography==45.0.6 PyYAML==6.0.2
+          "$RUNNER_TEMP/signing-env/bin/python" ci/install_signing.py
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Mira.xcodeproj \
+            -scheme Mira \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Mira.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            2>&1 | tee "$RUNNER_TEMP/archive.log" | xcbeautify
+
+      - name: Verify app and widget archive
+        run: |
+          APP="$RUNNER_TEMP/Mira.xcarchive/Products/Applications/Mira.app"
+          test -d "$APP"
+          marketing_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
+          for plist in "$APP/Info.plist" "$APP/PlugIns/"*.appex/Info.plist; do
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
+            version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")
+            test "$version" = "$BUILD_NUMBER"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" = "$marketing_version"
+          done
+          /usr/bin/codesign --verify --deep --strict "$APP"
+          python3 - "$APP" <<'PY'
+          import plistlib, subprocess, sys
+          from pathlib import Path
+          app = Path(sys.argv[1])
+          for bundle in [app, *app.joinpath("PlugIns").glob("*.appex")]:
+              entitlements = plistlib.loads(subprocess.check_output(["codesign", "-d", "--entitlements", ":-", str(bundle)]))
+              assert entitlements["com.apple.security.application-groups"] == ["group.jp.mugi.mira"]
+              assert entitlements["com.apple.developer.team-identifier"] == "572NVCGLGQ"
+              assert entitlements.get("get-task-allow", False) is False
+              if bundle == app:
+                  assert entitlements["com.apple.developer.applesignin"] == ["Default"]
+          print("App and widget distribution entitlements verified")
+          PY
+          echo "Source: $GITHUB_SHA; version $marketing_version ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Export and upload to TestFlight
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Mira.xcarchive" \
+            -exportOptionsPlist ci/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee "$RUNNER_TEMP/export.log" | xcbeautify
+          echo "Build $BUILD_NUMBER uploaded to App Store Connect. Processing status must be checked in TestFlight." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove signing credentials
+        if: always()
+        run: |
+          if [ -n "${ASC_KEY_PATH:-}" ]; then rm -f "$ASC_KEY_PATH"; fi
+          if [ -n "${MIRA_SIGNING_KEYCHAIN:-}" ]; then security delete-keychain "$MIRA_SIGNING_KEYCHAIN"; fi
+
+      - name: Save distribution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-testflight-logs-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/archive.log
+            ${{ runner.temp }}/export.log
+          if-no-files-found: ignore
+          retention-days: 7

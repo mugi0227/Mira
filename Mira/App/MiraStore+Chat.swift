@@ -23,13 +23,31 @@ extension MiraStore {
         chatMessages.append(reply)
         let sink = ChatTurnSink(store: self, messageID: reply.id)
 
+        await refreshDeviceCalendar(around: now)
         do {
-            try await currentChatAgent().respond(to: text, store: self, sink: sink)
+            if let intent = selfTimeIntent(in: text) {
+                respondToSelfTimeRequest(intent, sink: sink)
+            } else {
+                let interpreter = ProductionConversationInterpreter(base: RuleBasedConversationInterpreter())
+                let interpretation = await interpreter.interpret(
+                    text: text, now: now, pinnedContext: nil, searchCandidates: [], recentTurns: []
+                )
+                if interpretation.intent == .addEvent, interpretation.exactStartDate != nil {
+                    try await RuleBasedChatAgent(interpreter: interpreter).respond(to: text, store: self, sink: sink)
+                } else {
+                    try await currentChatAgent().respond(to: text, store: self, sink: sink)
+                }
+            }
         } catch {
-            sink.setText(sink.text.isEmpty ? "ごめんね、うまく考えられなかったにゃ。もう一度言い方を変えてみてね。" : sink.text)
+            sink.setText(ChatAnswer.failure)
+            updateChatMessage(reply.id) {
+                $0.cards = []
+                $0.activities = []
+                $0.failure = .aiUnavailable
+            }
         }
         if sink.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sink.setText(sink.hasCards ? "こんな感じでどうかにゃ？" : "うまく読み取れなかったにゃ。日付や相手を入れてもう一度教えてね。")
+            sink.setText(sink.hasCards ? "この案はいかがですか？" : "うまく読み取れませんでした。日付や相手を入れてもう一度教えてね。")
         }
         updateChatMessage(reply.id) { $0.isStreaming = false }
         persistChat()
@@ -75,6 +93,14 @@ extension MiraStore {
     }
 
     func currentChatAgent() -> any MiraChatAgent {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-chat-failure") {
+            return UnavailableChatAgent()
+        }
+        if ProcessInfo.processInfo.arguments.contains("-ui-markdown-reply") {
+            return MarkdownDemoChatAgent()
+        }
+        #endif
         if let chatAgent { return chatAgent }
         let agent = MiraChatAgentFactory.make()
         chatAgent = agent
@@ -93,6 +119,8 @@ extension MiraStore {
         guard let message = chatMessages.first(where: { $0.id == messageID }),
               let card = message.cards.first(where: { $0.id == cardID }) else { return false }
         switch card {
+        case .selfTime(let proposal):
+            return applySelfTimeCard(messageID: messageID, proposal: proposal)
         case .eventProposal(var proposal):
             guard proposal.state == .pending else { return false }
             // Re-check against the calendar as it is now, not as it was when proposed.
@@ -117,7 +145,7 @@ extension MiraStore {
                 proposal.state = .applied
                 replaceChatCard(messageID: messageID, with: .moveProposal(proposal))
                 persistChat()
-                toast = "\(preview.title)を動かしたにゃ"
+                toast = "\(preview.title)を動かしました"
                 return true
             } catch {
                 context.rollback()
@@ -133,6 +161,9 @@ extension MiraStore {
         guard let message = chatMessages.first(where: { $0.id == messageID }),
               let card = message.cards.first(where: { $0.id == cardID }) else { return }
         switch card {
+        case .selfTime(let proposal):
+            dismissSelfTimeCard(messageID: messageID, proposal: proposal)
+            return
         case .eventProposal(var proposal):
             proposal.state = .dismissed
             replaceChatCard(messageID: messageID, with: .eventProposal(proposal))
@@ -157,12 +188,12 @@ extension MiraStore {
     func toolListSchedule(from start: Date, to end: Date) -> MiraToolResult {
         let range = DateInterval(start: start, end: max(end, start))
         let found = items
-            .filter { range.intersects(DateInterval(start: $0.startDate, end: max($0.endDate, $0.startDate))) }
+            .filter { $0.startDate < range.end && $0.endDate > range.start }
             .sorted { $0.startDate < $1.startDate }
         let label = rangeLabel(start, end)
         let lines = found.prefix(24).map { item in
             let kind = item.kind == .margin ? "余白" : (item.kind == .birthday ? "誕生日" : "予定")
-            return "- \(item.startDate.japaneseShortDate) \(item.timeDescription) [\(kind)] \(item.title)"
+            return "- \(ChatAnswer.date(item.startDate)) \(item.timeDescription) [\(kind)] \(item.title)"
         }
         let summary = found.isEmpty
             ? "\(label)：予定も余白もありません。"
@@ -209,7 +240,7 @@ extension MiraStore {
         let summary = slots.isEmpty
             ? "\(label)に、余白や基本時間とぶつからない候補は見つかりませんでした。"
             : "\(label)の候補（余白・基本時間とぶつからない順）：\n" + slots.map {
-                "- \($0.start.japaneseShortDate) \($0.band.title) \(timeText($0.start))–\(timeText($0.end))"
+                "- \(ChatAnswer.date($0.start)) \($0.band.title) \(timeText($0.start))–\(timeText($0.end))"
             }.joined(separator: "\n")
         return MiraToolResult(
             summary: summary,
@@ -230,7 +261,7 @@ extension MiraStore {
         if !impact.overlappingMargins.isEmpty {
             notes.append("余白「\(impact.overlappingMargins.map(\.title).joined(separator: "、"))」と重なります")
         }
-        let summary = "提案カードを作成：\(event.title) \(event.startDate.japaneseShortDate) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
+        let summary = "提案カードを作成：\(event.title) \(rangeLabel(event.startDate, event.endDate)) \(event.timeDescription)。負荷：\(event.loadClass.title)。"
             + (notes.isEmpty ? "問題なし。" : "注意：" + notes.joined(separator: "／"))
             + " まだ保存していません。本人がカードで決めます。"
         return MiraToolResult(
@@ -262,7 +293,7 @@ extension MiraStore {
         let conflicts = eventEntryConflicts(for: after, excludingItemID: item.id)
         let preview = ChangePreview(caseID: item.conversationCaseID, itemID: item.id, title: item.title,
             before: item, after: after, conflicts: conflicts, impact: impact)
-        let summary = "移動案：\(item.title) \(item.startDate.japaneseShortDate) → \(newStart.japaneseShortDate)。"
+        let summary = "移動案：\(item.title) \(ChatAnswer.date(item.startDate)) → \(ChatAnswer.date(newStart))。"
             + (conflicts.isEmpty && impact.overlappingMargins.isEmpty ? "問題なし。" : "注意：" + (conflicts + impact.overlappingMargins.map { "余白「\($0.title)」と重なる" }).joined(separator: "／"))
             + " まだ動かしていません。"
         return MiraToolResult(
@@ -278,12 +309,12 @@ extension MiraStore {
             .sorted { $0.priority > $1.priority }
         let lines = monthGoals.map { goal -> ChatBalanceLine in
             let value = progress(for: goal)
-            return ChatBalanceLine(kind: goal.kind, current: value.current, target: value.target)
+            return ChatBalanceLine(kind: goal.kind, current: value.current, target: value.target, customTitle: goal.customTitle)
         }
-        let busy = items.filter { $0.kind == .confirmed && key.interval.contains($0.startDate) }
+        let busy = items.filter { $0.countsAgainstWhitespace && key.interval.contains($0.startDate) }
         let heavy = busy.filter { $0.loadClass >= .heavy }.count
-        let summary = "\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
-            + lines.map { "\($0.kind.title) \($0.current)/\($0.target)" }.joined(separator: "、")
+        let summary = "対象期間：\(rangeLabel(key.interval.start, key.interval.end))。\(month.japaneseMonthTitle)：予定\(busy.count)件（重め\(heavy)件）。"
+            + lines.map { "\($0.title) \($0.current)/\($0.target)" }.joined(separator: "、")
         return MiraToolResult(
             summary: summary,
             activity: ChatActivity(symbol: "leaf", text: "\(month.japaneseMonthTitle)の余白バランスを確認"),
@@ -309,8 +340,8 @@ extension MiraStore {
     func rangeLabel(_ start: Date, _ end: Date) -> String {
         let calendar = Calendar.mira
         let lastDay = end > start ? end.addingTimeInterval(-1) : start
-        if calendar.isDate(start, inSameDayAs: lastDay) { return start.japaneseShortDate }
-        return "\(start.japaneseShortDate)〜\(lastDay.japaneseShortDate)"
+        if calendar.isDate(start, inSameDayAs: lastDay) { return ChatAnswer.date(start) }
+        return "\(ChatAnswer.date(start))〜\(ChatAnswer.date(lastDay))"
     }
 
     private func timeText(_ date: Date) -> String {

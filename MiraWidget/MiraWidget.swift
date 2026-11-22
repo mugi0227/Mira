@@ -46,6 +46,7 @@ struct MiraTodayWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MiraTodayProvider()) { entry in
             MiraTodayWidgetView(entry: entry)
+                .typesettingLanguage(.init(identifier: "ja"))
                 .containerBackground(for: .widget) {
                     LinearGradient(colors: [Color(hex: 0xF4FAFD), Color(hex: 0xE4F2F8)], startPoint: .top, endPoint: .bottom)
                 }

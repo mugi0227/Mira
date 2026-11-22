@@ -10,6 +10,19 @@ extension MiraStore {
         excludingItemID: UUID? = nil,
         excludingAdjustmentID: UUID? = nil
     ) -> [String] {
+        let details = eventEntryConflictDetails(for: event, excludingItemID: excludingItemID,
+            excludingAdjustmentID: excludingAdjustmentID)
+        var lines = details.prefix(2).map(\.text)
+        if details.count > 2 { lines.append("ほか\(details.count - 2)件") }
+        return lines
+    }
+
+    func eventEntryConflictDetails(
+        for event: CalendarItemSnapshot,
+        excludingItemID: UUID? = nil,
+        excludingAdjustmentID: UUID? = nil
+    ) -> [ConflictEngine.Detail] {
+        guard event.kind != .confirmed || event.countsAgainstWhitespace else { return [] }
         let occupied = event.occupiedInterval
         let candidate = CandidateSlotSnapshot(
             startDate: occupied.start,
@@ -21,10 +34,14 @@ extension MiraStore {
             .flatMap(\.candidates)
         let excludedID = excludingItemID ?? event.id
 
-        return ConflictEngine(calendar: .mira).conflicts(
+        let candidateTitles = adjustments.reduce(into: [UUID: String]()) { titles, adjustment in
+            for candidate in adjustment.candidates { titles[candidate.id] = adjustment.title }
+        }
+        return ConflictEngine(calendar: .mira, workDays: workDayResolver).conflictDetailEntries(
             candidate: candidate,
             events: items.filter { $0.id != excludedID },
             otherCandidates: heldCandidates,
+            candidateTitles: candidateTitles,
             baseRules: fetchBaseRules()
         )
     }
@@ -38,7 +55,7 @@ extension MiraStore {
     func projectedGoalDeficits(afterAdding event: CalendarItemSnapshot) -> [MarginKind: Int] {
         let occupiedMarginIDs = Set(
             items.filter {
-                $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
+                (event.kind != .confirmed || event.countsAgainstWhitespace) && $0.kind == .margin && $0.occupiedInterval.intersects(event.occupiedInterval)
             }.map(\.id)
         )
         var hypothetical = items.filter { !occupiedMarginIDs.contains($0.id) && $0.id != event.id }
@@ -171,8 +188,8 @@ extension MiraStore {
             updateMarginRecommendation(for: event.startDate)
             recalculateBalance(for: event.startDate)
             toast = resolution == .exception && !impact.overlappingMargins.isEmpty
-                ? "例外として予定を追加したにゃ"
-                : "予定を追加したにゃ"
+                ? "例外として予定を追加しました"
+                : "予定を追加しました"
             return true
         } catch {
             context.rollback()
@@ -192,7 +209,7 @@ extension MiraStore {
             switch goal.kind {
             case .importantPeople:
                 current = sourceItems.filter {
-                    $0.isImportantTime && key.interval.contains($0.startDate)
+                    ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.isImportantTime && key.interval.contains($0.startDate)
                 }.count
             case .freeEvening:
                 let engine = FreeEveningEngine()
@@ -204,13 +221,13 @@ extension MiraStore {
                 }.rounded(.down))
             default:
                 current = sourceItems.filter {
-                    $0.kind == .margin && $0.marginKind == goal.kind && key.interval.contains($0.startDate)
+                    goal.matches($0) && key.interval.contains($0.startDate)
                 }.count
             }
 
             let deficit = max(0, goal.targetCount - current)
             if deficit > 0 {
-                deficits[goal.kind] = deficit
+                deficits[goal.kind, default: 0] += deficit
             }
         }
         return deficits

@@ -2,9 +2,11 @@ import Foundation
 
 struct SchedulerEngine: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func propose(
@@ -17,7 +19,7 @@ struct SchedulerEngine: Sendable {
     ) -> MarginPlacementProposal {
         let monthKey = MonthKey(date: month, calendar: calendar)
         var occupied = events
-            .filter { $0.kind != .birthday }
+            .filter { ($0.kind == .margin || $0.countsAgainstWhitespace) }
             .map(\.occupiedInterval)
         occupied.append(contentsOf: existingMargins.map(\.occupiedInterval))
 
@@ -28,13 +30,16 @@ struct SchedulerEngine: Sendable {
         let activeGoals = goals
             .filter { $0.isEnabled && $0.kind != .importantPeople }
             .sorted {
-                if $0.priority == $1.priority { return $0.kind.rawValue < $1.kind.rawValue }
+                if $0.priority == $1.priority {
+                    if $0.kind == $1.kind { return $0.id.uuidString < $1.id.uuidString }
+                    return $0.kind.rawValue < $1.kind.rawValue
+                }
                 return $0.priority > $1.priority
             }
 
         for goal in activeGoals {
             let existingCount = existingMargins.filter {
-                $0.marginKind == goal.kind && monthKey.interval.contains($0.startDate)
+                goal.matches($0) && monthKey.interval.contains($0.startDate)
             }.count
             let remaining = max(0, goal.targetCount - existingCount)
             guard remaining > 0 else { continue }
@@ -69,7 +74,7 @@ struct SchedulerEngine: Sendable {
 
                 let item = CalendarItemSnapshot(
                     id: UUID(),
-                    title: goal.kind.title,
+                    title: goal.title,
                     startDate: best.0.start,
                     endDate: best.0.end,
                     isAllDay: goal.kind == .rest && best.0.duration >= 10 * 60 * 60,
@@ -105,7 +110,7 @@ struct SchedulerEngine: Sendable {
         let duration = margin.endDate.timeIntervalSince(margin.startDate)
         guard duration.isFinite, duration > 0, limit > 0,
               let days = calendar.range(of: .day, in: .month, for: key.firstDay) else { return [] }
-        let occupied = (events + otherMargins.filter { $0.id != margin.id }).map(\.occupiedInterval)
+        let occupied = (events + otherMargins.filter { $0.id != margin.id }).filter { $0.kind != .confirmed || $0.countsAgainstWhitespace }.map(\.occupiedInterval)
         let candidates = days.flatMap { day -> [DateInterval] in
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: key.firstDay) else { return [] }
             let preferred = interval(for: kind, on: date, durationHours: 1).start
@@ -153,10 +158,11 @@ struct SchedulerEngine: Sendable {
         guard let range = calendar.range(of: .day, in: .month, for: month.firstDay) else { return [] }
         return range.flatMap { day -> [DateInterval] in
             guard let date = calendar.date(byAdding: .day, value: day - 1, to: month.firstDay) else { return [] }
-            let preferred = interval(for: goal.kind, on: date, durationHours: goal.durationHours)
+            let start = interval(for: goal.kind, on: date, durationHours: 1).start
+            let preferred = DateInterval(start: start, duration: Double(goal.effectiveDurationMinutes) * 60)
             var intervals = isBlockedByBaseRule(preferred, rules: baseRules) ? [] : [preferred]
 
-            if goal.kind == .rest {
+            if goal.kind == .rest && goal.durationMinutes == nil {
                 let eveningStart = date.setting(hour: 18, calendar: calendar)
                 let eveningEnd = calendar.date(byAdding: .hour, value: 4, to: eveningStart) ?? eveningStart
                 let evening = DateInterval(start: eveningStart, end: eveningEnd)
@@ -164,7 +170,7 @@ struct SchedulerEngine: Sendable {
                     intervals.append(evening)
                 }
             }
-            return intervals
+            return intervals.filter { $0.end <= month.interval.end }
         }
     }
 
@@ -198,8 +204,7 @@ struct SchedulerEngine: Sendable {
         guard !rules.isEmpty else { return false }
         var day = calendar.startOfDay(for: interval.start)
         while day < interval.end {
-            let weekday = calendar.component(.weekday, from: day)
-            for rule in rules where rule.weekday == weekday {
+            for rule in workDays.effectiveRules(on: day, rules: rules, calendar: calendar) {
                 let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day) ?? day
                 let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day) ?? day
                 // Calendar intervals are half-open: a base rule ending at 18:00
@@ -237,10 +242,10 @@ struct SchedulerEngine: Sendable {
 
         let previousDay = calendar.date(byAdding: .day, value: -1, to: interval.start) ?? interval.start
         let nextDay = calendar.date(byAdding: .day, value: 1, to: interval.start) ?? interval.start
-        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && $0.loadClass >= .heavy }) {
+        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: previousDay) && ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy }) {
             value += kind == .rest ? 26 : 8
         }
-        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: nextDay) && $0.loadClass >= .heavy }) {
+        if events.contains(where: { calendar.isDate($0.startDate, inSameDayAs: nextDay) && ($0.kind != .confirmed || $0.countsAgainstWhitespace) && $0.loadClass >= .heavy }) {
             value += kind == .rest ? 14 : 4
         }
 
