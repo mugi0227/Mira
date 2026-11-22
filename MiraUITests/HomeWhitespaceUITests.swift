@@ -156,6 +156,18 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
     }
 
+    func testInlinePanelMotionOpenMoveAndClose() {
+        launchHome(theme: "softMinimal")
+        let panel = element("inlineDayPanel")
+        app.buttons["calendar-date-2026-09-03"].tap()
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        app.buttons["calendar-date-2026-09-09"].tap()
+        XCTAssertTrue(panel.exists)
+        XCTAssertGreaterThan(panel.frame.minY, app.buttons["calendar-date-2026-09-09"].frame.maxY)
+        app.buttons["calendar-date-2026-09-09"].tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+    }
+
     func testInlinePanelWorkDayToggleUpdatesMonthAndExplains() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-03"].tap()

@@ -60,15 +60,18 @@ struct MonthCalendarGrid: View {
                             dayCell(days[index], index: index, cellHeight: cellHeight)
                         }
                     }
-                    if !privacyMode, let openedDate,
-                       days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: openedDate) }) {
-                        InlineDayPanel(date: openedDate, items: itemsForDay(openedDate), palette: palette,
-                                       onAdd: { onAddEvent?(openedDate) },
-                                       onOpenTimeline: { onOpenTimeline?(openedDate) },
+                    if !privacyMode {
+                        let weekDate = openedDate.flatMap { date in
+                            days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: date) }) ? date : nil
+                        }
+                        InlineDayPanelSlot(date: weekDate) { date in
+                            InlineDayPanel(date: date, items: itemsForDay(date), palette: palette,
+                                       onAdd: { onAddEvent?(date) },
+                                       onOpenTimeline: { onOpenTimeline?(date) },
                                        onSelectItem: { onSelectItem?($0) },
-                                       workDayAccessory: { AnyView(WorkDayToggle(date: openedDate, palette: palette)) })
-                            .padding(16)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                                       workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) })
+                                .padding(16)
+                        }
                     }
                 }
             }

@@ -10,7 +10,7 @@ struct InlineDayPanel: View {
     var workDayAccessory: (() -> AnyView)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 Text(DateFormatter.mira("M月d日(E)").string(from: date))
                     .font(.headline)
@@ -96,7 +96,9 @@ struct InlineDayPanel: View {
             }
         }
         .foregroundStyle(palette.primaryText)
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: 20))
         .accessibilityElement(children: .contain)
@@ -108,5 +110,65 @@ struct InlineDayPanel: View {
         guard !item.isAllDay, item.exactTimeKnown else { return "" }
         let minutes = max(0, Int(item.endDate.timeIntervalSince(item.startDate) / 60))
         return "・\(minutes / 60 > 0 ? "\(minutes / 60)時間" : "")\(minutes % 60 > 0 ? "\(minutes % 60)分" : "")"
+    }
+}
+
+struct InlineDayPanelSlot<Content: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let date: Date?
+    @ViewBuilder let content: (Date) -> Content
+    @State private var previousDate: Date?
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        Group {
+            if let displayedDate = date ?? previousDate {
+                content(displayedDate)
+            }
+        }
+            .modifier(InlineDayPanelReveal(progress: progress))
+            .allowsHitTesting(date != nil)
+            .accessibilityHidden(date == nil)
+            .onChange(of: date) { oldDate, newDate in
+                previousDate = newDate ?? oldDate
+                withAnimation(reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.78)) {
+                    progress = newDate == nil ? 0 : 1
+                } completion: {
+                    if newDate == nil { previousDate = nil }
+                }
+            }
+    }
+}
+
+private struct InlineDayPanelReveal: AnimatableModifier {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        InlineDayPanelRevealLayout(progress: max(0, progress)) {
+            content.transaction { $0.animation = nil }
+        }
+        .clipped()
+    }
+}
+
+private struct InlineDayPanelRevealLayout: Layout {
+    let progress: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let content = subviews.first else { return .zero }
+        let size = content.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: size.width, height: size.height * progress)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let content = subviews.first else { return }
+        let size = content.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        content.place(at: bounds.origin, anchor: .topLeading,
+                      proposal: ProposedViewSize(width: size.width, height: size.height))
     }
 }
