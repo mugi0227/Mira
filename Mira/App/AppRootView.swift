@@ -8,7 +8,6 @@ extension Notification.Name {
 struct MiraOverlayLayout {
     var tabBarHeight: CGFloat = 0
     var nativeTabBarTop: Anchor<CGPoint>?
-    var companionBounds: Anchor<CGRect>?
 }
 
 struct MiraOverlayLayoutKey: PreferenceKey {
@@ -18,7 +17,6 @@ struct MiraOverlayLayoutKey: PreferenceKey {
         let next = nextValue()
         value.tabBarHeight = max(value.tabBarHeight, next.tabBarHeight)
         value.nativeTabBarTop = next.nativeTabBarTop ?? value.nativeTabBarTop
-        value.companionBounds = next.companionBounds ?? value.companionBounds
     }
 }
 
@@ -77,15 +75,11 @@ struct AppRootView: View {
         }
         .overlayPreferenceValue(MiraOverlayLayoutKey.self) { layout in
             GeometryReader { geometry in
-                let trailingClearance = layout.companionBounds.map {
-                    max(0, geometry.size.width - geometry[$0].minX) + MiraSpacing.xs
-                } ?? 0
                 if palette.isCatSkin {
                     let bottomClearance = max(layout.tabBarHeight, geometry.safeAreaInsets.bottom + 64)
                     VStack {
                         Spacer(minLength: 0)
                         toastBanner(palette: palette)
-                            .padding(.trailing, trailingClearance)
                             .padding(.bottom, bottomClearance + MiraSpacing.xs)
                     }
                     .allowsHitTesting(false)
@@ -97,7 +91,6 @@ struct AppRootView: View {
                         Spacer(minLength: 0)
                         VStack(spacing: MiraSpacing.xs) {
                             toastBanner(palette: palette)
-                                .padding(.trailing, trailingClearance)
                                 .allowsHitTesting(false)
                             mutationBanner(palette: palette)
                         }

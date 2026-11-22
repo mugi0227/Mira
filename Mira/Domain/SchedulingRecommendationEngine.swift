@@ -20,7 +20,7 @@ struct SchedulingRecommendationEngine: Sendable {
     ) -> [CandidateRecommendation] {
         let bands = timeBands.isEmpty ? duration.selectableBands : timeBands
         let days = candidateDays(in: dateRange)
-        let confirmed = items.filter { $0.kind != .margin && $0.kind != .birthday }
+        let confirmed = items.filter { $0.countsAgainstWhitespace }
         let margins = items.filter { $0.kind == .margin }
 
         var values: [CandidateRecommendation] = []

@@ -33,7 +33,8 @@ extension MiraStore {
                     bufferAfterMinutes: evaluation.bufferAfterMinutes,
                     isImportantTime: false,
                     sourceID: nil,
-                    colorTag: candidate.colorTag
+                    colorTag: candidate.colorTag,
+                    occupiesTime: true
                 )
                 context.insert(CalendarItemEntity(snapshot: snapshot))
             }

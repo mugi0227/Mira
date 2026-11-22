@@ -27,7 +27,8 @@ extension MiraStore {
                     isAllDay: item.isAllDay,
                     kind: kind,
                     tintHex: widgetTint(for: item),
-                    symbol: widgetSymbol(for: item)
+                    symbol: widgetSymbol(for: item),
+                    countsAgainstWhitespace: item.countsAgainstWhitespace
                 )
             }
         return MiraWidgetSnapshot(generatedAt: now, entries: entries)
@@ -57,6 +58,7 @@ extension MiraStore {
 
     nonisolated private static func widgetSymbol(for item: CalendarItemSnapshot) -> String {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return "calendar"

@@ -438,7 +438,8 @@ private struct CalendarEventStrip: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
-        .foregroundStyle(chipTag.map(palette.chipText(for:)) ?? palette.primaryText)
+        .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
+        .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
@@ -477,6 +478,7 @@ private struct CalendarEventStrip: View {
 
     private var symbol: String? {
         if item.kind == .margin { return item.marginKind?.symbolName ?? "leaf.fill" }
+        if item.kind == .confirmed && !item.countsAgainstWhitespace { return "note.text" }
         if item.kind == .birthday { return "gift.fill" }
         if item.isImportantTime { return "heart.fill" }
         return nil

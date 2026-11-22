@@ -182,6 +182,7 @@ final class FriendShareLevelTests: XCTestCase {
         let day = TestFixtures.date(day: 2)
         var allDay = TestFixtures.event(title: "出張", day: 2)
         allDay.isAllDay = true
+        allDay.occupiesTime = true
         let work = BaseAvailabilityRule(weekday: Calendar.mira.component(.weekday, from: day), startMinute: 540, endMinute: 1080)
         let items = [allDay, TestFixtures.event(title: "面談", day: 2, hour: 10)]
         let busy = FriendDayContent(date: day, items: items, baseRules: [work], level: .busyTimes)
