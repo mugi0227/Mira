@@ -144,6 +144,13 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("panel-last-week")
     }
 
+    func testInlinePanelOpensNeighborMonthDay() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-08-31"].tap()
+        XCTAssertTrue(element("inlineDayPanel").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
+    }
+
     func testInlinePanelSeveralEventsScreenshotAndAdd() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-02"].tap()

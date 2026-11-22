@@ -196,7 +196,11 @@ struct HomeView: View {
         .navigationDestination(item: $selectedDayDestination) { destination in
             DayTimelineView(date: destination.date, palette: palette)
         }
-        .onChange(of: store.selectedMonth) { _, _ in openedDate = nil }
+        .onChange(of: store.selectedMonth) { _, month in
+            if let date = openedDate, !Calendar.mira.isDate(date, equalTo: month, toGranularity: .month) {
+                openedDate = nil
+            }
+        }
         .onChange(of: isFriendView) { _, _ in openedDate = nil }
         .task(id: MonthKey(date: store.selectedMonth)) {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
