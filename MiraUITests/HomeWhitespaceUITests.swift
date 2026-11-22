@@ -128,7 +128,7 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["詳細"].waitForExistence(timeout: 5))
         app.buttons["閉じる"].tap()
         day.tap()
-        XCTAssertFalse(panel.exists)
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         app.buttons["calendar-date-2026-09-03"].tap()
         app.buttons["workDayToggle"].tap()
         XCTAssertTrue(element("inlineDayEmpty").waitForExistence(timeout: 5))

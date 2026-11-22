@@ -81,6 +81,9 @@ final class MiraStyleUITests: XCTestCase {
         calendar.lifetime = .keepAlways
         add(calendar)
         app.buttons["calendar-date-2026-09-01"].tap()
+        let timeBar = app.buttons["inlineDayTimeBar"]
+        XCTAssertTrue(timeBar.waitForExistence(timeout: 5))
+        timeBar.tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         let memoRows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", memoTitle + "、"))
         let memoRow = memoRows.firstMatch
