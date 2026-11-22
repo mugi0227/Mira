@@ -18,6 +18,9 @@ struct MonthCalendarGrid: View {
     var privacyMode = false
     var friendLevel: FriendShareLevel = .freeOnly
     var baseRules: [BaseAvailabilityRule] = []
+    var openedDate: Date? = nil
+    var onAddEvent: ((Date) -> Void)?
+    var onOpenTimeline: ((Date) -> Void)?
     var workDays = WorkDayResolver()
     var onMoveItem: ((UUID, Date) -> Void)?
     var onSelectDate: ((Date) -> Void)?
@@ -48,15 +51,28 @@ struct MonthCalendarGrid: View {
 
             if !palette.isCatSkin { gridLine.frame(height: 0.5) }
 
-            VStack(spacing: 0) {
-                let days = cells
-                let cellHeight = rowHeight(dayCount: days.count)
-                let weeks = stride(from: 0, to: days.count, by: 7).map { Array(days[$0..<($0 + 7)]) }
-                ForEach(Array(weeks.enumerated()), id: \.element) { weekIndex, week in
+            let days = cells
+            let cellHeight = rowHeight(dayCount: days.count)
+            ForEach(0..<(days.count / 7), id: \.self) { week in
+                VStack(spacing: 0) {
                     HStack(spacing: 0) {
-                        ForEach(Array(week.enumerated()), id: \.element) { dayIndex, date in
-                            dayCell(date, index: weekIndex * 7 + dayIndex, cellHeight: cellHeight)
+                        ForEach(week * 7..<week * 7 + 7, id: \.self) { index in
+                            dayCell(days[index], index: index, cellHeight: cellHeight)
                                 .frame(minWidth: 0, maxWidth: .infinity)
+                        }
+                    }
+                    if !privacyMode {
+                        let weekDate = openedDate.flatMap { date in
+                            days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: date) }) ? date : nil
+                        }
+                        InlineDayPanelSlot(date: weekDate) { date in
+                            InlineDayPanel(date: date, items: itemsForDay(date), palette: palette,
+                                       onAdd: { onAddEvent?(date) },
+                                       onOpenTimeline: { onOpenTimeline?(date) },
+                                       onSelectItem: { onSelectItem?($0) },
+                                       workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
+                                       workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) })
+                                .padding(16)
                         }
                     }
                 }
@@ -160,7 +176,7 @@ struct MonthCalendarGrid: View {
     @ViewBuilder
     private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = itemsForDay(date)
-        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let isSelected = openedDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
@@ -181,21 +197,20 @@ struct MonthCalendarGrid: View {
                 HStack {
                     Spacer(minLength: 0)
                     ZStack {
-                        if isSelected {
+                        if isToday {
+                            Circle().fill(palette.accent)
+                                .frame(width: 27, height: 27)
+                        } else if isSelected {
                             RoundedRectangle(cornerRadius: privacyMode ? 12 : 14, style: .continuous)
-                                .fill(palette.actionGradient)
+                                .fill(palette.primaryText.opacity(0.08))
                                 .frame(width: privacyMode ? 30 : 27, height: privacyMode ? 30 : 27)
                                 .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                        } else if isToday {
-                            Circle()
-                                .stroke(palette.accent, lineWidth: 1.5)
-                                .frame(width: 27, height: 27)
                         }
 
                         Text("\(calendar.component(.day, from: date))")
                             .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
                             .foregroundStyle(dateForeground(
-                                isSelected: isSelected,
+                                isSelected: isToday,
                                 isInDisplayedMonth: isInDisplayedMonth,
                                 date: date,
                                 isHoliday: holiday != nil
@@ -337,7 +352,7 @@ struct MonthCalendarGrid: View {
         .background {
             if isSelected {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(palette.accentSoft.opacity(0.28))
+                    .fill(palette.primaryText.opacity(0.025))
                     .padding(2)
             }
         }

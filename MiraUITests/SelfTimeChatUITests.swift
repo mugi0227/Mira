@@ -235,6 +235,8 @@ final class SelfTimeChatUITests: XCTestCase {
         let day = app.buttons["calendar-date-2026-09-03"]
         require(day, "an empty day on the demo calendar")
         day.tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         require(app.buttons["この日に予定を追加"], "day timeline")
 
         let timeline = app.scrollViews.firstMatch
@@ -242,7 +244,8 @@ final class SelfTimeChatUITests: XCTestCase {
         let lastHour = app.staticTexts["23:00"]
         require(lastHour, "last hour")
         captureScrollState("timeline-scroll-end")
-        let gap = app.buttons["ホーム"].frame.minY - lastHour.frame.maxY
+        let tabTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.buttons["miraTab-home"].frame.minY
+        let gap = tabTop - lastHour.frame.maxY
         XCTAssertGreaterThan(gap, 0)
         XCTAssertLessThan(gap, 110, "The final hour should not be followed by another hour of blank space")
     }

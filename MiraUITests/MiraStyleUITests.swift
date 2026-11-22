@@ -81,6 +81,9 @@ final class MiraStyleUITests: XCTestCase {
         calendar.lifetime = .keepAlways
         add(calendar)
         app.buttons["calendar-date-2026-09-01"].tap()
+        let timeBar = app.buttons["inlineDayTimeBar"]
+        XCTAssertTrue(timeBar.waitForExistence(timeout: 5))
+        timeBar.tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         let memoRows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", memoTitle + "、"))
         let memoRow = memoRows.firstMatch
@@ -296,6 +299,8 @@ final class MiraStyleUITests: XCTestCase {
         let dayHeader = app.buttons["calendar-date-2026-09-02"]
         XCTAssertTrue(dayHeader.isHittable)
         dayHeader.tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         capture("rounded-day")
     }
@@ -337,6 +342,8 @@ final class MiraStyleUITests: XCTestCase {
         app.launchArguments += ["-friend-share-test"]
         launchHome()
         app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         let add = app.buttons["この日に予定を追加"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
@@ -352,11 +359,15 @@ final class MiraStyleUITests: XCTestCase {
         let dinner = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Dinner、")).firstMatch
         XCTAssertTrue(dinner.waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
 
         let overflow = app.buttons["calendar-overflow-2026-09-02"]
         XCTAssertTrue(overflow.waitForExistence(timeout: 5))
         XCTAssertTrue(overflow.isHittable)
         overflow.tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "仕事、")).firstMatch.exists)
         XCTAssertTrue(dinner.exists)
@@ -373,6 +384,7 @@ final class MiraStyleUITests: XCTestCase {
             predicate: NSPredicate(format: "label BEGINSWITH %@", "2026年8月、"), object: heading
         )], timeout: 5), .completed)
         XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label.components(separatedBy: "、").first, "2026年8月")
+        Thread.sleep(forTimeInterval: 1)
         app.buttons["friendViewToggle"].tap()
         let recipientPicker = app.buttons["friendRecipientPicker"]
         waitUntilStableAndHittable(recipientPicker)

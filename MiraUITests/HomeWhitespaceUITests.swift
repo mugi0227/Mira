@@ -34,6 +34,8 @@ final class HomeWhitespaceUITests: XCTestCase {
         let day = element("calendar-day-2026-09-06")
         XCTAssertTrue(day.waitForExistence(timeout: 5))
         app.buttons["calendar-date-2026-09-06"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", "9月6日")).firstMatch.waitForExistence(timeout: 5))
         capture("whitespace-day-navigation")
     }
@@ -41,6 +43,13 @@ final class HomeWhitespaceUITests: XCTestCase {
     func testAllDayEventStaysAboveTheScrollingTimeline() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-07"].tap()
+        let work = element("inlineDayWork-0")
+        XCTAssertTrue(work.waitForExistence(timeout: 5))
+        let inlineEvent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(inlineEvent.exists)
+        XCTAssertLessThan(work.frame.maxY, inlineEvent.frame.minY)
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         let allDayEvent = app.buttons["美容院、終日"]
         XCTAssertTrue(allDayEvent.waitForExistence(timeout: 5))
         XCTAssertTrue(allDayEvent.isHittable)
@@ -102,6 +111,142 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertFalse(element("workDayMark-2026-09-01").exists)
         XCTAssertFalse(app.buttons["calendar-date-2026-09-01"].label.contains("仕事の日"))
         capture("whitespace-friend-privacy")
+    }
+
+    func testInlinePanelPlacementToggleEmptyAndEventDetail() {
+        launchHome(theme: "softMinimal")
+        let day = app.buttons["calendar-date-2026-09-02"]
+        day.tap()
+        let panel = element("inlineDayPanel")
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(panel.frame.minY, day.frame.maxY)
+        XCTAssertLessThan(panel.frame.maxY, app.buttons["calendar-date-2026-09-07"].frame.minY)
+        capture("panel-busy")
+        let event = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(event.exists)
+        event.tap()
+        XCTAssertTrue(app.navigationBars["詳細"].waitForExistence(timeout: 5))
+        app.buttons["閉じる"].tap()
+        day.tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        app.buttons["calendar-date-2026-09-03"].tap()
+        app.buttons["workDayToggle"].tap()
+        XCTAssertTrue(element("inlineDayEmpty").waitForExistence(timeout: 5))
+        XCTAssertFalse(element("inlineDayWork-0").exists)
+        capture("panel-empty")
+        app.buttons["inlineDayTimeBar"].tap()
+        XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
+    }
+
+    func testInlinePanelLastWeekScreenshot() {
+        launchHome(theme: "softMinimal")
+        let day = app.buttons["calendar-date-2026-09-30"]
+        for _ in 0..<4 where !day.isHittable { app.swipeUp() }
+        day.tap()
+        let panel = element("inlineDayPanel")
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<6 where panel.frame.maxY > scroll.frame.maxY - 20 {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7))
+                .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)))
+        }
+        XCTAssertTrue(panel.exists)
+        let work = element("inlineDayWork-0")
+        XCTAssertTrue(work.exists)
+        XCTAssertEqual(work.label, "仕事  9:00–18:00")
+        let event = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(event.exists)
+        XCTAssertLessThan(work.frame.maxY, event.frame.minY)
+        XCTAssertFalse(element("inlineDayEmpty").exists)
+        capture("panel-last-week")
+        for _ in 0..<4 { scroll.swipeUp(velocity: .fast) }
+        XCTAssertLessThan(panel.frame.maxY, app.tabBars.firstMatch.frame.minY - 16)
+        capture("panel-last-week-max-scroll")
+    }
+
+    func testInlinePanelOpensNeighborMonthDay() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-08-31"].tap()
+        XCTAssertTrue(element("inlineDayPanel").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<6 where !app.buttons["inlineDayTimeBar"].isHittable {
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(app.buttons["inlineDayTimeBar"].isHittable)
+        XCTAssertGreaterThan(element("inlineDayPanel").frame.height, 100)
+        capture("panel-neighbor-new-week")
+    }
+
+    func testInlinePanelMotionOpenMoveAndClose() {
+        launchHome(theme: "softMinimal")
+        let panel = element("inlineDayPanel")
+        app.buttons["calendar-date-2026-09-03"].tap()
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        app.buttons["calendar-date-2026-09-09"].tap()
+        XCTAssertTrue(panel.exists)
+        let belowWeek = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            panel.exists && panel.frame.minY > self.app.buttons["calendar-date-2026-09-09"].frame.maxY
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [belowWeek], timeout: 5), .completed)
+        app.buttons["calendar-date-2026-09-09"].tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+    }
+
+    func testInlinePanelWorkDayToggleUpdatesMonthAndExplains() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-09-03"].tap()
+        let toggle = app.buttons["workDayToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let mark = element("workDayMark-2026-09-03")
+        XCTAssertTrue(mark.exists)
+        XCTAssertEqual(toggle.value as? String, "オン")
+        XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")
+        XCTAssertEqual(element("inlineDayWork-0").label, "仕事  9:00–18:00")
+        XCTAssertFalse(element("inlineDayEmpty").exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).count, 0)
+        capture("panel-work-no-events")
+        toggle.tap()
+        XCTAssertTrue(mark.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "オフ")
+        XCTAssertFalse((app.buttons["inlineDayTimeBar"].value as? String ?? "").contains("仕事"))
+        XCTAssertFalse(element("inlineDayWork-0").exists)
+        XCTAssertTrue(element("inlineDayEmpty").exists)
+        capture("panel-nonwork-no-events")
+        toggle.tap()
+        XCTAssertTrue(mark.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["inlineDayTimeBar"].value as? String, "仕事 9:00–18:00")
+        capture("panel-work-day")
+        app.buttons["workDayInfoButton"].tap()
+        XCTAssertTrue(element("workDayExplanation").waitForExistence(timeout: 5))
+        capture("panel-work-day-explanation")
+    }
+
+    func testInlinePanelSeveralEventsScreenshotAndAdd() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        for title in ["打ち合わせ", "カフェでひと息"] {
+            app.buttons["inlineDayAdd"].tap()
+            let field = app.textFields["例：友達とご飯"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.tap()
+            field.typeText(title)
+            app.navigationBars["予定を追加"].buttons["追加"].tap()
+            let approve = app.buttons["このまま追加する"]
+            if approve.waitForExistence(timeout: 3) { approve.tap() }
+            XCTAssertTrue(app.buttons["inlineDayAdd"].waitForExistence(timeout: 5))
+        }
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).count, 3)
+        let dismissUndo = app.buttons["取り消しの案内を閉じる"]
+        if dismissUndo.exists { dismissUndo.tap() }
+        XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 6))
+        let panel = element("inlineDayPanel")
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<4 where panel.frame.maxY > app.tabBars.firstMatch.frame.minY - 16 {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7))
+                .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.55)))
+        }
+        capture("panel-several-events")
     }
 
     private func launchHome(theme: String) {
