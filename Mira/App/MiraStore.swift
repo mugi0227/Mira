@@ -12,7 +12,7 @@ final class MiraStore {
 
     let container: ModelContainer
     let context: ModelContext
-    let scheduler = SchedulerEngine()
+    var scheduler: SchedulerEngine { SchedulerEngine(workDays: workDayResolver) }
     let loadEngine = LoadEngine()
     let protectionEngine = ProtectionEngine()
     let assistantEngine = AssistantEngine()
@@ -20,7 +20,7 @@ final class MiraStore {
     let conversationInterpreter: any ConversationInterpreting
     let declineGenerator: any DeclineDraftGenerating
     let caseSearchEngine = CaseSearchEngine()
-    let schedulingRecommendationEngine = SchedulingRecommendationEngine()
+    var schedulingRecommendationEngine: SchedulingRecommendationEngine { SchedulingRecommendationEngine(workDays: workDayResolver) }
     let marginRecommendationEngine = MarginRecommendationEngine()
     let rebalanceEngine = RebalanceEngine()
     let deviceHolidayService = DeviceHolidayService()
@@ -68,6 +68,8 @@ final class MiraStore {
     var marginComfortLevel: MarginComfortLevel = .standard
     var weekStartDay: WeekStartDay = .monday
     var deviceHolidaysEnabled = false
+    var excludeHolidaysFromWorkDays = true
+    var workDayOverrides: [Date: Bool] = [:]
     var presentedAddSheet = false
     var toast: String?
     var calendarSyncStatus: String?
@@ -315,6 +317,9 @@ final class MiraStore {
         try context.delete(model: CalendarItemEntity.self)
         try context.delete(model: MarginGoalEntity.self)
         try context.delete(model: BaseRuleEntity.self)
+        try clearWorkDayOverrides()
+        settingsEntity?.excludeHolidaysFromWorkDays = true
+        excludeHolidaysFromWorkDays = true
         try context.delete(model: AdjustmentEntity.self)
         try context.delete(model: PendingInvitationEntity.self)
         try context.delete(model: LoadRuleEntity.self)

@@ -39,7 +39,7 @@ extension MiraStore {
     func respondToSelfTimeRequest(_ intent: PlanningIntent, sink: ChatTurnSink) {
         loadSelfTimeLogIfNeeded()
         let activity = ChatActivity(symbol: "leaf", text: "空いている時間と、守っている余白を確認")
-        guard let suggestion = SuggestionEngine().suggestion(
+        guard let suggestion = SuggestionEngine(workDays: workDayResolver).suggestion(
             for: intent,
             now: now,
             items: items,
@@ -70,7 +70,7 @@ extension MiraStore {
         guard onboardingCompleted else { return }
         restoreChatIfNeeded()
         let lastWeek = currentWeek.adding(weeks: -1)
-        guard let suggestion = SuggestionEngine().proactiveSuggestion(
+        guard let suggestion = SuggestionEngine(workDays: workDayResolver).proactiveSuggestion(
             now: now,
             items: items,
             goals: goals,
@@ -237,7 +237,7 @@ extension MiraStore {
     }
 
     func friendAvailabilityText() -> String {
-        FriendAvailabilityText.text(from: now, items: items, baseRules: fetchBaseRules())
+        FriendAvailabilityText.text(from: now, items: items, baseRules: fetchBaseRules(), workDays: workDayResolver)
     }
 
     // MARK: - Storage

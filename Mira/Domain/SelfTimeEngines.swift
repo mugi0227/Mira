@@ -47,9 +47,11 @@ struct IntentInterpreter: Sendable {
 
 struct SelfTimePlanner: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func propose(
@@ -165,12 +167,7 @@ struct SelfTimePlanner: Sendable {
     }
 
     private func baseRuleIntervals(on day: Date, rules: [BaseAvailabilityRule]) -> [DateInterval] {
-        let weekday = calendar.component(.weekday, from: day)
-        return rules.filter { $0.weekday == weekday }.map { rule in
-            let start = calendar.startOfDay(for: day).addingTimeInterval(Double(rule.startMinute) * 60)
-            let end = calendar.startOfDay(for: day).addingTimeInterval(Double(rule.endMinute) * 60)
-            return DateInterval(start: start, end: max(start, end))
-        }
+        workDays.intervals(on: day, rules: rules, calendar: calendar)
     }
 
     private func roundedUpToHour(_ date: Date) -> Date {
@@ -227,9 +224,9 @@ struct SuggestionEngine: Sendable {
     private let planner: SelfTimePlanner
     private let calendar: Calendar
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
-        self.planner = SelfTimePlanner(calendar: calendar)
+        self.planner = SelfTimePlanner(calendar: calendar, workDays: workDays)
     }
 
     func suggestion(

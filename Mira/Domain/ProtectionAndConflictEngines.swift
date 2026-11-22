@@ -94,9 +94,11 @@ struct ProtectionEngine: Sendable {
 
 struct ConflictEngine: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func conflicts(
@@ -171,7 +173,7 @@ struct ConflictEngine: Sendable {
         }
         var day = calendar.startOfDay(for: candidate.startDate)
         while day < candidate.endDate {
-            for rule in baseRules where rule.weekday == calendar.component(.weekday, from: day) {
+            for rule in workDays.effectiveRules(on: day, rules: baseRules, calendar: calendar) {
                 guard let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       start < end, start < candidate.endDate, candidate.startDate < end else { continue }
@@ -215,8 +217,7 @@ struct ConflictEngine: Sendable {
         var day = startDay
 
         while day <= endDay {
-            let weekday = calendar.component(.weekday, from: day)
-            for rule in rules where rule.weekday == weekday {
+            for rule in workDays.effectiveRules(on: day, rules: rules, calendar: calendar) {
                 guard let ruleStart = calendar.date(byAdding: .minute, value: rule.startMinute, to: day),
                       let ruleEnd = calendar.date(byAdding: .minute, value: rule.endMinute, to: day),
                       ruleStart < ruleEnd else { continue }

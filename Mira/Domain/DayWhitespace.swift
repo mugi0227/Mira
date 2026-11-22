@@ -16,20 +16,12 @@ struct DayWhitespace: Equatable, Sendable {
         return minutes == 0 ? "\(hours)時間" : "\(hours)時間\(minutes)分"
     }
 
-    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule], calendar: Calendar = .mira) {
+    init(date: Date, items: [CalendarItemSnapshot], baseRules: [BaseAvailabilityRule], calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         let day = calendar.startOfDay(for: date)
         let start = day.setting(hour: 7, calendar: calendar)
         let end = day.setting(hour: 23, calendar: calendar)
         awakeMinutes = Int(end.timeIntervalSince(start) / 60)
-        let weekday = calendar.component(.weekday, from: day)
-        let baseIntervals = baseRules.filter { $0.weekday == weekday }.compactMap { rule -> DateInterval? in
-            let lower = max(0, min(1440, rule.startMinute))
-            let upper = max(0, min(1440, rule.endMinute))
-            guard upper > lower else { return nil }
-            let from = calendar.date(byAdding: .minute, value: lower, to: day) ?? day
-            let to = calendar.date(byAdding: .minute, value: upper, to: day) ?? day
-            return DateInterval(start: from, end: to)
-        }
+        let baseIntervals = workDays.intervals(on: day, rules: baseRules, calendar: calendar)
         // Buffers are reserved breathing room, so only the actual event time
         // reduces this meter. Margins remain the person's own time.
         let events = items.filter(\.countsAgainstWhitespace).compactMap { item -> DateInterval? in

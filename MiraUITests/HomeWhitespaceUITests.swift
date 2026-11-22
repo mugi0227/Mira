@@ -99,6 +99,8 @@ final class HomeWhitespaceUITests: XCTestCase {
         app.buttons["friendViewToggle"].tap()
         XCTAssertFalse(element("whitespace-2026-09-01").exists)
         XCTAssertFalse(app.buttons["monthWhitespaceSummary"].exists)
+        XCTAssertFalse(element("workDayMark-2026-09-01").exists)
+        XCTAssertFalse(app.buttons["calendar-date-2026-09-01"].label.contains("仕事の日"))
         capture("whitespace-friend-privacy")
     }
 
@@ -116,6 +118,19 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(element("monthCalendar").waitForExistence(timeout: 12))
         // The onboarding success toast otherwise temporarily covers the header.
         Thread.sleep(forTimeInterval: 3)
+    }
+
+    func testSoftMinimalHomeReachesBottomCard() {
+        launchHome(theme: "softMinimal")
+        capture("home-initial")
+        let scroll = app.scrollViews["homeScroll"]
+        XCTAssertGreaterThanOrEqual(scroll.frame.maxY, app.frame.maxY - 1)
+        for _ in 0..<6 { scroll.swipeUp(velocity: .fast) }
+        capture("home-bottom")
+        let goals = element("homeGoalSummary")
+        XCTAssertTrue(goals.isHittable)
+        XCTAssertGreaterThanOrEqual(goals.frame.minY, scroll.frame.minY)
+        XCTAssertLessThanOrEqual(goals.frame.maxY, app.tabBars.firstMatch.frame.minY)
     }
 
     private func element(_ id: String) -> XCUIElement {

@@ -2,9 +2,11 @@ import Foundation
 
 struct SchedulerEngine: Sendable {
     private let calendar: Calendar
+    private let workDays: WorkDayResolver
 
-    init(calendar: Calendar = .mira) {
+    init(calendar: Calendar = .mira, workDays: WorkDayResolver = WorkDayResolver()) {
         self.calendar = calendar
+        self.workDays = workDays
     }
 
     func propose(
@@ -202,8 +204,7 @@ struct SchedulerEngine: Sendable {
         guard !rules.isEmpty else { return false }
         var day = calendar.startOfDay(for: interval.start)
         while day < interval.end {
-            let weekday = calendar.component(.weekday, from: day)
-            for rule in rules where rule.weekday == weekday {
+            for rule in workDays.effectiveRules(on: day, rules: rules, calendar: calendar) {
                 let start = calendar.date(byAdding: .minute, value: rule.startMinute, to: day) ?? day
                 let end = calendar.date(byAdding: .minute, value: rule.endMinute, to: day) ?? day
                 // Calendar intervals are half-open: a base rule ending at 18:00

@@ -348,7 +348,7 @@ extension MiraStore {
         let ownAdjustment = conversationCase(id: draft.conversationCaseID)?.state.relatedAdjustmentID
         return Array(Set(draft.selectedRecommendations.flatMap { recommendation in
             let candidate = candidateSnapshot(from: recommendation, draft: draft)
-            return ConflictEngine(calendar: .mira).conflicts(candidate: candidate,
+            return ConflictEngine(calendar: .mira, workDays: workDayResolver).conflicts(candidate: candidate,
                 events: items, otherCandidates: heldCandidates(excluding: ownAdjustment), baseRules: fetchBaseRules())
         })).sorted()
     }

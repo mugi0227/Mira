@@ -5,6 +5,23 @@ import XCTest
 
 @MainActor
 final class FriendShareLevelTests: XCTestCase {
+    func testShareCardRendersForcedWorkDayPolicy() throws {
+        let saturday = TestFixtures.date(day: 12, hour: 0)
+        let rules = [BaseAvailabilityRule(weekday: 2, startMinute: 540, endMinute: 1080)]
+        func rendered(_ resolver: WorkDayResolver, rules: [BaseAvailabilityRule]) throws -> Data {
+            let card = FriendShareCard(month: TestFixtures.september, items: [],
+                palette: MiraThemePalette(kind: .softMinimal, colorScheme: .light),
+                weekStartDay: .monday, referenceDate: TestFixtures.date(day: 1),
+                baseRules: rules, workDays: resolver)
+            return try XCTUnwrap(ImageRenderer(content: card).uiImage?.pngData())
+        }
+        let defaultImage = try rendered(WorkDayResolver(), rules: rules)
+        XCTAssertNotEqual(try rendered(WorkDayResolver(overrides: [saturday: true]), rules: rules), defaultImage)
+        XCTAssertEqual(try rendered(WorkDayResolver(overrides: [saturday: false]), rules: rules), defaultImage)
+        XCTAssertEqual(try rendered(WorkDayResolver(overrides: [saturday: true]), rules: []),
+                       try rendered(WorkDayResolver(), rules: []))
+    }
+
     func testUndeterminedTimesNeverExposeRepresentativeTimes() {
         let day = TestFixtures.date(day: 2)
         var event = TestFixtures.event(title: "面談", day: 2, hour: 10)
