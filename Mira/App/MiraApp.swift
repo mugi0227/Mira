@@ -48,6 +48,7 @@ struct MiraApp: App {
             CalendarItemEntity.self,
             MarginGoalEntity.self,
             BaseRuleEntity.self,
+            WorkDayOverrideEntity.self,
             AdjustmentEntity.self,
             PendingInvitationEntity.self,
             LoadRuleEntity.self,

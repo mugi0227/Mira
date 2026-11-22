@@ -13,7 +13,8 @@ struct DayFreeSlot: Equatable, Sendable {
         items: [CalendarItemSnapshot],
         baseRules: [BaseAvailabilityRule],
         notBefore: Date? = nil,
-        calendar: Calendar = .mira
+        calendar: Calendar = .mira,
+        workDays: WorkDayResolver = WorkDayResolver()
     ) {
         let day = calendar.startOfDay(for: date)
         let awakeStart = day.setting(hour: 7, calendar: calendar)
@@ -24,15 +25,7 @@ struct DayFreeSlot: Equatable, Sendable {
             return
         }
 
-        let weekday = calendar.component(.weekday, from: day)
-        let baseIntervals = baseRules.filter { $0.weekday == weekday }.compactMap { rule -> DateInterval? in
-            let lower = max(0, min(1440, rule.startMinute))
-            let upper = max(0, min(1440, rule.endMinute))
-            guard upper > lower else { return nil }
-            let from = calendar.date(byAdding: .minute, value: lower, to: day) ?? day
-            let to = calendar.date(byAdding: .minute, value: upper, to: day) ?? day
-            return DateInterval(start: from, end: to)
-        }
+        let baseIntervals = workDays.intervals(on: day, rules: baseRules, calendar: calendar)
         let events = items.filter(\.countsAgainstWhitespace).map(\.occupiedInterval)
         let busy = (baseIntervals + events).compactMap { interval -> DateInterval? in
             let from = max(start, interval.start)

@@ -3,6 +3,7 @@ import SwiftData
 
 @Model
 final class AppSettingsEntity {
+    var excludeHolidaysFromWorkDays: Bool = true
     @Attribute(.unique) var key: String
     var onboardingCompleted: Bool
     var themeRaw: String
@@ -202,6 +203,17 @@ final class BaseRuleEntity {
 
     var snapshot: BaseAvailabilityRule {
         BaseAvailabilityRule(weekday: weekday, startMinute: startMinute, endMinute: endMinute)
+    }
+}
+
+@Model
+final class WorkDayOverrideEntity {
+    @Attribute(.unique) var day: Date
+    var isWorkDay: Bool
+
+    init(date: Date, isWorkDay: Bool) {
+        day = Calendar.mira.startOfDay(for: date)
+        self.isWorkDay = isWorkDay
     }
 }
 

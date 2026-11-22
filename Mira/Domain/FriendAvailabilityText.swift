@@ -10,7 +10,8 @@ enum FriendAvailabilityText {
         items: [CalendarItemSnapshot],
         baseRules: [BaseAvailabilityRule] = [],
         level: FriendShareLevel = .freeOnly,
-        calendar: Calendar = .mira
+        calendar: Calendar = .mira,
+        workDays: WorkDayResolver = WorkDayResolver()
     ) -> String {
         guard level != .hidden else { return "" }
         guard days > 0 else { return "" }
@@ -19,7 +20,7 @@ enum FriendAvailabilityText {
             let header = "この\(days / 7)週間の予定です（\(level.title)）。" + (level == .titles ? "余白は「予定あり」と表示します。" : "")
             let lines = (0..<days).map { offset in
                 let day = calendar.startOfDay(for: now).addingDays(offset, calendar: calendar)
-                let content = FriendDayContent(date: day, items: items, baseRules: baseRules, level: level, calendar: calendar)
+                let content = FriendDayContent(date: day, items: items, baseRules: baseRules, level: level, calendar: calendar, workDays: workDays)
                 return "・\(formatter.string(from: day)) \(content.lines.isEmpty ? "予定なし" : content.lines.joined(separator: "、"))"
             }
             return ([header] + lines).joined(separator: "\n")
@@ -28,7 +29,7 @@ enum FriendAvailabilityText {
         let today = calendar.startOfDay(for: now)
         let lines: [String] = (0..<days).compactMap { offset in
             let day = today.addingDays(offset, calendar: calendar)
-            let availability = FriendAvailability(date: day, items: items, baseRules: baseRules, calendar: calendar)
+            let availability = FriendAvailability(date: day, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
             guard !availability.hasAllDayEvent else { return nil }
             let free = zip(availability.bands, bandHours).filter { band, hours in
                 let end = hours.end == 24 ? day.addingDays(1, calendar: calendar) : day.setting(hour: hours.end, calendar: calendar)
