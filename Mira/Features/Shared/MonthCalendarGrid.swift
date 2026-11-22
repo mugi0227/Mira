@@ -34,12 +34,12 @@ struct MonthCalendarGrid: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            LazyVGrid(columns: columns, spacing: 0) {
+            HStack(spacing: 0) {
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(weekdayColor(for: index))
-                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 30)
                         .overlay(alignment: .trailing) {
                             if !palette.isCatSkin && index < weekStartDay.weekdaySymbols.count - 1 {
                                 gridLine.frame(width: 0.5)
@@ -55,9 +55,10 @@ struct MonthCalendarGrid: View {
             let cellHeight = rowHeight(dayCount: days.count)
             ForEach(0..<(days.count / 7), id: \.self) { week in
                 VStack(spacing: 0) {
-                    LazyVGrid(columns: columns, spacing: 0) {
+                    HStack(spacing: 0) {
                         ForEach(week * 7..<week * 7 + 7, id: \.self) { index in
                             dayCell(days[index], index: index, cellHeight: cellHeight)
+                                .frame(minWidth: 0, maxWidth: .infinity)
                         }
                     }
                     if !privacyMode {
@@ -91,10 +92,6 @@ struct MonthCalendarGrid: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("monthCalendar")
-    }
-
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 0), spacing: 0), count: 7)
     }
 
     private var friendTitlePreviewLimit: Int {
