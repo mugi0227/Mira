@@ -214,6 +214,12 @@ final class MiraStyleUITests: XCTestCase {
         let companion = app.miraChatButton
         XCTAssertTrue(companion.isHittable)
         XCTAssertGreaterThanOrEqual(companion.frame.minY, scroll.frame.maxY)
+        let bottomOverflow = calendar.frame.maxY - scroll.frame.maxY + 7
+        if bottomOverflow > 0 {
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.75))
+            let end = start.withOffset(CGVector(dx: 0, dy: -bottomOverflow - 16))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
         XCTAssertLessThanOrEqual(calendar.frame.maxY, scroll.frame.maxY)
         XCTAssertGreaterThanOrEqual(scroll.frame.maxY - calendar.frame.maxY, 7)
         capture("roomier-calendar")
@@ -356,23 +362,43 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertTrue(dinner.exists)
         capture("compact-calendar-day-events")
 
-        app.navigationBars.buttons.firstMatch.tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        launchHome()
+        let previousMonth = app.buttons.matching(NSPredicate(format: "label == %@", "前の月")).firstMatch
+        waitUntilStableAndHittable(previousMonth)
         app.buttons["前の月"].tap()
+        let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label BEGINSWITH %@", "2026年8月、"), object: heading
+        )], timeout: 5), .completed)
         XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label.components(separatedBy: "、").first, "2026年8月")
         app.buttons["friendViewToggle"].tap()
-        app.buttons["friendRecipientPicker"].tap()
+        let recipientPicker = app.buttons["friendRecipientPicker"]
+        waitUntilStableAndHittable(recipientPicker)
+        recipientPicker.tap()
         let recipient = app.buttons["はる"]
-        if !recipient.waitForExistence(timeout: 3) { app.buttons["friendRecipientPicker"].tap() }
         XCTAssertTrue(recipient.waitForExistence(timeout: 5), app.debugDescription)
         recipient.tap()
-        app.buttons["friendLevelPicker"].tap()
-        app.buttons["予定名まで"].tap()
+        let levelPicker = app.buttons["friendLevelPicker"]
+        waitUntilStableAndHittable(levelPicker)
+        levelPicker.tap()
+        let titles = app.buttons["予定名まで"]
+        XCTAssertTrue(titles.waitForExistence(timeout: 5))
+        titles.tap()
+        XCTAssertEqual(heading.label.components(separatedBy: "、").first, "2026年8月", "Friend picker interactions must not change the displayed month")
 
         // August spans six weeks; September 2 is in its last row. Shared
         // calendars cannot open a day, so keep the normal two preview rows.
         let day = app.buttons["calendar-day-2026-09-02"].firstMatch
         let work = day.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "仕事")).firstMatch
-        for _ in 0..<4 where !work.isHittable { app.scrollViews["homeScroll"].swipeUp() }
+        let home = app.scrollViews["homeScroll"]
+        for _ in 0..<8 {
+            if day.exists && work.exists && work.isHittable { break }
+            home.swipeUp()
+        }
+        XCTAssertTrue(day.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(work.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(work.isHittable, app.debugDescription)
         XCTAssertTrue(work.label.contains("9–18"))
         XCTAssertEqual(day.staticTexts.matching(identifier: "friendDayContent").count, 2)
@@ -398,8 +424,10 @@ final class MiraStyleUITests: XCTestCase {
 
         let toast = app.staticTexts["appToast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5))
-        let lastRow = app.descendants(matching: .any)["calendar-day-2026-09-30"].firstMatch
+        let lastRow = app.buttons["calendar-date-2026-09-30"]
         let tabs = app.descendants(matching: .any)["miraTabBar"].firstMatch
+        XCTAssertTrue(lastRow.waitForExistence(timeout: 5))
+        XCTAssertTrue(tabs.waitForExistence(timeout: 5))
         // Existence can precede the toast's bottom transition and safe-area
         // layout settling, especially after dismissing the permission dialog.
         let toastSettled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -408,6 +436,7 @@ final class MiraStyleUITests: XCTestCase {
         }, object: toast)
         XCTAssertEqual(XCTWaiter.wait(for: [toastSettled], timeout: 5), .completed,
                        "Toast \(toast.frame) must settle clear of the last row \(lastRow.frame) and tabs \(tabs.frame)")
+        XCTAssertTrue(lastRow.isHittable)
         let toastFrame = toast.frame
         let calendar = app.descendants(matching: .any)["monthCalendar"].firstMatch
         XCTAssertEqual(toastFrame.minX, calendar.frame.minX, accuracy: 1)
@@ -433,11 +462,20 @@ final class MiraStyleUITests: XCTestCase {
         XCTAssertEqual(month.label.components(separatedBy: "、").first, "2026年10月")
         XCTAssertTrue(toast.exists)
         app.buttons["前の月"].tap()
+        let restoredLayout = NSPredicate { _, _ in
+            guard month.exists, lastRow.exists, tabs.exists else { return false }
+            return month.label.components(separatedBy: "、").first == "2026年9月"
+                && abs(month.frame.minY - monthFrame.minY) <= 1
+                && abs(lastRow.frame.maxY - lastRowFrame.maxY) <= 1
+                && abs(tabs.frame.minY - tabFrame.minY) <= 1
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: restoredLayout, object: app)], timeout: 10), .completed)
         app.terminate()
         app.launchArguments.removeAll { $0 == "-reset-demo" || $0 == "-ui-testing-persistent-toast" }
         launchHome()
         let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: toast)
         XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: restoredLayout, object: app)], timeout: 10), .completed)
         XCTAssertEqual(month.frame.minY, monthFrame.minY, accuracy: 1)
         XCTAssertEqual(lastRow.frame.maxY, lastRowFrame.maxY, accuracy: 1)
         XCTAssertEqual(tabs.frame.minY, tabFrame.minY, accuracy: 1)
@@ -568,5 +606,20 @@ final class MiraStyleUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func waitUntilStableAndHittable(_ element: XCUIElement) {
+        var previousFrame: CGRect?
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard element.exists, element.isHittable else { return false }
+            let frame = element.frame
+            defer { previousFrame = frame }
+            guard !frame.isEmpty, let previousFrame else { return false }
+            return abs(frame.minX - previousFrame.minX) <= 0.5
+                && abs(frame.minY - previousFrame.minY) <= 0.5
+                && abs(frame.width - previousFrame.width) <= 0.5
+                && abs(frame.height - previousFrame.height) <= 0.5
+        }, object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed, app.debugDescription)
     }
 }
