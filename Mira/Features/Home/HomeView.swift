@@ -8,6 +8,7 @@ struct HomeView: View {
 
     @State private var selectedItem: CalendarItemSnapshot?
     @State private var selectedDayDestination: DayTimelineDestination?
+    @State private var openedDate: Date?
     @State private var showSavedDrafts = false
     @State private var draftToResume: UUID?
     @State private var showCompanion = false
@@ -64,6 +65,9 @@ struct HomeView: View {
                             privacyMode: isFriendView,
                             friendLevel: friendLevel,
                             baseRules: store.fetchBaseRules(),
+                            openedDate: isFriendView ? nil : openedDate,
+                            onAddEvent: { store.presentedEventForm = ManualEventDraft(date: $0) },
+                            onOpenTimeline: { selectedDayDestination = DayTimelineDestination(date: $0) },
                             onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                             onSelectDate: openDay,
                             onSelectItem: { item in if !isFriendView { selectedItem = item } }
@@ -192,6 +196,8 @@ struct HomeView: View {
         .navigationDestination(item: $selectedDayDestination) { destination in
             DayTimelineView(date: destination.date, palette: palette)
         }
+        .onChange(of: store.selectedMonth) { _, _ in openedDate = nil }
+        .onChange(of: isFriendView) { _, _ in openedDate = nil }
         .task(id: MonthKey(date: store.selectedMonth)) {
             await store.refreshDeviceHolidays(for: store.selectedMonth)
             await store.refreshDeviceCalendar(around: store.selectedMonth)
@@ -643,7 +649,9 @@ struct HomeView: View {
             store.updateMarginRecommendation(for: date)
             store.recalculateBalance(for: date)
         }
-        selectedDayDestination = DayTimelineDestination(date: date)
+        withAnimation(reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.78)) {
+            openedDate = openedDate.map { Calendar.mira.isDate($0, inSameDayAs: date) } == true ? nil : date
+        }
     }
 
     private func shortTitle(_ kind: MarginKind) -> String {

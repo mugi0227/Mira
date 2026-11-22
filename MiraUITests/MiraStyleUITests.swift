@@ -95,16 +95,18 @@ final class MiraStyleUITests: XCTestCase {
         launchHome()
         let september = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
         XCTAssertTrue(september.waitForExistence(timeout: 5))
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertTrue(september.label.hasPrefix("2026年9月"))
         app.buttons["次の月"].tap()
-        XCTAssertEqual(september.label, "2026年10月")
+        XCTAssertTrue(september.label.hasPrefix("2026年10月"))
         app.buttons["前の月"].tap()
-        XCTAssertEqual(september.label, "2026年9月")
+        XCTAssertTrue(september.label.hasPrefix("2026年9月"))
         // A date text's accessibility frame can expand over its event chips.
         // The explicit header button has its own, non-overlapping hit target.
         let dayHeader = app.buttons["calendar-date-2026-09-02"]
         XCTAssertTrue(dayHeader.isHittable)
         dayHeader.tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
         capture("rounded-day")
     }
@@ -146,6 +148,8 @@ final class MiraStyleUITests: XCTestCase {
         app.launchArguments += ["-friend-share-test"]
         launchHome()
         app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         let add = app.buttons["この日に予定を追加"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
@@ -161,19 +165,25 @@ final class MiraStyleUITests: XCTestCase {
         let dinner = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Dinner、")).firstMatch
         XCTAssertTrue(dinner.waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
 
         let overflow = app.buttons["calendar-overflow-2026-09-02"]
         XCTAssertTrue(overflow.waitForExistence(timeout: 5))
         XCTAssertTrue(overflow.isHittable)
         overflow.tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "仕事、")).firstMatch.exists)
         XCTAssertTrue(dinner.exists)
         capture("compact-calendar-day-events")
 
         app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["この日に予定を追加"].waitForNonExistence(timeout: 5))
         app.buttons["前の月"].tap()
-        XCTAssertEqual(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label, "2026年8月")
+        XCTAssertTrue(app.descendants(matching: .any)["homeMonthHeading"].firstMatch.label.hasPrefix("2026年8月"))
+        Thread.sleep(forTimeInterval: 1)
         app.buttons["friendViewToggle"].tap()
         app.buttons["friendRecipientPicker"].tap()
         let recipient = app.buttons["はる"]

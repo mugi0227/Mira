@@ -34,6 +34,8 @@ final class HomeWhitespaceUITests: XCTestCase {
         let day = element("calendar-day-2026-09-06")
         XCTAssertTrue(day.waitForExistence(timeout: 5))
         app.buttons["calendar-date-2026-09-06"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         XCTAssertTrue(app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", "9月6日")).firstMatch.waitForExistence(timeout: 5))
         capture("whitespace-day-navigation")
     }
@@ -41,6 +43,8 @@ final class HomeWhitespaceUITests: XCTestCase {
     func testAllDayEventStaysAboveTheScrollingTimeline() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-07"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["inlineDayTimeBar"].tap()
         let allDayEvent = app.buttons["美容院、終日"]
         XCTAssertTrue(allDayEvent.waitForExistence(timeout: 5))
         XCTAssertTrue(allDayEvent.isHittable)
@@ -100,6 +104,66 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertFalse(element("whitespace-2026-09-01").exists)
         XCTAssertFalse(app.buttons["monthWhitespaceSummary"].exists)
         capture("whitespace-friend-privacy")
+    }
+
+    func testInlinePanelPlacementToggleEmptyAndEventDetail() {
+        launchHome(theme: "softMinimal")
+        let day = app.buttons["calendar-date-2026-09-02"]
+        day.tap()
+        let panel = element("inlineDayPanel")
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(panel.frame.minY, day.frame.maxY)
+        XCTAssertLessThan(panel.frame.maxY, app.buttons["calendar-date-2026-09-07"].frame.minY)
+        capture("panel-busy")
+        let event = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).firstMatch
+        XCTAssertTrue(event.exists)
+        event.tap()
+        XCTAssertTrue(app.navigationBars["詳細"].waitForExistence(timeout: 5))
+        app.buttons["閉じる"].tap()
+        day.tap()
+        XCTAssertFalse(panel.exists)
+        app.buttons["calendar-date-2026-09-03"].tap()
+        XCTAssertTrue(element("inlineDayEmpty").waitForExistence(timeout: 5))
+        capture("panel-empty")
+        app.buttons["inlineDayTimeBar"].tap()
+        XCTAssertTrue(app.buttons["この日に予定を追加"].waitForExistence(timeout: 5))
+    }
+
+    func testInlinePanelLastWeekScreenshot() {
+        launchHome(theme: "softMinimal")
+        let day = app.buttons["calendar-date-2026-09-30"]
+        for _ in 0..<4 where !day.isHittable { app.swipeUp() }
+        day.tap()
+        let panel = element("inlineDayPanel")
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<6 where panel.frame.maxY > scroll.frame.maxY - 20 {
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7))
+                .press(forDuration: 0.01, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)))
+        }
+        XCTAssertTrue(panel.exists)
+        capture("panel-last-week")
+    }
+
+    func testInlinePanelSeveralEventsScreenshotAndAdd() {
+        launchHome(theme: "softMinimal")
+        app.buttons["calendar-date-2026-09-02"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        for title in ["打ち合わせ", "カフェでひと息"] {
+            app.buttons["inlineDayAdd"].tap()
+            let field = app.textFields["例：友達とご飯"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.tap()
+            field.typeText(title)
+            app.navigationBars["予定を追加"].buttons["追加"].tap()
+            let approve = app.buttons["このまま追加する"]
+            if approve.waitForExistence(timeout: 3) { approve.tap() }
+            XCTAssertTrue(app.buttons["inlineDayAdd"].waitForExistence(timeout: 5))
+        }
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "inlineDayEvent-")).count, 3)
+        let dismissUndo = app.buttons["取り消しの案内を閉じる"]
+        if dismissUndo.exists { dismissUndo.tap() }
+        XCTAssertTrue(app.staticTexts["appToast"].waitForNonExistence(timeout: 6))
+        capture("panel-several-events")
     }
 
     private func launchHome(theme: String) {
