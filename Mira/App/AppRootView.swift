@@ -43,13 +43,9 @@ struct AppRootView: View {
                     }.padding(MiraSpacing.lg)
                 } else if !store.isReady {
                     VStack(spacing: MiraSpacing.md) {
-                        if store.theme.isCat {
-                            MiraCatView(mood: .thinking, size: 84)
-                        } else {
-                            MiraRingMark(palette: palette, size: 84, spins: !reduceMotion)
-                        }
-                        ProgressView("余白を準備中…")
-                            .tint(palette.accent)
+                        // The saved skin is only loaded by bootstrap(), so every skin shows the ring here.
+                        MiraRingMark(palette: palette, size: 84, spins: !reduceMotion)
+                        Text("余白を準備中…")
                             .foregroundStyle(palette.primaryText)
                     }
                 } else if !store.onboardingCompleted {
