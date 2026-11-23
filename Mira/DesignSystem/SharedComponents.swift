@@ -155,3 +155,30 @@ struct FlowLayout: Layout {
         var points: [CGPoint]
     }
 }
+
+/// The app icon's 余白 meter ring, used as the Soft Minimal loading mark.
+struct MiraRingMark: View {
+    let palette: MiraThemePalette
+    var size: CGFloat = 84
+    var spins = true
+
+    var body: some View {
+        TimelineView(.animation(paused: !spins)) { context in
+            let angle = spins ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4 * 360 : 0
+            ZStack {
+                Circle()
+                    .stroke(palette.accentSoft, lineWidth: size * 0.16)
+                Circle()
+                    .trim(from: 0, to: 0.7)
+                    .stroke(palette.accent, style: StrokeStyle(lineWidth: size * 0.16, lineCap: .round))
+                    .rotationEffect(.degrees(angle - 90))
+                Circle()
+                    .fill(palette.accent.opacity(0.9))
+                    .frame(width: size * 0.23, height: size * 0.23)
+            }
+            .padding(size * 0.08)
+            .frame(width: size, height: size)
+        }
+        .accessibilityHidden(true)
+    }
+}

@@ -43,9 +43,9 @@ struct AppRootView: View {
                     }.padding(MiraSpacing.lg)
                 } else if !store.isReady {
                     VStack(spacing: MiraSpacing.md) {
-                        MiraCatView(mood: .thinking, size: 84)
-                        ProgressView("余白を準備中…")
-                            .tint(palette.accent)
+                        // The saved skin is only loaded by bootstrap(), so every skin shows the ring here.
+                        MiraRingMark(palette: palette, size: 84, spins: !reduceMotion)
+                        Text("余白を準備中…")
                             .foregroundStyle(palette.primaryText)
                     }
                 } else if !store.onboardingCompleted {
@@ -57,6 +57,9 @@ struct AppRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui-hold-loading") { return }
+            #endif
             if !store.isReady && !store.isEmergencyStorage { await store.bootstrap() }
         }
         .onChange(of: scenePhase) { _, phase in
