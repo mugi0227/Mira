@@ -12,6 +12,7 @@ struct CalendarDisplaySettingsView: View {
         Form {
             Section("外観") {
                 preview
+                    .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                 Toggle("時刻の表示", isOn: options.showsStartTime)
                     .accessibilityIdentifier("calendarShowsStartTime")
                 Toggle("時間予定の区別", isOn: options.distinguishesTimedEvents)
@@ -204,9 +205,11 @@ struct CalendarDisplaySettingsView: View {
         return Button {
             store.calendarDisplayOptions.labelStyle = style
         } label: {
-            VStack(spacing: 4) {
-                sampleChip("打ち合わせ", tag: .skyDeep, options: options)
-                sampleChip("打ち合わせ", tag: .pinkDeep, options: options)
+            VStack(spacing: MiraSpacing.xs) {
+                VStack(spacing: MiraSpacing.xxs) {
+                    sampleChip("打ち合わせ", tag: .skyDeep, options: options)
+                    sampleChip("打ち合わせ", tag: .pinkDeep, options: options)
+                }
                 Text(style.title)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(palette.primaryText)
@@ -215,7 +218,8 @@ struct CalendarDisplaySettingsView: View {
                     .font(.caption)
                     .foregroundStyle(selected ? palette.accent : palette.secondaryText)
             }
-            .padding(5)
+            .padding(.horizontal, MiraSpacing.xs)
+            .padding(.vertical, MiraSpacing.sm)
             .frame(maxWidth: .infinity)
             .background(palette.elevatedSurface, in: RoundedRectangle(cornerRadius: 10))
             .overlay {
