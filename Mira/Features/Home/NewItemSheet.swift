@@ -211,9 +211,9 @@ struct NewItemSheet: View {
                 }
                 Toggle("終日", isOn: $isAllDay)
                 if !isAllDay {
-                    DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
+                    CalendarEventTimeField(title: "開始", date: $startTime, options: store.calendarDisplayOptions)
                         .accessibilityIdentifier("eventStartTime")
-                    DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
+                    CalendarEventTimeField(title: "終了", date: $endTime, options: store.calendarDisplayOptions)
                         .accessibilityIdentifier("eventEndTime")
                 }
             }

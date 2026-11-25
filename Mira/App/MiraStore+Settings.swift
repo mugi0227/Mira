@@ -49,28 +49,15 @@ extension MiraStore {
         try? context.save()
     }
 
-    func setDeviceHolidaysEnabled(_ enabled: Bool) async {
-        if enabled {
-            guard await deviceHolidayService.requestAccessIfNeeded() else {
-                deviceHolidaysEnabled = false
-                settingsEntity?.deviceHolidaysEnabled = false
-                try? context.save()
-                toast = "iPhoneのカレンダーへのアクセスを許可すると祝日を表示できます"
-                return
-            }
-        }
-
-        deviceHolidaysEnabled = enabled
+    func setShowsPublicHolidays(_ enabled: Bool) {
+        showsPublicHolidays = enabled
         settingsEntity?.deviceHolidaysEnabled = enabled
         settingsEntity?.updatedAt = .now
         try? context.save()
-        await refreshDeviceHolidays(for: selectedMonth)
     }
 
-    func refreshDeviceHolidays(for month: Date) async {
-        replaceDeviceHolidays(with: deviceHolidaysEnabled
-            ? deviceHolidayService.holidays(around: month)
-            : [])
+    func visibleHolidayTitle(on date: Date) -> String? {
+        showsPublicHolidays ? JapanesePublicHolidays.title(on: date) : nil
     }
 
     func addImportantPerson(name: String, monthlyTarget: Int?) {
@@ -184,8 +171,7 @@ extension MiraStore {
             colorStyle = .blue
             marginComfortLevel = .standard
             weekStartDay = .monday
-            deviceHolidaysEnabled = false
-            replaceDeviceHolidays(with: [])
+            showsPublicHolidays = false
             activeSchedulingDraft = nil
             pinnedContext = nil
             pendingInterpretation = nil
