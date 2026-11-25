@@ -14,6 +14,7 @@ final class AppSettingsEntity {
     var demoModeEnabled: Bool
     var marginComfortRaw: String?
     var weekStartRaw: String?
+    var whitespaceMeterDirectionRaw: String?
     var deviceHolidaysEnabled: Bool?
     var trendSuggestionsEnabled: Bool?
     var createdAt: Date

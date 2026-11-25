@@ -10,6 +10,17 @@ final class DayWhitespaceTests: XCTestCase {
         XCTAssertEqual(value.fraction, 1)
     }
 
+    func testMeterDirectionShowsComplementaryFractionsAndDurations() {
+        let empty = measure([])
+        let partial = measure([TestFixtures.event(day: 2, hour: 10, duration: 4)])
+        let full = measure([TestFixtures.event(day: 2, hour: 7, duration: 16)])
+
+        XCTAssertEqual([empty, partial, full].map { $0.fraction(for: .remaining) }, [1, 0.75, 0])
+        XCTAssertEqual([empty, partial, full].map { $0.fraction(for: .occupied) }, [0, 0.25, 1])
+        XCTAssertEqual(partial.durationText(for: .remaining), "12時間")
+        XCTAssertEqual(partial.durationText(for: .occupied), "4時間")
+    }
+
     func testWorkAndOverlappingEventsAreOnlyCountedOnce() {
         let events = [TestFixtures.event(day: 2, hour: 10, duration: 2),
                       TestFixtures.event(day: 2, hour: 17, duration: 3)]

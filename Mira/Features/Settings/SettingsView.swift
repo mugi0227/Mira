@@ -105,6 +105,16 @@ struct SettingsView: View {
                     }
                 }
 
+                Picker("余白メーター", selection: Binding(
+                    get: { store.whitespaceMeterDirection },
+                    set: { store.setWhitespaceMeterDirection($0) }
+                )) {
+                    ForEach(WhitespaceMeterDirection.allCases) { direction in
+                        Text(direction.title).tag(direction)
+                    }
+                }
+                .accessibilityIdentifier("whitespaceMeterDirection")
+
                 Toggle("iPhoneの祝日を表示", systemImage: "flag.fill", isOn: Binding(
                     get: { store.deviceHolidaysEnabled },
                     set: { enabled in Task { await store.setDeviceHolidaysEnabled(enabled) } }
