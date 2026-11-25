@@ -458,7 +458,7 @@ struct DayTimelineView: View {
         .foregroundStyle(palette.accent)
         .padding(MiraSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: eventHeight(for: event), alignment: .topLeading)
+        .frame(height: TimelinePlacement.eventHeight(for: event, in: timelineInterval, hourHeight: hourHeight), alignment: .topLeading)
         .background(palette.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous)
@@ -568,20 +568,31 @@ struct TimelinePlacement: Identifiable {
     let y: CGFloat
     let height: CGFloat
 
+    private struct Block {
+        let item: CalendarItemSnapshot
+        let y: CGFloat
+        let height: CGFloat
+    }
+
+    static func eventHeight(for item: CalendarItemSnapshot, in visible: DateInterval, hourHeight: CGFloat) -> CGFloat {
+        let start = max(visible.start, item.startDate)
+        let end = min(visible.end, item.endDate)
+        return max(44, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight)
+    }
+
     static func layout(
         _ items: [CalendarItemSnapshot], in visible: DateInterval, hourHeight: CGFloat, timelineHeight: CGFloat
     ) -> [TimelinePlacement] {
-        let blocks = items.filter { $0.startDate < visible.end && $0.endDate > visible.start }
-            .map { item in
-                let start = max(visible.start, item.startDate)
-                let end = min(visible.end, item.endDate)
-                let height = max(44, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight)
-                let y = min(CGFloat(start.timeIntervalSince(visible.start) / 3600) * hourHeight, timelineHeight - height)
-                return (item: item, y: y, height: height)
-            }
-            .sorted { $0.y == $1.y ? $0.item.startDate < $1.item.startDate : $0.y < $1.y }
+        var blocks: [Block] = []
+        for item in items where item.startDate < visible.end && item.endDate > visible.start {
+            let start = max(visible.start, item.startDate)
+            let height = eventHeight(for: item, in: visible, hourHeight: hourHeight)
+            let offset = CGFloat(start.timeIntervalSince(visible.start) / 3600) * hourHeight
+            blocks.append(Block(item: item, y: min(offset, timelineHeight - height), height: height))
+        }
+        blocks.sort { $0.y == $1.y ? $0.item.startDate < $1.item.startDate : $0.y < $1.y }
         var placements: [TimelinePlacement] = []
-        var group: [(block: (item: CalendarItemSnapshot, y: CGFloat, height: CGFloat), lane: Int)] = []
+        var group: [(block: Block, lane: Int)] = []
         var laneEnds: [CGFloat] = []
 
         func appendGroup() {
