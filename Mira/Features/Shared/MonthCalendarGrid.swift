@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MonthCalendarGrid: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var dateSelection
     let month: Date
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
@@ -223,34 +222,23 @@ struct MonthCalendarGrid: View {
             } label: {
                 HStack {
                     Spacer(minLength: 0)
-                    ZStack {
-                        if isToday {
-                            Circle().fill(palette.accent)
-                                .frame(width: 27, height: 27)
-                        } else if isSelected {
-                            RoundedRectangle(cornerRadius: privacyMode ? 12 : 14, style: .continuous)
-                                .fill(palette.primaryText.opacity(0.08))
-                                .frame(width: privacyMode ? 30 : 27, height: privacyMode ? 30 : 27)
-                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                        }
-
-                        Text("\(calendar.component(.day, from: date))")
-                            .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
-                            .foregroundStyle(dateForeground(
-                                isSelected: isToday,
-                                isInDisplayedMonth: isInDisplayedMonth,
-                                date: date,
-                                isHoliday: holiday != nil
-                            ))
-                    }
-                    .frame(height: 26)
+                    Text("\(calendar.component(.day, from: date))")
+                        .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
+                        .foregroundStyle(dateForeground(
+                            isToday: isToday,
+                            isInDisplayedMonth: isInDisplayedMonth,
+                            date: date,
+                            isHoliday: holiday != nil
+                        ))
+                        .frame(height: 26)
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
             .frame(height: privacyMode ? 26 : 34)
             .buttonStyle(.plain)
-            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (isToday ? "、今日" : "") + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             .overlay {
                 if !privacyMode {
@@ -359,8 +347,8 @@ struct MonthCalendarGrid: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.top, 2)
-        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
+        .padding(.top, privacyMode ? 2 : 5)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
@@ -377,10 +365,17 @@ struct MonthCalendarGrid: View {
             }
         }
         .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(palette.primaryText.opacity(0.025))
+            if isToday || isSelected {
+                let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+                shape.fill(isToday ? palette.accentSoft : .clear)
+                    .overlay {
+                        if isSelected {
+                            shape.strokeBorder(palette.accent, lineWidth: 1.5)
+                        }
+                    }
                     .padding(2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
         .contentShape(Rectangle())
@@ -417,13 +412,12 @@ struct MonthCalendarGrid: View {
     }
 
     private func dateForeground(
-        isSelected: Bool,
+        isToday: Bool,
         isInDisplayedMonth: Bool,
         date: Date,
         isHoliday: Bool
     ) -> Color {
-        if isSelected { return palette.onAccent }
-        if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
+        if !isInDisplayedMonth && !isToday { return palette.secondaryText.opacity(0.48) }
         if isHoliday { return palette.critical.opacity(0.88) }
         let weekday = calendar.component(.weekday, from: date)
         if weekday == 7 { return palette.accent }
