@@ -210,6 +210,18 @@ final class FriendShareLevelTests: XCTestCase {
         XCTAssertEqual(titles.lines.count, 2)
     }
 
+    func testBusyDayHasFullAnonymousRangesBeyondCalendarPreviewLimit() {
+        let day = TestFixtures.date(day: 5)
+        let items = [8, 11, 14, 17].map { hour in
+            TestFixtures.event(title: "非公開\(hour)", day: 5, hour: hour, duration: 1)
+        }
+        let busy = FriendDayContent(date: day, items: items, level: .busyTimes)
+        XCTAssertEqual(busy.lines, [
+            "08:00–09:00 予定あり", "11:00–12:00 予定あり",
+            "14:00–15:00 予定あり", "17:00–18:00 予定あり"
+        ])
+    }
+
     func testCompactFormattingAndCoveredBaseRule() {
         let day = TestFixtures.date(day: 2)
         var event = TestFixtures.event(title: "面談", day: 2, hour: 10, duration: 2)
