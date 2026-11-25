@@ -13,6 +13,7 @@ struct MonthCalendarGrid: View {
     var displayOptions: CalendarDisplayOptions? = nil
     var showsPublicHolidays = false
     var referenceDate: Date = .now
+    var showsEventStartTime = true
     var allowsDragging = true
     /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
