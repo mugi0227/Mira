@@ -121,6 +121,8 @@ final class MiraStyleUITests: XCTestCase {
         occupancy.tap()
         XCTAssertTrue(approve.waitForExistence(timeout: 5))
         approve.tap()
+        expectation(for: NSPredicate(format: "value == %@", "オン"), evaluatedWith: occupancy)
+        waitForExpectations(timeout: 5)
         XCTAssertEqual(occupancy.value as? String, "オン", app.debugDescription)
         occupancy.tap()
         XCTAssertEqual(occupancy.value as? String, "オフ")
