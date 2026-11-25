@@ -347,7 +347,7 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
-        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
@@ -363,7 +363,20 @@ struct MonthCalendarGrid: View {
                     .accessibilityIdentifier("workDayMark-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             }
         }
-        .background(isToday ? palette.accentSoft : .clear)
+        .background {
+            if isToday || isSelected {
+                let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+                shape.fill(isToday ? palette.accentSoft : .clear)
+                    .overlay {
+                        if isSelected {
+                            shape.strokeBorder(palette.accent, lineWidth: 1.5)
+                        }
+                    }
+                    .padding(2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             select(date)
@@ -373,14 +386,6 @@ struct MonthCalendarGrid: View {
         }
         .overlay(alignment: .bottom) {
             if !palette.isCatSkin { gridLine.frame(height: 0.5) }
-        }
-        .overlay {
-            if isSelected {
-                Rectangle()
-                    .strokeBorder(palette.accent, lineWidth: 1.5)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
         }
         .dropDestination(for: String.self) { payloads, _ in
             guard allowsDragging, !privacyMode,

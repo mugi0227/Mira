@@ -43,7 +43,7 @@ final class HomeWhitespaceUITests: XCTestCase {
     func testTodayAndOpenedDayHaveIndependentHighlights() {
         launchHome(theme: "softMinimal")
         let today = app.buttons["calendar-date-2026-09-01"]
-        let otherDay = app.buttons["calendar-date-2026-09-03"]
+        let otherDay = app.buttons["calendar-date-2026-09-02"]
         let panel = element("inlineDayPanel")
 
         XCTAssertTrue(today.label.contains("今日"))
