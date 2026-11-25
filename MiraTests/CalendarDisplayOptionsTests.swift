@@ -59,16 +59,15 @@ final class CalendarDisplayOptionsTests: XCTestCase {
         XCTAssertNil(options.startTime(for: kept))
     }
 
-    func testKeyboardTimeRequiresCompleteMinutesAndWaitsForShortCompactInput() throws {
+    func testKeyboardTimeRequiresCompleteMinutesAndAcceptsCompactInput() throws {
         let day = try date("2026-09-03")
         let options = CalendarDisplayOptions()
         XCTAssertNil(options.timeEntered("12:3", on: day))
         XCTAssertNil(options.timeEntered("1::23", on: day))
         XCTAssertNil(options.timeEntered("12x30", on: day))
-        XCTAssertNil(options.timeEntered("123", on: day, allowsShortCompactTime: false))
-        XCTAssertEqual(options.timeEntered("123", on: day), day.setting(hour: 1, minute: 23))
+        XCTAssertEqual(options.timeEntered("930", on: day), day.setting(hour: 9, minute: 30))
         XCTAssertEqual(options.timeEntered("1:23", on: day), day.setting(hour: 1, minute: 23))
-        XCTAssertEqual(options.timeEntered("1230", on: day, allowsShortCompactTime: false), day.setting(hour: 12, minute: 30))
+        XCTAssertEqual(options.timeEntered("1230", on: day), day.setting(hour: 12, minute: 30))
     }
 
     func testShortConsecutiveEventsAtTimelineEndStayInSeparateLanes() throws {

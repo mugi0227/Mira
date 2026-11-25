@@ -121,7 +121,7 @@ struct CalendarDisplayOptions: Codable, Equatable {
         return draft
     }
 
-    func timeEntered(_ input: String, on date: Date, allowsShortCompactTime: Bool = true) -> Date? {
+    func timeEntered(_ input: String, on date: Date) -> Date? {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = text.split(separator: ":", omittingEmptySubsequences: false)
         let hours: Substring
@@ -129,7 +129,7 @@ struct CalendarDisplayOptions: Codable, Equatable {
         if parts.count == 2 {
             hours = parts[0]
             minutes = parts[1]
-        } else if parts.count == 1, text.count == 4 || (allowsShortCompactTime && text.count == 3) {
+        } else if parts.count == 1, (3...4).contains(text.count) {
             hours = text.dropLast(2)
             minutes = text.suffix(2)
         } else {

@@ -63,13 +63,10 @@ private struct KeyboardTimeField: View {
                 }
                 .onChange(of: focused) { _, active in
                     if active { input = DateFormatter.mira("HH:mm").string(from: date) }
-                    else {
-                        if let time = options.timeEntered(input, on: date) { date = time }
-                        input = options.time(date)
-                    }
+                    else { input = options.time(date) }
                 }
                 .onChange(of: input) { _, value in
-                    if focused, let time = options.timeEntered(value, on: date, allowsShortCompactTime: false) { date = time }
+                    if focused, let time = options.timeEntered(value, on: date) { date = time }
                 }
                 .onSubmit { focused = false }
         }
