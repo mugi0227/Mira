@@ -40,6 +40,34 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("whitespace-day-navigation")
     }
 
+    func testTodayAndOpenedDayHaveIndependentHighlights() {
+        launchHome(theme: "softMinimal")
+        let today = app.buttons["calendar-date-2026-09-01"]
+        let otherDay = app.buttons["calendar-date-2026-09-03"]
+        let panel = element("inlineDayPanel")
+
+        XCTAssertTrue(today.label.contains("今日"))
+        XCTAssertFalse(today.isSelected)
+
+        otherDay.tap()
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(otherDay.isSelected)
+        XCTAssertFalse(otherDay.label.contains("今日"))
+        XCTAssertFalse(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+        capture("soft-minimal-today-and-opened-day")
+
+        today.tap()
+        XCTAssertTrue(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+        XCTAssertFalse(otherDay.isSelected)
+
+        today.tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+    }
+
     func testAllDayEventStaysAboveTheScrollingTimeline() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-07"].tap()
