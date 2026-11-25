@@ -206,17 +206,20 @@ final class GrillMeFlowUITests: XCTestCase {
         app.buttons["予定・余白を追加"].tap()
         let saveDraft = app.navigationBars["予定を追加"].buttons["保存して閉じる"]
         let start = app.textFields.matching(NSPredicate(format: "label == %@ OR identifier == %@", "開始時刻", "eventStartTime")).firstMatch
-        scrollUntilHittable(start)
         let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
         let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.66))
-        for _ in 0..<3 where start.frame.midY > app.frame.midY {
-            lower.press(forDuration: 0.05, thenDragTo: upper)
-        }
         let caret = start.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5))
         func replaceStart(with value: String) {
+            scrollUntilHittable(start)
+            for _ in 0..<3 where start.frame.midY > app.frame.midY {
+                lower.press(forDuration: 0.05, thenDragTo: upper)
+            }
             caret.tap()
             XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 4))
-            start.typeKey("a", modifierFlags: .command)
+            for _ in 0..<3 where start.value as? String != start.placeholderValue {
+                start.typeKey("a", modifierFlags: .command)
+                start.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+            }
             start.typeText(value)
             XCTAssertEqual(start.value as? String, value)
         }
@@ -235,7 +238,20 @@ final class GrillMeFlowUITests: XCTestCase {
         scrollUntilHittable(start)
         XCTAssertEqual(start.value as? String, "9:30")
 
+        replaceStart(with: "1260")
+        let title = app.textFields["例：友達とご飯"]
+        for _ in 0..<4 where !title.isHittable { app.swipeDown() }
+        title.tap()
+        title.typeText("候補を確認\n")
+        let candidate = app.buttons.matching(identifier: "eventAlternativeDate").firstMatch
+        for _ in 0..<8 where !candidate.isHittable { app.swipeUp() }
+        XCTAssertTrue(candidate.isHittable)
+        candidate.tap()
+        for _ in 0..<8 where !start.isHittable { app.swipeDown() }
+        XCTAssertEqual(start.value as? String, "9:30")
+
         saveDraft.tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
         app.buttons["miraTab-settings"].tap()
         scrollUntilHittable(keyboard)
         keyboard.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()

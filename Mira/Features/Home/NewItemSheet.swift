@@ -380,6 +380,7 @@ struct NewItemSheet: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(palette.accent)
+                                    .accessibilityIdentifier("eventAlternativeDate")
                                 }
                             }
                         }
@@ -458,12 +459,16 @@ struct NewItemSheet: View {
             validatesKeyboardTimes = true
             return false
         }
+        replaceEventTimes(start: start, end: end)
+        return true
+    }
+
+    private func replaceEventTimes(start: Date, end: Date) {
         startTime = start
         endTime = end
         startTimeInput = nil
         endTimeInput = nil
         validatesKeyboardTimes = false
-        return true
     }
 
     /// Same rule as the saved event: an end at or before the start runs past midnight.
@@ -696,8 +701,7 @@ struct NewItemSheet: View {
         date = candidate
         if !isAllDay {
             let duration = max(30 * 60, endTime.timeIntervalSince(startTime))
-            startTime = candidate
-            endTime = candidate.addingTimeInterval(duration)
+            replaceEventTimes(start: candidate, end: candidate.addingTimeInterval(duration))
         }
         selectedRelocationDate = nil
     }
