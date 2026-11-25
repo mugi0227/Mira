@@ -464,10 +464,10 @@ private struct CalendarEventStrip: View {
     let startTime: String?
 
     var body: some View {
-        HStack(spacing: startTime == nil ? 2 : 1) {
+        HStack(spacing: startTime == nil ? 2 : 0.5) {
             if let startTime {
                 Text(startTime)
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .font(.system(size: 7, weight: .semibold).width(.condensed))
                     .fixedSize(horizontal: true, vertical: false)
             } else if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
@@ -483,13 +483,13 @@ private struct CalendarEventStrip: View {
         }
         .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
         .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
-        .padding(.horizontal, startTime == nil ? 5 : 4)
+        .padding(.horizontal, startTime == nil ? 5 : 3.5)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if item.kind != .margin, let tag = item.colorTag {
-                palette.bar(for: tag).frame(width: 2.5)
+                palette.bar(for: tag).frame(width: startTime == nil ? 2.5 : 2)
             }
         }
         .overlay {
