@@ -121,10 +121,23 @@ struct CalendarDisplayOptions: Codable, Equatable {
         return draft
     }
 
-    func timeEntered(_ input: String, on date: Date) -> Date? {
-        let digits = input.filter(\.isASCII).filter(\.isNumber)
-        guard (3...4).contains(digits.count),
-              let hour = Int(digits.dropLast(2)), let minute = Int(digits.suffix(2)),
+    func timeEntered(_ input: String, on date: Date, allowsShortCompactTime: Bool = true) -> Date? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        let hours: Substring
+        let minutes: Substring
+        if parts.count == 2 {
+            hours = parts[0]
+            minutes = parts[1]
+        } else if parts.count == 1, text.count == 4 || (allowsShortCompactTime && text.count == 3) {
+            hours = text.dropLast(2)
+            minutes = text.suffix(2)
+        } else {
+            return nil
+        }
+        guard (1...2).contains(hours.count), minutes.count == 2,
+              (hours + minutes).allSatisfy({ $0.isASCII && $0.isNumber }),
+              let hour = Int(hours), let minute = Int(minutes),
               (0..<24).contains(hour), (0..<60).contains(minute),
               minute.isMultiple(of: minuteInterval) else { return nil }
         return date.setting(hour: hour, minute: minute)
