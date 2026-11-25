@@ -61,18 +61,25 @@ struct MonthCalendarGrid: View {
                                 .frame(minWidth: 0, maxWidth: .infinity)
                         }
                     }
-                    if !privacyMode {
+                    if !privacyMode || friendLevel == .busyTimes {
                         let weekDate = openedDate.flatMap { date in
                             days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: date) }) ? date : nil
                         }
                         InlineDayPanelSlot(date: weekDate) { date in
-                            InlineDayPanel(date: date, items: itemsForDay(date), palette: palette,
-                                       onAdd: { onAddEvent?(date) },
-                                       onOpenTimeline: { onOpenTimeline?(date) },
-                                       onSelectItem: { onSelectItem?($0) },
-                                       workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
-                                       workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) })
+                            if privacyMode {
+                                friendBusyDayPanel(date)
+                                    .padding(MiraSpacing.md)
+                            } else {
+                                InlineDayPanel(
+                                    date: date, items: itemsForDay(date), palette: palette,
+                                    onAdd: { onAddEvent?(date) },
+                                    onOpenTimeline: { onOpenTimeline?(date) },
+                                    onSelectItem: { onSelectItem?($0) },
+                                    workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
+                                    workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) }
+                                )
                                 .padding(16)
+                            }
                         }
                     }
                 }
@@ -104,6 +111,26 @@ struct MonthCalendarGrid: View {
             height = min(height, (preferredHeight - chrome) / CGFloat(cells.count / 7))
         }
         return height < 100 ? 2 : 3
+    }
+
+    private func friendBusyDayPanel(_ date: Date) -> some View {
+        let content = FriendDayContent(date: date, items: itemsForDay(date), baseRules: baseRules,
+                                       level: .busyTimes, calendar: calendar, workDays: workDays)
+        return VStack(alignment: .leading, spacing: MiraSpacing.xs) {
+            Text(DateFormatter.mira("M月d日(E)").string(from: date))
+                .font(.headline)
+                .foregroundStyle(palette.primaryText)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(content.lines.isEmpty ? ["予定なし"] : content.lines, id: \.self) { line in
+                Text(line)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(palette.secondaryText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .miraCard(palette)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("friendBusyDayPanel")
     }
 
     private func rowHeight(dayCount: Int) -> CGFloat {
@@ -176,7 +203,7 @@ struct MonthCalendarGrid: View {
     @ViewBuilder
     private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = itemsForDay(date)
-        let isSelected = openedDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
+        let isSelected = (!privacyMode || friendLevel == .busyTimes) && openedDate.map { calendar.isDate(date, inSameDayAs: $0) } == true
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7

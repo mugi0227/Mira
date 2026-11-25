@@ -1,6 +1,58 @@
 import XCTest
 
 final class FriendShareLevelUITests: XCTestCase {
+    func testBusyOnlyCalendarOpensRedactedDayOnTap() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-reset-demo", "-ui-theme", "softMinimal", "-friend-share-test", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch()
+        if app.staticTexts["自分のための時間を守ろう。"].waitForExistence(timeout: 5) {
+            app.buttons["おすすめを確認"].tap()
+            let finish = app.buttons["余白を置いて始める"]
+            XCTAssertTrue(finish.waitForExistence(timeout: 5))
+            finish.tap()
+        }
+
+        let toggle = app.buttons["friendViewToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15))
+        toggle.tap()
+        let recipientPicker = app.buttons["friendRecipientPicker"]
+        XCTAssertTrue(recipientPicker.waitForExistence(timeout: 5))
+        recipientPicker.tap()
+        let recipient = app.buttons["はる"]
+        if !recipient.waitForExistence(timeout: 3) { recipientPicker.tap() }
+        XCTAssertTrue(recipient.waitForExistence(timeout: 5))
+        recipient.tap()
+        app.buttons["friendLevelPicker"].tap()
+        app.buttons["埋まりだけ"].tap()
+
+        let panel = app.otherElements["friendBusyDayPanel"]
+        let busyBlock = app.staticTexts.matching(identifier: "friendDayContent")
+            .matching(NSPredicate(format: "label == %@", "17:30–22:45")).firstMatch
+        XCTAssertTrue(busyBlock.waitForExistence(timeout: 5))
+        XCTAssertFalse(panel.exists)
+        attach("busy-only-before-tap")
+        busyBlock.tap()
+
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(panel.staticTexts["17:30–22:45 予定あり"].exists)
+        XCTAssertFalse(app.staticTexts["みんなでご飯"].exists)
+        XCTAssertFalse(app.buttons["inlineDayAdd"].exists)
+        XCTAssertFalse(app.buttons["inlineDayTimeBar"].exists)
+        attach("busy-only-after-tap")
+        busyBlock.tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+
+        let allDayDate = app.buttons["calendar-date-2026-09-07"]
+        XCTAssertTrue(allDayDate.exists)
+        allDayDate.tap()
+        XCTAssertTrue(panel.staticTexts["終日 予定あり"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["美容院"].exists)
+
+        toggle.tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+    }
+
     func testRecipientLevelUpdatesGrid() {
         continueAfterFailure = false
         let app = XCUIApplication()
