@@ -89,6 +89,24 @@ final class CalendarDisplayOptionsTests: XCTestCase {
         XCTAssertEqual(placements.suffix(2).map { $0.y + $0.height }, [512, 512])
     }
 
+    func testDenseTimelineContentFitsEveryCardWithoutShrinkingTapTargets() throws {
+        let day = try date("2026-09-03")
+        let events = (45..<53).map { minute in
+            CalendarItemSnapshot(id: UUID(), title: "予定", startDate: day.setting(hour: 16, minute: minute),
+                                 endDate: day.setting(hour: 16, minute: minute + 1), isAllDay: false,
+                                 kind: .confirmed, marginKind: nil, loadClass: .normal, loadReason: "",
+                                 bufferBeforeMinutes: 0, bufferAfterMinutes: 0, isImportantTime: false)
+        }
+        let interval = DateInterval(start: day.setting(hour: 16), end: day.setting(hour: 17))
+        let placements = TimelinePlacement.layout(events, in: interval, hourHeight: 64, timelineHeight: 64)
+        let viewport: CGFloat = 300
+        let contentWidth = TimelinePlacement.contentWidth(for: placements, viewportWidth: viewport)
+        XCTAssertEqual(placements.map(\.lane), Array(0..<8))
+        XCTAssertEqual(placements.map { $0.laneWidth(in: viewport) }, Array(repeating: 44, count: 8))
+        XCTAssertGreaterThan(contentWidth, viewport)
+        XCTAssertEqual(placements.map { $0.laneOffset(in: viewport) + $0.laneWidth(in: viewport) }.max(), contentWidth)
+    }
+
     private func date(_ value: String) throws -> Date {
         try XCTUnwrap(DateFormatter.mira("yyyy-MM-dd").date(from: value))
     }

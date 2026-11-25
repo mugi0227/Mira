@@ -276,37 +276,7 @@ struct DayTimelineView: View {
                         }
                     }
 
-                    ForEach(timelinePlacements) { placement in
-                        let spacing: CGFloat = 4
-                        let eventsWidth = proposal == nil ? geometry.size.width : (geometry.size.width - spacing) * 0.55
-                        let laneWidth = max(
-                            44,
-                            (eventsWidth - spacing * CGFloat(placement.laneCount - 1))
-                                / CGFloat(placement.laneCount)
-                        )
-                        let isDragging = draggingID == placement.item.id
-                        timelineEvent(placement.item, height: placement.height)
-                            .frame(width: laneWidth, height: placement.height)
-                            .scaleEffect(isDragging ? 1.03 : 1)
-                            .shadow(color: isDragging ? palette.shadow : .clear, radius: 10, y: 4)
-                            .overlay(alignment: .topTrailing) {
-                                if isDragging {
-                                    Text(dragTimeLabel(for: placement.item))
-                                        .font(.caption.weight(.bold).monospacedDigit())
-                                        .foregroundStyle(palette.onAccent)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(palette.accent, in: Capsule())
-                                        .offset(y: -26)
-                                }
-                            }
-                            .offset(
-                                x: CGFloat(placement.lane) * (laneWidth + spacing),
-                                y: placement.y + (isDragging ? dragOffset : 0)
-                            )
-                            .zIndex(isDragging ? 1 : 0)
-                            .gesture(timeDragGesture(for: placement.item), including: proposal == nil ? .all : .subviews)
-                    }
+                    timelineLanes(width: proposal == nil ? geometry.size.width : (geometry.size.width - 4) * 0.55)
 
                     if let proposal {
                         proposalBlock(proposal.event)
@@ -348,6 +318,50 @@ struct DayTimelineView: View {
     }
 
     private var timelineHeight: CGFloat { hourHeight * CGFloat(timelineHours.count) }
+
+    @ViewBuilder
+    private func timelineLanes(width: CGFloat) -> some View {
+        let placements = timelinePlacements
+        let contentWidth = TimelinePlacement.contentWidth(for: placements, viewportWidth: width)
+        if contentWidth > width {
+            ScrollView(.horizontal) {
+                timelineCards(placements, viewportWidth: width)
+                    .frame(width: contentWidth, height: timelineHeight, alignment: .topLeading)
+            }
+            .frame(width: width, height: timelineHeight)
+        } else {
+            timelineCards(placements, viewportWidth: width)
+        }
+    }
+
+    private func timelineCards(_ placements: [TimelinePlacement], viewportWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(placements) { placement in
+                let isDragging = draggingID == placement.item.id
+                timelineEvent(placement.item, height: placement.height)
+                    .frame(width: placement.laneWidth(in: viewportWidth), height: placement.height)
+                    .scaleEffect(isDragging ? 1.03 : 1)
+                    .shadow(color: isDragging ? palette.shadow : .clear, radius: 10, y: 4)
+                    .overlay(alignment: .topTrailing) {
+                        if isDragging {
+                            Text(dragTimeLabel(for: placement.item))
+                                .font(.caption.weight(.bold).monospacedDigit())
+                                .foregroundStyle(palette.onAccent)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(palette.accent, in: Capsule())
+                                .offset(y: -26)
+                        }
+                    }
+                    .offset(
+                        x: placement.laneOffset(in: viewportWidth),
+                        y: placement.y + (isDragging ? dragOffset : 0)
+                    )
+                    .zIndex(isDragging ? 1 : 0)
+                    .gesture(timeDragGesture(for: placement.item), including: proposal == nil ? .all : .subviews)
+            }
+        }
+    }
 
     private func timelineEvent(_ item: CalendarItemSnapshot, height: CGFloat) -> some View {
         Button {
@@ -561,12 +575,28 @@ struct DayTimelineView: View {
 }
 
 struct TimelinePlacement: Identifiable {
+    private static let laneSpacing: CGFloat = 4
+    private static let minimumLaneWidth: CGFloat = 44
+
     var id: UUID { item.id }
     let item: CalendarItemSnapshot
     let lane: Int
     let laneCount: Int
     let y: CGFloat
     let height: CGFloat
+
+    func laneWidth(in viewportWidth: CGFloat) -> CGFloat {
+        max(Self.minimumLaneWidth, (viewportWidth - Self.laneSpacing * CGFloat(laneCount - 1)) / CGFloat(laneCount))
+    }
+
+    func laneOffset(in viewportWidth: CGFloat) -> CGFloat {
+        CGFloat(lane) * (laneWidth(in: viewportWidth) + Self.laneSpacing)
+    }
+
+    static func contentWidth(for placements: [TimelinePlacement], viewportWidth: CGFloat) -> CGFloat {
+        guard let laneCount = placements.map(\.laneCount).max() else { return viewportWidth }
+        return max(viewportWidth, minimumLaneWidth * CGFloat(laneCount) + laneSpacing * CGFloat(laneCount - 1))
+    }
 
     private struct Block {
         let item: CalendarItemSnapshot
