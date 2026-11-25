@@ -37,6 +37,12 @@ final class WorkDayUITests: XCTestCase {
         capture("work-day-month", app: app)
 
         weekday.tap()
+        let timeBar = app.buttons["inlineDayTimeBar"]
+        XCTAssertTrue(timeBar.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        timeBar.tap()
+        let timelineBar = app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH %@", "9月1日")).firstMatch
+        XCTAssertTrue(timelineBar.waitForExistence(timeout: 5))
+
         let toggle = app.buttons["workDayToggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "オン")
@@ -61,7 +67,7 @@ final class WorkDayUITests: XCTestCase {
         XCTAssertTrue(explanation.label.contains("祝日の扱いは設定で変更"))
         capture("work-day-explanation", app: app)
         app.buttons["閉じる"].tap()
-        app.navigationBars.buttons.firstMatch.tap()
+        timelineBar.buttons.firstMatch.tap()
         XCTAssertTrue(element("monthCalendar").waitForExistence(timeout: 5))
         XCTAssertFalse(element("workDayMark-2026-09-01").exists)
         XCTAssertFalse(weekday.label.contains("仕事の日"))
