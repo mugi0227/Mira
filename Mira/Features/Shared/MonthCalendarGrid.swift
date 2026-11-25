@@ -347,7 +347,7 @@ struct MonthCalendarGrid: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.top, 2)
+        .padding(.top, privacyMode ? 2 : 5)
         .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
