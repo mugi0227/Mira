@@ -522,67 +522,13 @@ struct DayTimelineView: View {
     }
 
     private var timelinePlacements: [TimelinePlacement] {
-        let visible = timelineInterval
-        let sorted = timedItems.filter { $0.startDate < visible.end && $0.endDate > visible.start }
-            .sorted { $0.startDate < $1.startDate }
-        var groups: [[CalendarItemSnapshot]] = []
-        var currentGroup: [CalendarItemSnapshot] = []
-        var currentGroupEnd = Date.distantPast
-
-        for item in sorted {
-            if currentGroup.isEmpty || item.startDate < currentGroupEnd {
-                currentGroup.append(item)
-                currentGroupEnd = max(currentGroupEnd, item.endDate)
-            } else {
-                groups.append(currentGroup)
-                currentGroup = [item]
-                currentGroupEnd = item.endDate
-            }
-        }
-        if !currentGroup.isEmpty { groups.append(currentGroup) }
-
-        var result: [TimelinePlacement] = []
-        for group in groups {
-            var laneEnds: [Date] = []
-            var staged: [(CalendarItemSnapshot, Int)] = []
-
-            for item in group {
-                let lane: Int
-                if let reusable = laneEnds.firstIndex(where: { $0 <= item.startDate }) {
-                    lane = reusable
-                    laneEnds[reusable] = item.endDate
-                } else {
-                    lane = laneEnds.count
-                    laneEnds.append(item.endDate)
-                }
-                staged.append((item, lane))
-            }
-
-            let laneCount = max(1, laneEnds.count)
-            result.append(contentsOf: staged.map { item, lane in
-                TimelinePlacement(
-                    item: item,
-                    lane: lane,
-                    laneCount: laneCount,
-                    y: min(yOffset(for: max(visible.start, item.startDate)), timelineHeight - 44),
-                    height: eventHeight(for: item)
-                )
-            })
-        }
-        return result
+        TimelinePlacement.layout(timedItems, in: timelineInterval, hourHeight: hourHeight, timelineHeight: timelineHeight)
     }
 
     private func yOffset(for value: Date) -> CGFloat {
         let components = Calendar.mira.dateComponents([.hour, .minute], from: value)
         let minutes = CGFloat((components.hour ?? 0) * 60 + (components.minute ?? 0))
         return (minutes / 60 - CGFloat(timelineHours.lowerBound)) * hourHeight
-    }
-
-    private func eventHeight(for item: CalendarItemSnapshot) -> CGFloat {
-        let start = max(timelineInterval.start, item.startDate)
-        let end = min(timelineInterval.end, item.endDate)
-        let minutes = max(30, end.timeIntervalSince(start) / 60)
-        return max(44, CGFloat(minutes / 60) * hourHeight)
     }
 
     private var currentY: CGFloat? {
@@ -614,11 +560,47 @@ struct DayTimelineView: View {
     }
 }
 
-private struct TimelinePlacement: Identifiable {
+struct TimelinePlacement: Identifiable {
     var id: UUID { item.id }
     let item: CalendarItemSnapshot
     let lane: Int
     let laneCount: Int
     let y: CGFloat
     let height: CGFloat
+
+    static func layout(
+        _ items: [CalendarItemSnapshot], in visible: DateInterval, hourHeight: CGFloat, timelineHeight: CGFloat
+    ) -> [TimelinePlacement] {
+        let blocks = items.filter { $0.startDate < visible.end && $0.endDate > visible.start }
+            .map { item in
+                let start = max(visible.start, item.startDate)
+                let end = min(visible.end, item.endDate)
+                let height = max(44, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight)
+                let y = min(CGFloat(start.timeIntervalSince(visible.start) / 3600) * hourHeight, timelineHeight - height)
+                return (item: item, y: y, height: height)
+            }
+            .sorted { $0.y == $1.y ? $0.item.startDate < $1.item.startDate : $0.y < $1.y }
+        var placements: [TimelinePlacement] = []
+        var group: [(block: (item: CalendarItemSnapshot, y: CGFloat, height: CGFloat), lane: Int)] = []
+        var laneEnds: [CGFloat] = []
+
+        func appendGroup() {
+            placements.append(contentsOf: group.map { block, lane in
+                TimelinePlacement(item: block.item, lane: lane, laneCount: laneEnds.count, y: block.y, height: block.height)
+            })
+            group.removeAll()
+            laneEnds.removeAll()
+        }
+
+        for block in blocks {
+            if let lastEnd = laneEnds.max(), block.y >= lastEnd { appendGroup() }
+            let end = block.y + block.height
+            let lane = laneEnds.firstIndex(where: { $0 <= block.y }) ?? laneEnds.count
+            if lane == laneEnds.count { laneEnds.append(end) }
+            else { laneEnds[lane] = end }
+            group.append((block, lane))
+        }
+        appendGroup()
+        return placements
+    }
 }

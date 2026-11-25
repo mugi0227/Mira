@@ -71,6 +71,25 @@ final class CalendarDisplayOptionsTests: XCTestCase {
         XCTAssertEqual(options.timeEntered("1230", on: day, allowsShortCompactTime: false), day.setting(hour: 12, minute: 30))
     }
 
+    func testShortConsecutiveEventsAtTimelineEndStayInSeparateLanes() throws {
+        let day = try date("2026-09-03")
+        func event(at minute: Int) -> CalendarItemSnapshot {
+            CalendarItemSnapshot(id: UUID(), title: "予定", startDate: day.setting(hour: 16, minute: minute),
+                                 endDate: day.setting(hour: 16, minute: minute + 5), isAllDay: false,
+                                 kind: .confirmed, marginKind: nil, loadClass: .normal, loadReason: "",
+                                 bufferBeforeMinutes: 0, bufferAfterMinutes: 0, isImportantTime: false)
+        }
+        let earlier = event(at: 0)
+        let first = event(at: 45)
+        let second = event(at: 50)
+        let interval = DateInterval(start: day.setting(hour: 9), end: day.setting(hour: 17))
+        let placements = TimelinePlacement.layout([second, earlier, first], in: interval, hourHeight: 64, timelineHeight: 512)
+        XCTAssertEqual(placements.map(\.id), [earlier.id, first.id, second.id])
+        XCTAssertEqual(placements.map(\.lane), [0, 0, 1])
+        XCTAssertEqual(placements.map(\.laneCount), [1, 2, 2])
+        XCTAssertEqual(placements.suffix(2).map { $0.y + $0.height }, [512, 512])
+    }
+
     private func date(_ value: String) throws -> Date {
         try XCTUnwrap(DateFormatter.mira("yyyy-MM-dd").date(from: value))
     }
