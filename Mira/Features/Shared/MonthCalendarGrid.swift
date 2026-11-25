@@ -13,6 +13,7 @@ struct MonthCalendarGrid: View {
     var weekStartDay: WeekStartDay = .monday
     var holidays: [DeviceHolidaySnapshot] = []
     var referenceDate: Date = .now
+    var showsEventStartTime = true
     var allowsDragging = true
     /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
@@ -173,6 +174,13 @@ struct MonthCalendarGrid: View {
             }
     }
 
+    func eventStartTime(for item: CalendarItemSnapshot) -> String? {
+        guard showsEventStartTime, !palette.isCatSkin, !item.isAllDay, item.exactTimeKnown,
+              item.endDate <= calendar.startOfDay(for: item.startDate).addingDays(1, calendar: calendar)
+        else { return nil }
+        return DateFormatter.mira("H:mm").string(from: item.startDate)
+    }
+
     @ViewBuilder
     private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = itemsForDay(date)
@@ -298,7 +306,7 @@ struct MonthCalendarGrid: View {
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
                         HStack(spacing: 0) {
-                            CalendarEventStrip(item: item, palette: palette)
+                            CalendarEventStrip(item: item, palette: palette, startTime: eventStartTime(for: item))
                             .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
                             .onTapGesture { onSelectItem?(item) }
                             .draggable(allowsDragging ? item.id.uuidString : "")
@@ -453,10 +461,15 @@ private struct BusyStrip: View {
 private struct CalendarEventStrip: View {
     let item: CalendarItemSnapshot
     let palette: MiraThemePalette
+    let startTime: String?
 
     var body: some View {
-        HStack(spacing: 2) {
-            if !palette.isCatSkin, let symbol {
+        HStack(spacing: startTime == nil ? 2 : 1) {
+            if let startTime {
+                Text(startTime)
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .fixedSize(horizontal: true, vertical: false)
+            } else if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
@@ -470,7 +483,7 @@ private struct CalendarEventStrip: View {
         }
         .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
         .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
-        .padding(.horizontal, 5)
+        .padding(.horizontal, startTime == nil ? 5 : 4)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)

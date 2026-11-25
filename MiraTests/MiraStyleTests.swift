@@ -6,6 +6,33 @@ import XCTest
 
 @MainActor
 final class MiraStyleTests: XCTestCase {
+    func testMonthEventChipShowsOnlyKnownSingleDayStartTimesByDefault() {
+        var event = TestFixtures.event(day: 2, hour: 9)
+        event.startDate = event.startDate.setting(hour: 9, minute: 5)
+        var grid = MonthCalendarGrid(
+            month: TestFixtures.september,
+            selectedDate: .constant(event.startDate),
+            items: [event],
+            palette: MiraThemePalette(kind: .softMinimal, colorScheme: .light)
+        )
+
+        XCTAssertEqual(grid.eventStartTime(for: event), "9:05")
+        var eveningEvent = TestFixtures.event(day: 2, hour: 22)
+        XCTAssertEqual(grid.eventStartTime(for: eveningEvent), "22:00")
+        eveningEvent.endDate.addTimeInterval(60)
+        XCTAssertNil(grid.eventStartTime(for: eveningEvent))
+
+        var allDay = event
+        allDay.isAllDay = true
+        XCTAssertNil(grid.eventStartTime(for: allDay))
+        var timeUnknown = event
+        timeUnknown.exactTimeKnown = false
+        XCTAssertNil(grid.eventStartTime(for: timeUnknown))
+
+        grid.showsEventStartTime = false
+        XCTAssertNil(grid.eventStartTime(for: event))
+    }
+
     func testReduceMotionDisablesSelectionSpring() {
         XCTAssertNil(MiraMotion.selection(reduceMotion: true))
         XCTAssertNotNil(MiraMotion.selection(reduceMotion: false))
