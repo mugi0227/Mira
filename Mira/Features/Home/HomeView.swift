@@ -73,7 +73,10 @@ struct HomeView: View {
                             onSelectDate: openDay,
                             onSelectItem: { item in if !isFriendView { selectedItem = item } }
                         )
-                        .simultaneousGesture(monthSwipe(vertical: false), isEnabled: !store.calendarDisplayOptions.pagesVertically)
+                        .simultaneousGesture(
+                            monthSwipe(vertical: false),
+                            isEnabled: palette.isCatSkin || !store.calendarDisplayOptions.pagesVertically
+                        )
                         .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
 
                         if !isFriendView {

@@ -189,6 +189,28 @@ final class GrillMeFlowUITests: XCTestCase {
         add(attachment)
     }
 
+    func testCatSkinCanStillSwipeHorizontallyWithVerticalPagingSelected() {
+        app.buttons["miraTab-settings"].tap()
+        let general = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch
+        scrollUntilHittable(general)
+        general.tap()
+        let vertical = app.buttons["縦スクロール（月の見出しを上下に）"]
+        scrollUntilHittable(vertical)
+        vertical.tap()
+        XCTAssertTrue(vertical.isSelected)
+
+        app.buttons["miraTab-home"].tap()
+        let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
+        let grid = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertTrue(grid.waitForExistence(timeout: 4))
+        let month = heading.label
+        let start = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.35))
+        let end = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.35))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        let changedMonth = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", month), object: heading)
+        XCTAssertEqual(XCTWaiter.wait(for: [changedMonth], timeout: 4), .completed)
+    }
+
     func testSettingsFooterScrollsAboveTabsAndWorkHoursAreEditable() throws {
         let tab = app.buttons["設定"].firstMatch
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
