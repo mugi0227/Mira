@@ -189,6 +189,59 @@ final class GrillMeFlowUITests: XCTestCase {
         add(attachment)
     }
 
+    func testKeyboardTimeRejectsInvalidInputAndSavesCompactTimeWithoutLosingFocus() {
+        app.buttons["miraTab-settings"].tap()
+        let general = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch
+        scrollUntilHittable(general)
+        general.tap()
+        let keyboard = app.switches["時刻設定のキーボード表示"]
+        scrollUntilHittable(keyboard)
+        if keyboard.value as? String != "1" {
+            keyboard.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(keyboard.value as? String, "1")
+
+        app.buttons["miraTab-home"].tap()
+        app.buttons["追加メニュー"].tap()
+        app.buttons["予定・余白を追加"].tap()
+        let saveDraft = app.navigationBars["予定を追加"].buttons["保存して閉じる"]
+        let start = app.textFields.matching(NSPredicate(format: "label == %@ OR identifier == %@", "開始時刻", "eventStartTime")).firstMatch
+        scrollUntilHittable(start)
+        let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
+        let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.66))
+        for _ in 0..<3 where start.frame.midY > app.frame.midY {
+            lower.press(forDuration: 0.05, thenDragTo: upper)
+        }
+        let caret = start.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5))
+        func replaceStart(with value: String) {
+            caret.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 4))
+            start.typeKey("a", modifierFlags: .command)
+            start.typeText(value)
+            XCTAssertEqual(start.value as? String, value)
+        }
+
+        replaceStart(with: "1260")
+        saveDraft.tap()
+        XCTAssertTrue(saveDraft.exists, "Invalid input must not close the draft")
+        XCTAssertEqual(start.value as? String, "1260")
+
+        replaceStart(with: "930")
+        saveDraft.tap()
+        let resume = app.buttons["resumeLatestDraft"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        scrollUntilHittable(resume)
+        resume.tap()
+        scrollUntilHittable(start)
+        XCTAssertEqual(start.value as? String, "9:30")
+
+        saveDraft.tap()
+        app.buttons["miraTab-settings"].tap()
+        scrollUntilHittable(keyboard)
+        keyboard.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(keyboard.value as? String, "0")
+    }
+
     func testCatSkinCanStillSwipeHorizontallyWithVerticalPagingSelected() {
         app.buttons["miraTab-settings"].tap()
         let general = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch

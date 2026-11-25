@@ -3,11 +3,16 @@ import SwiftUI
 struct CalendarEventTimeField: View {
     let title: String
     @Binding var date: Date
+    @Binding var keyboardInput: String?
     let options: CalendarDisplayOptions
+    let validatesKeyboardInput: Bool
 
     var body: some View {
         if options.showsTimeKeyboard {
-            KeyboardTimeField(title: title, date: $date, options: options)
+            KeyboardTimeField(
+                title: title, date: $date, input: $keyboardInput, options: options,
+                validatesInput: validatesKeyboardInput
+            )
         } else if options.minuteInterval == 1 {
             DatePicker(title, selection: $date, displayedComponents: .hourAndMinute)
                 .environment(\.locale, Locale(identifier: options.uses24HourTime ? "ja_JP@hours=h23" : "ja_JP@hours=h12"))
@@ -45,30 +50,43 @@ struct CalendarEventTimeField: View {
 private struct KeyboardTimeField: View {
     let title: String
     @Binding var date: Date
+    @Binding var input: String?
     let options: CalendarDisplayOptions
-    @State private var input = ""
+    let validatesInput: Bool
     @FocusState private var focused: Bool
 
     var body: some View {
-        LabeledContent(title) {
-            TextField("時刻（例：18:30）", text: $input)
-                .accessibilityLabel(title + "時刻")
-                .multilineTextAlignment(.trailing)
-                .keyboardType(.numbersAndPunctuation)
-                .submitLabel(.done)
-                .focused($focused)
-                .onAppear { input = options.time(date) }
-                .onChange(of: date) { _, value in
-                    if !focused { input = options.time(value) }
-                }
-                .onChange(of: focused) { _, active in
-                    if active { input = DateFormatter.mira("HH:mm").string(from: date) }
-                    else { input = options.time(date) }
-                }
-                .onChange(of: input) { _, value in
-                    if focused, let time = options.timeEntered(value, on: date) { date = time }
-                }
-                .onSubmit { focused = false }
+        VStack(alignment: .trailing, spacing: MiraSpacing.xxs) {
+            LabeledContent(title) {
+                TextField("時刻（例：18:30）", text: text)
+                    .accessibilityLabel(title + "時刻")
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numbersAndPunctuation)
+                    .submitLabel(.done)
+                    .focused($focused)
+                    .onChange(of: focused) { _, active in
+                        if !active { commitInput() }
+                    }
+                    .onSubmit { focused = false }
+            }
+            if let input, !focused || validatesInput, options.timeEntered(input, on: date) == nil {
+                Text("正しい時刻を入力してください")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
+    }
+
+    private var text: Binding<String> {
+        Binding(
+            get: { input ?? (focused ? DateFormatter.mira("HH:mm").string(from: date) : options.time(date)) },
+            set: { input = $0 }
+        )
+    }
+
+    private func commitInput() {
+        guard let input, let time = options.timeEntered(input, on: date) else { return }
+        date = time
+        self.input = nil
     }
 }
