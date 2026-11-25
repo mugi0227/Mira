@@ -73,13 +73,13 @@ final class CalendarDisplayOptionsTests: XCTestCase {
 
     func testShortConsecutiveEventsAtTimelineEndStayInSeparateLanes() throws {
         let day = try date("2026-09-03")
-        func event(at minute: Int) -> CalendarItemSnapshot {
-            CalendarItemSnapshot(id: UUID(), title: "予定", startDate: day.setting(hour: 16, minute: minute),
-                                 endDate: day.setting(hour: 16, minute: minute + 5), isAllDay: false,
+        func event(hour: Int = 16, at minute: Int) -> CalendarItemSnapshot {
+            CalendarItemSnapshot(id: UUID(), title: "予定", startDate: day.setting(hour: hour, minute: minute),
+                                 endDate: day.setting(hour: hour, minute: minute + 5), isAllDay: false,
                                  kind: .confirmed, marginKind: nil, loadClass: .normal, loadReason: "",
                                  bufferBeforeMinutes: 0, bufferAfterMinutes: 0, isImportantTime: false)
         }
-        let earlier = event(at: 0)
+        let earlier = event(hour: 15, at: 0)
         let first = event(at: 45)
         let second = event(at: 50)
         let interval = DateInterval(start: day.setting(hour: 9), end: day.setting(hour: 17))
