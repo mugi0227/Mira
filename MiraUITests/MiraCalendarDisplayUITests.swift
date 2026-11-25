@@ -64,6 +64,56 @@ final class MiraCalendarDisplayUITests: XCTestCase {
         capture("calendar-month-without-week-number-rokuyo-or-holiday")
     }
 
+    func testResetDemoLaunchRestoresCalendarDisplayDefaults() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-demo", "-ui-theme", "softMinimal"]
+        func launchAndOpenGeneralSettings() {
+            app.launch()
+            let recommended = app.buttons["おすすめを確認"]
+            if recommended.waitForExistence(timeout: 4) {
+                recommended.tap()
+                let start = app.buttons["余白を置いて始める"]
+                XCTAssertTrue(start.waitForExistence(timeout: 5))
+                start.tap()
+            }
+            let tabs = app.tabBars.firstMatch
+            XCTAssertTrue(tabs.waitForExistence(timeout: 10))
+            tabs.buttons["設定"].tap()
+            let link = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch
+            reveal(link, in: app)
+            link.tap()
+            XCTAssertTrue(app.navigationBars["一般設定"].waitForExistence(timeout: 5))
+        }
+
+        launchAndOpenGeneralSettings()
+        let vertical = app.buttons["縦スクロール（月の見出しを上下に）"]
+        let agenda = app.buttons["常に表示"]
+        let week = app.switches["calendarShowsWeekNumbers"]
+        let rokuyo = app.switches["calendarShowsRokuyo"]
+        reveal(vertical, in: app)
+        vertical.tap()
+        XCTAssertTrue(vertical.isSelected)
+        reveal(agenda, in: app)
+        agenda.tap()
+        XCTAssertTrue(agenda.isSelected)
+        reveal(week, in: app)
+        set(week, on: true)
+        reveal(rokuyo, in: app)
+        set(rokuyo, on: true)
+
+        app.terminate()
+        launchAndOpenGeneralSettings()
+        reveal(vertical, in: app)
+        XCTAssertFalse(vertical.isSelected)
+        reveal(agenda, in: app)
+        XCTAssertFalse(agenda.isSelected)
+        reveal(week, in: app)
+        XCTAssertEqual(week.value as? String, "0")
+        reveal(rokuyo, in: app)
+        XCTAssertEqual(rokuyo.value as? String, "0")
+    }
+
     private func set(_ toggle: XCUIElement, on: Bool) {
         if (toggle.value as? String == "1") != on {
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()

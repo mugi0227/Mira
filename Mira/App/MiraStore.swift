@@ -332,5 +332,6 @@ final class MiraStore {
         settingsEntity?.deviceHolidaysEnabled = false
         settingsEntity?.updatedAt = .now
         try context.save()
+        calendarDisplayOptions = CalendarDisplayOptions()
     }
 }
