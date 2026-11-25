@@ -70,6 +70,19 @@ final class CalendarDisplayOptionsTests: XCTestCase {
         XCTAssertEqual(options.timeEntered("1230", on: day), day.setting(hour: 12, minute: 30))
     }
 
+    func testAvailabilityPreviewUsesOnlyValidUncommittedKeyboardTimes() throws {
+        let day = try date("2026-09-03")
+        var options = CalendarDisplayOptions()
+        options.showsTimeKeyboard = true
+        let start = day.setting(hour: 18)
+        let end = day.setting(hour: 10, minute: 15)
+        XCTAssertEqual(options.previewDuration(start: start, end: end, startInput: "930", endInput: nil), 45)
+        XCTAssertEqual(options.previewDuration(start: start, end: end, startInput: "930", endInput: "11:00"), 90)
+        XCTAssertEqual(options.previewDuration(start: start, end: end, startInput: "9:3", endInput: "1260"), 975)
+        options.showsTimeKeyboard = false
+        XCTAssertEqual(options.previewDuration(start: start, end: end, startInput: "930", endInput: nil), 975)
+    }
+
     func testShortConsecutiveEventsAtTimelineEndStayInSeparateLanes() throws {
         let day = try date("2026-09-03")
         func event(hour: Int = 16, at minute: Int) -> CalendarItemSnapshot {

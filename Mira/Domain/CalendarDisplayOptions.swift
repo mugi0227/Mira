@@ -142,6 +142,17 @@ struct CalendarDisplayOptions: Codable, Equatable {
               minute.isMultiple(of: minuteInterval) else { return nil }
         return date.setting(hour: hour, minute: minute)
     }
+
+    func previewDuration(start: Date, end: Date, startInput: String?, endInput: String?) -> Int {
+        func minuteOfDay(_ committed: Date, input: String?) -> Int {
+            let time = showsTimeKeyboard ? input.flatMap { timeEntered($0, on: committed) } ?? committed : committed
+            let components = Calendar.mira.dateComponents([.hour, .minute], from: time)
+            return (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        }
+
+        let minutes = minuteOfDay(end, input: endInput) - minuteOfDay(start, input: startInput)
+        return minutes > 0 ? minutes : minutes + 1440
+    }
 }
 
 private struct DuplicateEvent: Hashable {

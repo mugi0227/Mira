@@ -474,10 +474,9 @@ struct NewItemSheet: View {
     /// Same rule as the saved event: an end at or before the start runs past midnight.
     private var requestedMinutes: Int? {
         guard !isAllDay else { return nil }
-        let start = Calendar.mira.dateComponents([.hour, .minute], from: startTime)
-        let end = Calendar.mira.dateComponents([.hour, .minute], from: endTime)
-        let minutes = ((end.hour ?? 0) * 60 + (end.minute ?? 0)) - ((start.hour ?? 0) * 60 + (start.minute ?? 0))
-        return minutes > 0 ? minutes : minutes + 1440
+        return store.calendarDisplayOptions.previewDuration(
+            start: startTime, end: endTime, startInput: startTimeInput, endInput: endTimeInput
+        )
     }
 
     private var secretaryInputKey: String {
