@@ -66,6 +66,18 @@ final class HomeWhitespaceUITests: XCTestCase {
         XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
         XCTAssertFalse(today.isSelected)
         XCTAssertTrue(today.label.contains("今日"))
+
+        app.buttons["前の月"].tap()
+        XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
+        XCTAssertTrue(today.waitForExistence(timeout: 5))
+        XCTAssertTrue(today.label.contains("今日"))
+
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<3 where !today.isHittable || today.frame.maxY > app.tabBars.firstMatch.frame.minY {
+            scroll.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(today.isHittable)
+        capture("soft-minimal-today-in-neighbor-month")
     }
 
     func testAllDayEventStaysAboveTheScrollingTimeline() {

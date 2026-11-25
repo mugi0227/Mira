@@ -225,6 +225,7 @@ struct MonthCalendarGrid: View {
                     Text("\(calendar.component(.day, from: date))")
                         .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
                         .foregroundStyle(dateForeground(
+                            isToday: isToday,
                             isInDisplayedMonth: isInDisplayedMonth,
                             date: date,
                             isHoliday: holiday != nil
@@ -411,11 +412,12 @@ struct MonthCalendarGrid: View {
     }
 
     private func dateForeground(
+        isToday: Bool,
         isInDisplayedMonth: Bool,
         date: Date,
         isHoliday: Bool
     ) -> Color {
-        if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
+        if !isInDisplayedMonth && !isToday { return palette.secondaryText.opacity(0.48) }
         if isHoliday { return palette.critical.opacity(0.88) }
         let weekday = calendar.component(.weekday, from: date)
         if weekday == 7 { return palette.accent }
