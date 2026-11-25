@@ -65,7 +65,7 @@ struct HomeView: View {
                             privacyMode: isFriendView,
                             friendLevel: friendLevel,
                             baseRules: store.fetchBaseRules(),
-                            openedDate: isFriendView ? nil : openedDate,
+                            openedDate: openedDate,
                             onAddEvent: { store.presentedEventForm = store.calendarDisplayOptions.newEventDraft(on: $0) },
                             onOpenTimeline: { selectedDayDestination = DayTimelineDestination(date: $0) },
                             workDays: store.workDayResolver,
@@ -177,6 +177,12 @@ struct HomeView: View {
             }
         }
         .onChange(of: isFriendView) { _, _ in openedDate = nil }
+        .onChange(of: friendRecipientID) { _, _ in
+            if isFriendView { openedDate = nil }
+        }
+        .onChange(of: friendLevel) { _, _ in
+            if isFriendView { openedDate = nil }
+        }
         .task(id: MonthKey(date: store.selectedMonth)) {
             await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
@@ -619,9 +625,8 @@ struct HomeView: View {
 
     private func openDay(_ date: Date) {
         store.selectedDate = date
-        // The day timeline shows titles, so friend view stays on the month.
-        guard !isFriendView else { return }
-        if !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
+        guard !isFriendView || friendLevel == .busyTimes else { return }
+        if !isFriendView && !Calendar.mira.isDate(date, equalTo: store.selectedMonth, toGranularity: .month) {
             store.selectedMonth = MonthKey(date: date).firstDay
             store.ensurePlan(for: date)
             store.updateMarginRecommendation(for: date)
