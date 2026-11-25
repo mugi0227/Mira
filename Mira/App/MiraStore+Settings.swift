@@ -172,6 +172,7 @@ extension MiraStore {
             marginComfortLevel = .standard
             weekStartDay = .monday
             showsPublicHolidays = false
+            calendarDisplayOptions = CalendarDisplayOptions()
             activeSchedulingDraft = nil
             pinnedContext = nil
             pendingInterpretation = nil
