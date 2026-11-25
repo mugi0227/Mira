@@ -277,13 +277,16 @@ struct HomeView: View {
             .min { $0.startDate < $1.startDate }
     }
 
-    @ViewBuilder
     private var monthHeader: some View {
-        if palette.isCatSkin {
-            skyMonthHeader
-        } else {
-            standardMonthHeader
+        Group {
+            if palette.isCatSkin {
+                skyMonthHeader
+            } else {
+                standardMonthHeader
+            }
         }
+        .contentShape(Rectangle())
+        .highPriorityGesture(monthSwipe(vertical: true), isEnabled: store.calendarDisplayOptions.pagesVertically)
     }
 
     private var standardMonthHeader: some View {
@@ -310,8 +313,6 @@ struct HomeView: View {
             .accessibilityLabel("次の月")
         }
         .foregroundStyle(palette.accent)
-        .contentShape(Rectangle())
-        .highPriorityGesture(monthSwipe(vertical: true), isEnabled: vertical)
     }
 
     private func monthSwipe(vertical: Bool) -> some Gesture {
