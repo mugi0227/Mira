@@ -65,6 +65,7 @@ final class MiraStore {
     var demoModeEnabled = true
     var marginComfortLevel: MarginComfortLevel = .standard
     var weekStartDay: WeekStartDay = .monday
+    var whitespaceMeterDirection: WhitespaceMeterDirection = .remaining
     var calendarDisplayOptions = CalendarDisplayOptions.load(from: .standard) {
         didSet { calendarDisplayOptions.save(to: .standard) }
     }
@@ -329,6 +330,7 @@ final class MiraStore {
         colorStyle = .blue
         settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
         settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
+        settingsEntity?.whitespaceMeterDirectionRaw = nil
         settingsEntity?.deviceHolidaysEnabled = false
         settingsEntity?.updatedAt = .now
         try context.save()

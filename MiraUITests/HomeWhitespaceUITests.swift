@@ -22,6 +22,38 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("soft-minimal-date-ring")
     }
 
+    func testWhitespaceMeterDirectionChangesRingAndPersists() {
+        launchHome(theme: "softMinimal")
+        let ring = element("whitespace-2026-09-01")
+        XCTAssertEqual(ring.label, "余白 7時間、44パーセント")
+        XCTAssertEqual(element("whitespace-2026-09-06").label, "余白 16時間、100パーセント")
+        capture("whitespace-meter-remaining")
+
+        let tabs = app.tabBars.firstMatch
+        tabs.buttons["設定"].tap()
+        let picker = app.buttons["whitespaceMeterDirection"]
+        for _ in 0..<5 where !picker.isHittable { app.swipeUp() }
+        XCTAssertTrue(picker.isHittable)
+        let menuControl = picker.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let occupiedOption = app.buttons["たまる（埋まった時間）"]
+        menuControl.tap()
+        if !occupiedOption.waitForExistence(timeout: 3) { menuControl.tap() }
+        XCTAssertTrue(occupiedOption.waitForExistence(timeout: 5))
+        occupiedOption.tap()
+        capture("whitespace-meter-settings")
+
+        tabs.buttons["ホーム"].tap()
+        XCTAssertEqual(ring.label, "埋まった時間 9時間、56パーセント")
+        XCTAssertEqual(element("whitespace-2026-09-06").label, "埋まった時間 0時間、0パーセント")
+        capture("whitespace-meter-occupied")
+
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-reset-demo" }
+        app.launch()
+        XCTAssertTrue(ring.waitForExistence(timeout: 12))
+        XCTAssertEqual(ring.label, "埋まった時間 9時間、56パーセント")
+    }
+
     func testDailyMetersNavigateWithMonthAndKeepDayNavigation() {
         launchHome(theme: "silhouetteCat")
         let first = element("whitespace-2026-09-01")

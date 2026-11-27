@@ -10,6 +10,7 @@ struct MonthCalendarGrid: View {
     /// view. Dense/small screens still scroll rather than shrinking text.
     var preferredHeight: CGFloat? = nil
     var weekStartDay: WeekStartDay = .monday
+    var whitespaceMeterDirection: WhitespaceMeterDirection = .remaining
     var displayOptions: CalendarDisplayOptions? = nil
     var showsPublicHolidays = false
     var referenceDate: Date = .now
@@ -227,6 +228,8 @@ struct MonthCalendarGrid: View {
     @ViewBuilder
     private func dayCell(_ date: Date, index: Int, cellHeight: CGFloat) -> some View {
         let dayItems = itemsForDay(date)
+        let whitespace = privacyMode ? nil : DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
+        let meterTime = whitespace.map { "\(whitespaceMeterDirection.timeLabel) \($0.durationText(for: whitespaceMeterDirection))" }
         let isSelected = (!privacyMode || friendLevel == .busyTimes) && openedDate.map { calendar.isDate(date, inSameDayAs: $0) } == true
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
@@ -278,14 +281,14 @@ struct MonthCalendarGrid: View {
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             .overlay {
-                if !privacyMode {
-                    let whitespace = DayWhitespace(date: date, items: items, baseRules: baseRules, calendar: calendar, workDays: workDays)
-                    WhitespaceRing(fraction: whitespace.fraction, palette: palette)
+                if let whitespace, let meterTime {
+                    let fraction = whitespace.fraction(for: whitespaceMeterDirection)
+                    WhitespaceRing(fraction: fraction, palette: palette)
                         .frame(width: 32, height: 32)
                         .opacity(isInDisplayedMonth ? 1 : 0.3)
                         .allowsHitTesting(false)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("余白 \(whitespace.durationText)、\(Int((whitespace.fraction * 100).rounded()))パーセント")
+                        .accessibilityLabel("\(meterTime)、\(Int((fraction * 100).rounded()))パーセント")
                         .accessibilityIdentifier("whitespace-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
                 }
             }
@@ -434,7 +437,7 @@ struct MonthCalendarGrid: View {
             return true
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel(for: date, items: dayItems))
+        .accessibilityLabel(accessibilityLabel(for: date, items: dayItems, meterTime: meterTime))
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("calendar-day-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
         .accessibilityAction(named: "日付を開く") {
@@ -464,14 +467,13 @@ struct MonthCalendarGrid: View {
         return palette.primaryText
     }
 
-    private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot]) -> String {
+    private func accessibilityLabel(for date: Date, items: [CalendarItemSnapshot], meterTime: String?) -> String {
         let formatter = DateFormatter.mira("M月d日 EEEE")
         let suffix = privacyMode
             ? FriendDayContent(date: date, items: items, baseRules: baseRules, level: friendLevel, calendar: calendar, workDays: workDays).lines.joined(separator: "、")
             : (items.isEmpty ? "予定なし" : items.map(\.title).joined(separator: "、"))
-        let whitespace = DayWhitespace(date: date, items: self.items, baseRules: baseRules, calendar: calendar, workDays: workDays)
         let workDayLabel = !privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""
-        return "\(formatter.string(from: date))、\(suffix)" + workDayLabel + (privacyMode ? "" : "、余白 \(whitespace.durationText)")
+        return "\(formatter.string(from: date))、\(suffix)" + workDayLabel + (meterTime.map { "、\($0)" } ?? "")
     }
 }
 

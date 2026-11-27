@@ -58,6 +58,7 @@ struct HomeView: View {
                                 ? viewport.size.height - monthHeaderHeight - MiraSpacing.md - MiraSpacing.lg - scrollFadeHeight - MiraSpacing.xs
                                 : nil,
                             weekStartDay: store.weekStartDay,
+                            whitespaceMeterDirection: store.whitespaceMeterDirection,
                             displayOptions: isFriendView ? nil : store.calendarDisplayOptions,
                             showsPublicHolidays: store.showsPublicHolidays,
                             referenceDate: store.now,
@@ -126,7 +127,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: MiraSpacing.lg) {
                         Label("自分に戻れる時間を、ひと目で。", systemImage: "circle.dotted")
                             .font(.title2.weight(.semibold))
-                        Text("日ごとのリングは、7:00〜23:00のうち、予定や基本時間で埋まっていない時間の割合です。大きく満ちているほど、余白があります。")
+                        Text(store.whitespaceMeterDirection.explanation)
                         Text("重なる予定は一度だけ数えます。休息や読書などの余白、予定前後のゆとり、誕生日、終日メモは減らしません。時間を使わない予定は、詳細の「時間を使う予定」をオフにできます。")
                         Text("今月の合計は、過去の日も含むひと月全体の余白です。睡眠時間の個別設定には未対応のため、現在は7:00〜23:00を目安にしています。")
                             .font(.footnote)

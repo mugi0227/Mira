@@ -49,6 +49,13 @@ extension MiraStore {
         try? context.save()
     }
 
+    func setWhitespaceMeterDirection(_ direction: WhitespaceMeterDirection) {
+        whitespaceMeterDirection = direction
+        settingsEntity?.whitespaceMeterDirectionRaw = direction.rawValue
+        settingsEntity?.updatedAt = .now
+        try? context.save()
+    }
+
     func setShowsPublicHolidays(_ enabled: Bool) {
         showsPublicHolidays = enabled
         settingsEntity?.deviceHolidaysEnabled = enabled
@@ -154,6 +161,7 @@ extension MiraStore {
             settingsEntity?.colorStyleRaw = nil
             settingsEntity?.marginComfortRaw = MarginComfortLevel.standard.rawValue
             settingsEntity?.weekStartRaw = WeekStartDay.monday.rawValue
+            settingsEntity?.whitespaceMeterDirectionRaw = nil
             settingsEntity?.deviceHolidaysEnabled = false
             settingsEntity?.demoModeEnabled = demo
             settingsEntity?.notificationsEnabled = false
@@ -171,6 +179,7 @@ extension MiraStore {
             colorStyle = .blue
             marginComfortLevel = .standard
             weekStartDay = .monday
+            whitespaceMeterDirection = .remaining
             showsPublicHolidays = false
             calendarDisplayOptions = CalendarDisplayOptions()
             activeSchedulingDraft = nil

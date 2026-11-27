@@ -102,6 +102,19 @@ struct SettingsView: View {
                     Label("一般設定", systemImage: "calendar")
                 }
                 .accessibilityIdentifier("calendarDisplaySettings")
+
+                Picker(selection: Binding(
+                    get: { store.whitespaceMeterDirection },
+                    set: { store.setWhitespaceMeterDirection($0) }
+                )) {
+                    ForEach(WhitespaceMeterDirection.allCases) { direction in
+                        Text(direction.title).tag(direction)
+                    }
+                } label: {
+                    Label("余白メーター", systemImage: "circle.dashed")
+                }
+                .accessibilityIdentifier("whitespaceMeterDirection")
+
                 Toggle("祝日を仕事の日から除く", systemImage: "briefcase.fill", isOn: Binding(
                     get: { store.excludeHolidaysFromWorkDays },
                     set: { store.setExcludeHolidaysFromWorkDays($0) }
