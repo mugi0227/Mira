@@ -22,6 +22,20 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("soft-minimal-date-ring")
     }
 
+    func testSoftMinimalTimedAndAllDayMonthChipsRemainAccessible() {
+        launchHome(theme: "softMinimal")
+        let month = element("monthCalendar")
+        let timed = month.buttons["仕事、9:00–18:00"]
+        let allDay = month.buttons["美容院、終日"]
+        XCTAssertTrue(timed.waitForExistence(timeout: 5))
+        XCTAssertTrue(allDay.isHittable)
+        XCTAssertTrue(timed.isHittable)
+        capture("soft-minimal-month-event-start-times")
+
+        timed.tap()
+        XCTAssertTrue(app.navigationBars["詳細"].waitForExistence(timeout: 5))
+    }
+
     func testDailyMetersNavigateWithMonthAndKeepDayNavigation() {
         launchHome(theme: "silhouetteCat")
         let first = element("whitespace-2026-09-01")

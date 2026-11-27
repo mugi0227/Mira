@@ -84,7 +84,10 @@ struct CalendarDisplayOptions: Codable, Equatable {
     }
 
     func startTime(for item: CalendarItemSnapshot) -> String? {
-        guard showsStartTime, item.kind == .confirmed, !item.isAllDay, item.exactTimeKnown else { return nil }
+        let calendar = Calendar.mira
+        guard showsStartTime, !item.isAllDay, item.exactTimeKnown,
+              item.endDate <= calendar.startOfDay(for: item.startDate).addingDays(1, calendar: calendar)
+        else { return nil }
         return time(item.startDate)
     }
 

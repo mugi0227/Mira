@@ -13,7 +13,6 @@ struct MonthCalendarGrid: View {
     var displayOptions: CalendarDisplayOptions? = nil
     var showsPublicHolidays = false
     var referenceDate: Date = .now
-    var showsEventStartTime = true
     var allowsDragging = true
     /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
@@ -232,6 +231,7 @@ struct MonthCalendarGrid: View {
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
         let holiday = showsPublicHolidays ? JapanesePublicHolidays.title(on: date, calendar: calendar) : nil
+        let dayInset: CGFloat = privacyMode && friendLevel == .titles ? 0 : 4.5
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
         let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight - rokuyoHeight < 104
@@ -350,8 +350,9 @@ struct MonthCalendarGrid: View {
                     }
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
+                        let startTime = palette.isCatSkin ? nil : displayOptions?.startTime(for: item)
                         HStack(spacing: 0) {
-                            CalendarEventStrip(item: item, palette: palette, displayOptions: displayOptions)
+                            CalendarEventStrip(item: item, palette: palette, displayOptions: displayOptions, startTime: startTime)
                             .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
                             .onTapGesture { onSelectItem?(item) }
                             .draggable(allowsDragging ? item.id.uuidString : "")
@@ -362,6 +363,7 @@ struct MonthCalendarGrid: View {
                             .accessibilityAction { onSelectItem?(item) }
                             Spacer(minLength: 0)
                         }
+                        .padding(.horizontal, startTime == nil ? 0 : 2 - dayInset)
                     }
 
                     if dayItems.count > visibleItemLimit {
@@ -386,7 +388,7 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, privacyMode ? 2 : 5)
-        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
+        .padding(.horizontal, dayInset)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
@@ -514,6 +516,7 @@ private struct CalendarEventStrip: View {
     let item: CalendarItemSnapshot
     let palette: MiraThemePalette
     let displayOptions: CalendarDisplayOptions?
+    let startTime: String?
 
     private var appearance: CalendarLabelAppearance? {
         guard let displayOptions, item.kind == .confirmed else { return nil }
@@ -524,8 +527,12 @@ private struct CalendarEventStrip: View {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
-            if !palette.isCatSkin, let symbol {
+        HStack(spacing: startTime == nil ? 2 : 0.5) {
+            if let startTime {
+                Text(startTime)
+                    .font(.system(size: 7, weight: .semibold).width(.condensed))
+                    .fixedSize(horizontal: true, vertical: false)
+            } else if !palette.isCatSkin, let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: palette.isCatSkin ? 8 : 6.5, weight: .bold))
                     .accessibilityHidden(true)
@@ -542,13 +549,13 @@ private struct CalendarEventStrip: View {
         }
         .foregroundStyle(appearance?.foreground ?? (item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText)))
         .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
-        .padding(.horizontal, 5)
+        .padding(.horizontal, startTime == nil ? 5 : 3.5)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)
         .overlay(alignment: .leading) {
             if appearance == nil, item.kind != .margin, let tag = item.colorTag {
-                palette.bar(for: tag).frame(width: 2.5)
+                palette.bar(for: tag).frame(width: startTime == nil ? 2.5 : 2)
             }
         }
         .overlay {

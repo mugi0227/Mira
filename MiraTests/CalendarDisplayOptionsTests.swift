@@ -53,10 +53,32 @@ final class CalendarDisplayOptionsTests: XCTestCase {
         let memo = item(at: 12, occupiesTime: false)
         let linked = item(at: 12, source: UUID())
         XCTAssertEqual(CalendarDisplayOptions.duplicateIDs(in: [copy, memo, kept, linked, item(at: 13)]), [copy.id])
+    }
+
+    func testMonthEventChipShowsOnlyKnownSingleDayStartTimesByDefault() {
         var options = CalendarDisplayOptions()
-        XCTAssertEqual(options.startTime(for: kept), "12:00")
+        var event = TestFixtures.event(day: 2, hour: 9)
+        event.startDate = event.startDate.setting(hour: 9, minute: 5)
+        XCTAssertEqual(options.startTime(for: event), "9:05")
+        XCTAssertEqual(options.startTime(for: TestFixtures.event(day: 2, hour: 12)), "12:00")
+        XCTAssertEqual(options.startTime(for: TestFixtures.event(day: 2, hour: 18, kind: .margin)), "18:00")
+
+        var eveningEvent = TestFixtures.event(day: 2, hour: 22)
+        XCTAssertEqual(options.startTime(for: eveningEvent), "22:00")
+        options.uses24HourTime = false
+        XCTAssertEqual(options.startTime(for: eveningEvent), "午後10:00")
+        eveningEvent.endDate.addTimeInterval(60)
+        XCTAssertNil(options.startTime(for: eveningEvent))
+
+        var allDay = event
+        allDay.isAllDay = true
+        XCTAssertNil(options.startTime(for: allDay))
+        var timeUnknown = event
+        timeUnknown.exactTimeKnown = false
+        XCTAssertNil(options.startTime(for: timeUnknown))
+
         options.showsStartTime = false
-        XCTAssertNil(options.startTime(for: kept))
+        XCTAssertNil(options.startTime(for: event))
     }
 
     func testKeyboardTimeRequiresCompleteMinutesAndAcceptsCompactInput() throws {

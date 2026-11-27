@@ -23,6 +23,10 @@ final class MiraCalendarDisplayUITests: XCTestCase {
         let general = app.navigationBars["一般設定"]
         XCTAssertTrue(general.waitForExistence(timeout: 5))
         capture("calendar-settings-appearance")
+        let startTimeSwitch = app.switches["calendarShowsStartTime"]
+        reveal(startTimeSwitch, in: app)
+        XCTAssertEqual(startTimeSwitch.value as? String, "1")
+        set(startTimeSwitch, on: false)
         app.buttons["カラー文字"].tap()
         set(app.switches["時間予定の区別"], on: true)
 
@@ -57,6 +61,8 @@ final class MiraCalendarDisplayUITests: XCTestCase {
         set(holidaySwitch, on: false)
         reveal(weekSwitch, in: app, upwards: false)
         set(weekSwitch, on: false)
+        reveal(startTimeSwitch, in: app, upwards: false)
+        set(startTimeSwitch, on: true)
         tabs.buttons["ホーム"].tap()
         XCTAssertFalse(week.exists)
         XCTAssertFalse(rokuyo.exists)

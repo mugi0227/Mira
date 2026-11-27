@@ -7,7 +7,6 @@ struct FriendShareCard: View {
     let palette: MiraThemePalette
     let weekStartDay: WeekStartDay
     let referenceDate: Date
-    var showsEventStartTime = true
     var baseRules: [BaseAvailabilityRule] = []
     var level: FriendShareLevel = .freeOnly
     var recipientName: String?
@@ -33,7 +32,6 @@ struct FriendShareCard: View {
                     palette: palette,
                     weekStartDay: weekStartDay,
                     referenceDate: referenceDate,
-                    showsEventStartTime: showsEventStartTime,
                     allowsDragging: false,
                     privacyMode: true,
                     friendLevel: level,
