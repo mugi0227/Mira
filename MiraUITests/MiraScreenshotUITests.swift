@@ -164,15 +164,21 @@ final class MiraScreenshotUITests: XCTestCase {
         settle()
         capture("13b-settings-calendar-display")
         // Week start must flip the home grid too: capture it on Sunday, then restore.
-        let weekPicker = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "週の始まり")).firstMatch
+        tap(app.buttons["calendarDisplaySettings"], in: app)
+        app.swipeUp()
+        app.swipeUp()
+        let weekPicker = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "週の開始曜日")).firstMatch
         if tap(weekPicker, in: app), tap(app.buttons["日曜始まり"], in: app, timeout: 2) {
             capture("13c-settings-sunday-start")
             if tap(app.buttons["ホーム"], in: app) {
                 capture("13d-home-sunday-start")
                 tap(app.buttons["設定"], in: app)
             }
-            let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "週の始まり")).firstMatch
+            let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "週の開始曜日")).firstMatch
             if tap(restore, in: app) { tap(app.buttons["月曜始まり"], in: app, timeout: 2) }
+        }
+        if app.navigationBars["一般設定"].exists {
+            tap(app.navigationBars["一般設定"].buttons.firstMatch, in: app)
         }
         app.swipeDown()
         settle()

@@ -219,7 +219,7 @@ struct EventDetailSheet: View {
             DetailRow(
                 symbol: item.exactTimeKnown ? "clock" : "clock.badge.questionmark",
                 title: "時間",
-                value: item.timeDescription,
+                value: store.calendarDisplayOptions.timeDescription(for: item),
                 palette: palette
             )
             if !item.exactTimeKnown {

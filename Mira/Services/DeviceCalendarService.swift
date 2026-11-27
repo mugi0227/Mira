@@ -16,12 +16,16 @@ final class DeviceCalendarService {
     var destinationID: String {
         didSet { defaults.set(destinationID, forKey: "mira.calendar.destination") }
     }
+    var orderIDs: [String] {
+        didSet { defaults.set(orderIDs, forKey: "mira.calendar.order") }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         enabled = defaults.bool(forKey: "mira.calendar.enabled")
         selectedIDs = Set(defaults.stringArray(forKey: "mira.calendar.selected") ?? [])
         destinationID = defaults.string(forKey: "mira.calendar.destination") ?? ""
+        orderIDs = defaults.stringArray(forKey: "mira.calendar.order") ?? []
     }
 
     var hasAccess: Bool { EKEventStore.authorizationStatus(for: .event) == .fullAccess }
@@ -35,7 +39,12 @@ final class DeviceCalendarService {
         guard hasAccess else { return [] }
         return eventStore.calendars(for: .event).map {
             DeviceCalendarOption(id: $0.calendarIdentifier, title: $0.title, canWrite: $0.allowsContentModifications)
-        }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+        }.sorted {
+            let lhs = orderIDs.firstIndex(of: $0.id) ?? Int.max
+            let rhs = orderIDs.firstIndex(of: $1.id) ?? Int.max
+            if lhs != rhs { return lhs < rhs }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
     }
 
     func read(in interval: DateInterval) throws -> [DeviceCalendarEvent] {

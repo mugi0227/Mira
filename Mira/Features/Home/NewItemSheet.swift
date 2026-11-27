@@ -13,6 +13,9 @@ struct NewItemSheet: View {
     @State private var date: Date
     @State private var startTime: Date
     @State private var endTime: Date
+    @State private var startTimeInput: String?
+    @State private var endTimeInput: String?
+    @State private var validatesKeyboardTimes = false
     @State private var isAllDay = false
     @State private var isImportant = false
     @State private var isMemo = false
@@ -86,12 +89,14 @@ struct NewItemSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("保存して閉じる") {
+                        guard commitKeyboardTimes() else { return }
                         store.saveDraft(.eventForm(formDraft))
                         if store.draftPersistenceIssue == nil { dismiss() }
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("追加") {
+                        guard commitKeyboardTimes() else { return }
                         Task { await save() }
                     }
                     .disabled(!canSave || isPreparing)
@@ -162,6 +167,7 @@ struct NewItemSheet: View {
             if !finishedDraft { store.saveDraft(.eventForm(value)) }
         }
         .onDisappear {
+            if !finishedDraft { _ = commitKeyboardTimes() }
             if !finishedDraft, formDraft != initialDraft || !title.isEmpty || store.savedDrafts.contains(where: { $0.id == initialDraft.id }) {
                 store.saveDraft(.eventForm(formDraft))
             }
@@ -211,10 +217,16 @@ struct NewItemSheet: View {
                 }
                 Toggle("終日", isOn: $isAllDay)
                 if !isAllDay {
-                    DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
-                        .accessibilityIdentifier("eventStartTime")
-                    DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
-                        .accessibilityIdentifier("eventEndTime")
+                    CalendarEventTimeField(
+                        title: "開始", date: $startTime, keyboardInput: $startTimeInput,
+                        options: store.calendarDisplayOptions, validatesKeyboardInput: validatesKeyboardTimes
+                    )
+                    .accessibilityIdentifier("eventStartTime")
+                    CalendarEventTimeField(
+                        title: "終了", date: $endTime, keyboardInput: $endTimeInput,
+                        options: store.calendarDisplayOptions, validatesKeyboardInput: validatesKeyboardTimes
+                    )
+                    .accessibilityIdentifier("eventEndTime")
                 }
             }
             .listRowBackground(palette.surface)
@@ -368,6 +380,7 @@ struct NewItemSheet: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(palette.accent)
+                                    .accessibilityIdentifier("eventAlternativeDate")
                                 }
                             }
                         }
@@ -432,13 +445,38 @@ struct NewItemSheet: View {
         mode == .margin || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private func commitKeyboardTimes() -> Bool {
+        let options = store.calendarDisplayOptions
+        guard mode == .event, !isAllDay, options.showsTimeKeyboard else { return true }
+
+        func resolve(_ input: String?, current: Date) -> Date? {
+            guard let input else { return current }
+            return options.timeEntered(input, on: current)
+        }
+
+        guard let start = resolve(startTimeInput, current: startTime),
+              let end = resolve(endTimeInput, current: endTime) else {
+            validatesKeyboardTimes = true
+            return false
+        }
+        replaceEventTimes(start: start, end: end)
+        return true
+    }
+
+    private func replaceEventTimes(start: Date, end: Date) {
+        startTime = start
+        endTime = end
+        startTimeInput = nil
+        endTimeInput = nil
+        validatesKeyboardTimes = false
+    }
+
     /// Same rule as the saved event: an end at or before the start runs past midnight.
     private var requestedMinutes: Int? {
         guard !isAllDay else { return nil }
-        let start = Calendar.mira.dateComponents([.hour, .minute], from: startTime)
-        let end = Calendar.mira.dateComponents([.hour, .minute], from: endTime)
-        let minutes = ((end.hour ?? 0) * 60 + (end.minute ?? 0)) - ((start.hour ?? 0) * 60 + (start.minute ?? 0))
-        return minutes > 0 ? minutes : minutes + 1440
+        return store.calendarDisplayOptions.previewDuration(
+            start: startTime, end: endTime, startInput: startTimeInput, endInput: endTimeInput
+        )
     }
 
     private var secretaryInputKey: String {
@@ -662,8 +700,7 @@ struct NewItemSheet: View {
         date = candidate
         if !isAllDay {
             let duration = max(30 * 60, endTime.timeIntervalSince(startTime))
-            startTime = candidate
-            endTime = candidate.addingTimeInterval(duration)
+            replaceEventTimes(start: candidate, end: candidate.addingTimeInterval(duration))
         }
         selectedRelocationDate = nil
     }

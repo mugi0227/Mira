@@ -9,6 +9,7 @@ struct InlineDayPanel: View {
     let onSelectItem: (CalendarItemSnapshot) -> Void
     var workIntervals: [DateInterval] = []
     var workDayAccessory: (() -> AnyView)? = nil
+    var displayOptions: CalendarDisplayOptions? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -72,12 +73,12 @@ struct InlineDayPanel: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(date.japaneseShortDate)の時間割を開く、予定\(items.count)件")
             .accessibilityValue(workIntervals.map {
-                "仕事 \(DateFormatter.mira("H:mm").string(from: $0.start))–\(DateFormatter.mira("H:mm").string(from: $0.end))"
+                "仕事 \(workTime($0))"
             }.joined(separator: "、"))
             .accessibilityIdentifier("inlineDayTimeBar")
 
             ForEach(Array(workIntervals.enumerated()), id: \.offset) { index, interval in
-                Text("仕事  \(DateFormatter.mira("H:mm").string(from: interval.start))–\(DateFormatter.mira("H:mm").string(from: interval.end))")
+                Text("仕事  \(workTime(interval))")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(palette.secondaryText)
                     .padding(8)
@@ -93,30 +94,13 @@ struct InlineDayPanel: View {
                     .padding(.vertical, 8)
                     .accessibilityIdentifier("inlineDayEmpty")
             } else {
-                VStack(spacing: 16) {
-                    ForEach(items) { item in
-                        Button { onSelectItem(item) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(item.colorTag == nil ? palette.accent.opacity(0.65) : palette.color(for: item))
-                                    .frame(width: 4)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(item.title).font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(palette.primaryText)
-                                    Text(item.timeDescription + duration(for: item))
-                                        .font(.caption)
-                                        .foregroundStyle(palette.secondaryText)
-                                }
-                                .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
-                            }
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("inlineDayEvent-\(item.id.uuidString)")
+                if let limit = displayOptions?.agendaHeight, items.count > limit {
+                    ScrollView {
+                        eventRows
                     }
+                    .frame(maxHeight: CGFloat(limit * 44 + (limit - 1) * 16))
+                } else {
+                    eventRows
                 }
             }
         }
@@ -129,6 +113,40 @@ struct InlineDayPanel: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(date.japaneseShortDate)の予定")
         .accessibilityIdentifier("inlineDayPanel")
+    }
+
+    private var eventRows: some View {
+        VStack(spacing: 16) {
+            ForEach(items) { item in
+                Button { onSelectItem(item) } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(item.colorTag == nil ? palette.accent.opacity(0.65) : palette.color(for: item))
+                            .frame(width: 4)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(item.title).font(.subheadline.weight(.semibold))
+                                .foregroundStyle(palette.primaryText)
+                                .lineLimit(item.kind == .confirmed && !item.countsAgainstWhitespace ? displayOptions?.memoLines : nil)
+                            Text((displayOptions?.timeDescription(for: item) ?? item.timeDescription) + duration(for: item))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("inlineDayEvent-\(item.id.uuidString)")
+            }
+        }
+    }
+
+    private func workTime(_ interval: DateInterval) -> String {
+        let options = displayOptions ?? CalendarDisplayOptions()
+        return "\(options.time(interval.start))–\(options.time(interval.end))"
     }
 
     private func duration(for item: CalendarItemSnapshot) -> String {

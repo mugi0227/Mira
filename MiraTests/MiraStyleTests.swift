@@ -6,33 +6,6 @@ import XCTest
 
 @MainActor
 final class MiraStyleTests: XCTestCase {
-    func testMonthEventChipShowsOnlyKnownSingleDayStartTimesByDefault() {
-        var event = TestFixtures.event(day: 2, hour: 9)
-        event.startDate = event.startDate.setting(hour: 9, minute: 5)
-        var grid = MonthCalendarGrid(
-            month: TestFixtures.september,
-            selectedDate: .constant(event.startDate),
-            items: [event],
-            palette: MiraThemePalette(kind: .softMinimal, colorScheme: .light)
-        )
-
-        XCTAssertEqual(grid.eventStartTime(for: event), "9:05")
-        var eveningEvent = TestFixtures.event(day: 2, hour: 22)
-        XCTAssertEqual(grid.eventStartTime(for: eveningEvent), "22:00")
-        eveningEvent.endDate.addTimeInterval(60)
-        XCTAssertNil(grid.eventStartTime(for: eveningEvent))
-
-        var allDay = event
-        allDay.isAllDay = true
-        XCTAssertNil(grid.eventStartTime(for: allDay))
-        var timeUnknown = event
-        timeUnknown.exactTimeKnown = false
-        XCTAssertNil(grid.eventStartTime(for: timeUnknown))
-
-        grid.showsEventStartTime = false
-        XCTAssertNil(grid.eventStartTime(for: event))
-    }
-
     func testReduceMotionDisablesSelectionSpring() {
         XCTAssertNil(MiraMotion.selection(reduceMotion: true))
         XCTAssertNotNil(MiraMotion.selection(reduceMotion: false))
@@ -139,6 +112,24 @@ final class MiraStyleTests: XCTestCase {
         await store.resetDemo()
         XCTAssertEqual(store.theme, .softMinimal)
         XCTAssertEqual(store.settingsEntity?.themeRaw, AppThemeKind.softMinimal.rawValue)
+    }
+
+    func testDemoResetRestoresPersistedCalendarDisplayDefaults() async throws {
+        let defaults = UserDefaults.standard
+        let key = CalendarDisplayOptions.storageKey
+        let savedValue = defaults.object(forKey: key)
+        defer { defaults.set(savedValue, forKey: key) }
+        let store = makeStore(try makeContainer())
+        await store.bootstrap()
+        store.calendarDisplayOptions.showsWeekNumbers = true
+        store.calendarDisplayOptions.showsRokuyo = true
+        store.calendarDisplayOptions.pagesVertically = true
+        XCTAssertNotEqual(CalendarDisplayOptions.load(from: defaults), CalendarDisplayOptions())
+
+        await store.resetDemo()
+
+        XCTAssertEqual(store.calendarDisplayOptions, CalendarDisplayOptions())
+        XCTAssertEqual(CalendarDisplayOptions.load(from: defaults), CalendarDisplayOptions())
     }
 
     private func makeContainer() throws -> ModelContainer {

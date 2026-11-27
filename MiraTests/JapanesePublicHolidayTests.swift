@@ -33,4 +33,12 @@ final class JapanesePublicHolidayTests: XCTestCase {
             XCTAssertFalse(JapanesePublicHolidays.isHoliday(date(value)), value)
         }
     }
+
+    func testHolidayTitlesComeFromTheSameRulesAsWorkDayExclusions() {
+        XCTAssertEqual(JapanesePublicHolidays.title(on: date("2026-09-21")), "敬老の日")
+        XCTAssertEqual(JapanesePublicHolidays.title(on: date("2026-09-22")), "国民の休日")
+        XCTAssertEqual(JapanesePublicHolidays.title(on: date("2026-09-23")), "秋分の日")
+        XCTAssertEqual(JapanesePublicHolidays.title(on: date("2026-05-06")), "振替休日")
+        XCTAssertNil(JapanesePublicHolidays.title(on: date("2026-09-24")))
+    }
 }
