@@ -231,6 +231,7 @@ struct MonthCalendarGrid: View {
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
         let holiday = showsPublicHolidays ? JapanesePublicHolidays.title(on: date, calendar: calendar) : nil
+        let dayInset: CGFloat = privacyMode && friendLevel == .titles ? 0 : 4.5
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
         let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight - rokuyoHeight < 104
@@ -349,8 +350,9 @@ struct MonthCalendarGrid: View {
                     }
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
+                        let startTime = palette.isCatSkin ? nil : displayOptions?.startTime(for: item)
                         HStack(spacing: 0) {
-                            CalendarEventStrip(item: item, palette: palette, displayOptions: displayOptions)
+                            CalendarEventStrip(item: item, palette: palette, displayOptions: displayOptions, startTime: startTime)
                             .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
                             .onTapGesture { onSelectItem?(item) }
                             .draggable(allowsDragging ? item.id.uuidString : "")
@@ -361,6 +363,7 @@ struct MonthCalendarGrid: View {
                             .accessibilityAction { onSelectItem?(item) }
                             Spacer(minLength: 0)
                         }
+                        .padding(.horizontal, startTime == nil ? 0 : 2 - dayInset)
                     }
 
                     if dayItems.count > visibleItemLimit {
@@ -385,7 +388,7 @@ struct MonthCalendarGrid: View {
             Spacer(minLength: 0)
         }
         .padding(.top, privacyMode ? 2 : 5)
-        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
+        .padding(.horizontal, dayInset)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
@@ -513,6 +516,7 @@ private struct CalendarEventStrip: View {
     let item: CalendarItemSnapshot
     let palette: MiraThemePalette
     let displayOptions: CalendarDisplayOptions?
+    let startTime: String?
 
     private var appearance: CalendarLabelAppearance? {
         guard let displayOptions, item.kind == .confirmed else { return nil }
@@ -523,7 +527,6 @@ private struct CalendarEventStrip: View {
     }
 
     var body: some View {
-        let startTime = palette.isCatSkin ? nil : displayOptions?.startTime(for: item)
         HStack(spacing: startTime == nil ? 2 : 0.5) {
             if let startTime {
                 Text(startTime)
