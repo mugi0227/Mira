@@ -259,6 +259,31 @@ extension MiraStore {
         }
     }
 
+    func deleteDuplicateCalendarItems() {
+        let ids = CalendarDisplayOptions.duplicateIDs(in: items)
+        guard !ids.isEmpty else {
+            toast = "重複する予定はありません"
+            return
+        }
+        do {
+            let undo = captureCalendarUndo(title: "重複イベントの削除")
+            let duplicates = try ids.compactMap { try entity(id: $0) }
+            let months = Set(duplicates.map { MonthKey(date: $0.startDate).firstDay })
+            for duplicate in duplicates { context.delete(duplicate) }
+            try context.save()
+            try refresh()
+            finishCalendarMutation(undo)
+            for month in months {
+                updateMarginRecommendation(for: month)
+                recalculateBalance(for: month)
+            }
+            toast = "重複する予定を\(duplicates.count)件削除しました"
+        } catch {
+            context.rollback()
+            toast = "削除できませんでした"
+        }
+    }
+
     func correctLoad(itemID: UUID, to load: LoadClass, rememberKeyword: Bool) {
         do {
             guard let entity = try entity(id: itemID) else { return }

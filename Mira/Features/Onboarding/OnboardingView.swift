@@ -346,7 +346,7 @@ struct OnboardingView: View {
                     Text("週の始まり")
                         .font(.headline)
                     Picker("週の始まり", selection: $weekStartDay) {
-                        ForEach(WeekStartDay.allCases) { value in
+                        ForEach([WeekStartDay.monday, .sunday]) { value in
                             Text(value.title).tag(value)
                         }
                     }
@@ -356,22 +356,15 @@ struct OnboardingView: View {
 
                     Toggle(isOn: $useDeviceHolidays) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("iPhoneの祝日を表示")
+                            Text("日本の祝日を表示")
                                 .font(.headline)
-                            Text("iPhoneで「日本の祝日」を購読している場合だけ表示します。")
+                            Text("Miraが祝日を計算します。iPhoneカレンダーへの接続は不要です。")
                                 .font(.caption)
                                 .foregroundStyle(palette.secondaryText)
                         }
                     }
                 }
                 .miraCard(palette)
-
-                if useDeviceHolidays {
-                    Label("開始時にカレンダーの読み取り許可を確認します", systemImage: "hand.raised.fill")
-                        .font(.caption)
-                        .foregroundStyle(palette.secondaryText)
-                        .miraCard(palette, padding: MiraSpacing.sm)
-                }
             }
             .padding(MiraSpacing.lg)
         }

@@ -5,7 +5,6 @@ import SwiftData
 extension MiraStore {
     var workDayResolver: WorkDayResolver {
         WorkDayResolver(overrides: workDayOverrides,
-                        holidays: Set(deviceHolidays.map { Calendar.mira.startOfDay(for: $0.date) }),
                         excludeHolidays: excludeHolidaysFromWorkDays)
     }
 

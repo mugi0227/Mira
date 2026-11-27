@@ -16,7 +16,7 @@ extension MiraStore {
         demoModeEnabled = settingsEntity.demoModeEnabled
         marginComfortLevel = MarginComfortLevel(rawValue: settingsEntity.marginComfortRaw ?? "") ?? .standard
         weekStartDay = WeekStartDay(rawValue: settingsEntity.weekStartRaw ?? "") ?? .monday
-        deviceHolidaysEnabled = settingsEntity.deviceHolidaysEnabled ?? false
+        showsPublicHolidays = settingsEntity.deviceHolidaysEnabled ?? false
         trendSuggestionsEnabled = settingsEntity.trendSuggestionsEnabled ?? true
     }
 

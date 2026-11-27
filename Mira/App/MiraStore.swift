@@ -23,7 +23,6 @@ final class MiraStore {
     var schedulingRecommendationEngine: SchedulingRecommendationEngine { SchedulingRecommendationEngine(workDays: workDayResolver) }
     let marginRecommendationEngine = MarginRecommendationEngine()
     let rebalanceEngine = RebalanceEngine()
-    let deviceHolidayService = DeviceHolidayService()
     let deviceCalendarService = DeviceCalendarService()
     let draftStorage: DraftStorage
 
@@ -35,7 +34,6 @@ final class MiraStore {
     private(set) var importantPeople: [ImportantPersonEntity] = []
     private(set) var conversationCases: [ConversationCaseEntity] = []
     private(set) var rebalanceProposalEntities: [RebalanceProposalEntity] = []
-    private(set) var deviceHolidays: [DeviceHolidaySnapshot] = []
     private(set) var aiStatus = "確認中"
     var isInterpretingConversation = false
     var chatMessages: [ChatMessage] = []
@@ -67,7 +65,10 @@ final class MiraStore {
     var demoModeEnabled = true
     var marginComfortLevel: MarginComfortLevel = .standard
     var weekStartDay: WeekStartDay = .monday
-    var deviceHolidaysEnabled = false
+    var calendarDisplayOptions = CalendarDisplayOptions.load(from: .standard) {
+        didSet { calendarDisplayOptions.save(to: .standard) }
+    }
+    var showsPublicHolidays = false
     var excludeHolidaysFromWorkDays = true
     var workDayOverrides: [Date: Bool] = [:]
     var presentedAddSheet = false
@@ -224,9 +225,6 @@ final class MiraStore {
                 if demoModeEnabled { await setDemoModeEnabled(false) }
                 UserDefaults.standard.set(true, forKey: "mira.calendar.everydayClockMigrated")
             }
-            if deviceHolidaysEnabled {
-                await refreshDeviceHolidays(for: selectedMonth)
-            }
             aiStatus = await classifier.availabilityDescription
             updateMarginRecommendation(for: selectedMonth)
             recalculateBalance(for: selectedMonth)
@@ -259,10 +257,6 @@ final class MiraStore {
         activeRebalanceProposal = rebalanceProposalEntities.first {
             !$0.isDismissed && Calendar.mira.isDate($0.month, equalTo: selectedMonth, toGranularity: .month)
         }?.proposal
-    }
-
-    func replaceDeviceHolidays(with holidays: [DeviceHolidaySnapshot]) {
-        deviceHolidays = holidays
     }
 
     /// Collapses the two historical aliases into the single rest category.
@@ -338,5 +332,6 @@ final class MiraStore {
         settingsEntity?.deviceHolidaysEnabled = false
         settingsEntity?.updatedAt = .now
         try context.save()
+        calendarDisplayOptions = CalendarDisplayOptions()
     }
 }

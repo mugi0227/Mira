@@ -57,18 +57,7 @@ struct DeviceCalendarSettingsView: View {
                     }
                 }
                 Section {
-                    Picker("予定を書き出す先", selection: Binding(
-                        get: {
-                            let saved = store.deviceCalendarService.destinationID
-                            return store.deviceCalendarService.calendars.contains(where: { $0.id == saved && $0.canWrite }) ? saved : ""
-                        },
-                        set: { store.deviceCalendarService.destinationID = $0 }
-                    )) {
-                        Text("選んでください").tag("")
-                        ForEach(store.deviceCalendarService.calendars.filter(\.canWrite)) { calendar in
-                            Text(calendar.title).tag(calendar.id)
-                        }
-                    }
+                    DeviceCalendarDestinationPicker(title: "予定を書き出す先")
                 } footer: {
                     Text("Miraで作った予定は、詳細画面の「iPhoneカレンダーに保存」で書き出せます。余白や検討中の誘いは書き出しません。外部の予定の編集・削除はiPhoneのカレンダー編集画面で行います。")
                 }
@@ -84,6 +73,25 @@ struct DeviceCalendarSettingsView: View {
         .task { await store.refreshDeviceCalendar() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             authorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        }
+    }
+}
+
+struct DeviceCalendarDestinationPicker: View {
+    @Environment(MiraStore.self) private var store
+    let title: String
+
+    var body: some View {
+        let service = store.deviceCalendarService
+        let calendars = service.calendars.filter(\.canWrite)
+        Picker(title, selection: Binding(
+            get: { calendars.contains(where: { $0.id == service.destinationID }) ? service.destinationID : "" },
+            set: { service.destinationID = $0 }
+        )) {
+            Text("選んでください").tag("")
+            ForEach(calendars) { calendar in
+                Text(calendar.title).tag(calendar.id)
+            }
         }
     }
 }

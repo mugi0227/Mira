@@ -102,7 +102,6 @@ struct SchedulingModeView: View {
         .interactiveDismissDisabled(store.draftPersistenceIssue != nil)
         .task(id: store.activeSchedulingDraft?.month) {
             if let draft = store.activeSchedulingDraft {
-                await store.refreshDeviceHolidays(for: draft.month)
                 await store.refreshDeviceCalendar(around: draft.dateRangeStart, through: draft.dateRangeEnd)
                 if store.activeSchedulingDraft?.id == draft.id {
                     store.refreshSchedulingRecommendations()
@@ -337,7 +336,7 @@ struct SchedulingModeView: View {
             calendar.isDate($0.day, inSameDayAs: date) && draft.timeBands.contains($0.timeBand)
         }
         let dayItems = store.items.filter { calendar.isDate($0.startDate, inSameDayAs: date) }
-        let holiday = store.deviceHolidays.first { calendar.isDate($0.date, inSameDayAs: date) }
+        let holiday = store.visibleHolidayTitle(on: date)
 
         return VStack(spacing: 3) {
             Text("\(calendar.component(.day, from: date))")
@@ -347,7 +346,7 @@ struct SchedulingModeView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 if let holiday {
-                    Text(holiday.title)
+                    Text(holiday)
                         .foregroundStyle(palette.critical)
                 }
                 ForEach(dayItems.prefix(2)) { item in
