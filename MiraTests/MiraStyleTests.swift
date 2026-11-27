@@ -114,6 +114,24 @@ final class MiraStyleTests: XCTestCase {
         XCTAssertEqual(store.settingsEntity?.themeRaw, AppThemeKind.softMinimal.rawValue)
     }
 
+    func testDemoResetRestoresPersistedCalendarDisplayDefaults() async throws {
+        let defaults = UserDefaults.standard
+        let key = CalendarDisplayOptions.storageKey
+        let savedValue = defaults.object(forKey: key)
+        defer { defaults.set(savedValue, forKey: key) }
+        let store = makeStore(try makeContainer())
+        await store.bootstrap()
+        store.calendarDisplayOptions.showsWeekNumbers = true
+        store.calendarDisplayOptions.showsRokuyo = true
+        store.calendarDisplayOptions.pagesVertically = true
+        XCTAssertNotEqual(CalendarDisplayOptions.load(from: defaults), CalendarDisplayOptions())
+
+        await store.resetDemo()
+
+        XCTAssertEqual(store.calendarDisplayOptions, CalendarDisplayOptions())
+        XCTAssertEqual(CalendarDisplayOptions.load(from: defaults), CalendarDisplayOptions())
+    }
+
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
             AppSettingsEntity.self, CalendarItemEntity.self, MarginGoalEntity.self,

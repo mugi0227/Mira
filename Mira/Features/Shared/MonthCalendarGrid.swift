@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MonthCalendarGrid: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var dateSelection
     let month: Date
     @Binding var selectedDate: Date
     let items: [CalendarItemSnapshot]
@@ -12,8 +11,10 @@ struct MonthCalendarGrid: View {
     var preferredHeight: CGFloat? = nil
     var weekStartDay: WeekStartDay = .monday
     var whitespaceMeterDirection: WhitespaceMeterDirection = .remaining
-    var holidays: [DeviceHolidaySnapshot] = []
+    var displayOptions: CalendarDisplayOptions? = nil
+    var showsPublicHolidays = false
     var referenceDate: Date = .now
+    var showsEventStartTime = true
     var allowsDragging = true
     /// Friend view uses the recipient's level and never reveals margin titles or kinds.
     var privacyMode = false
@@ -33,9 +34,16 @@ struct MonthCalendarGrid: View {
         return value
     }
 
+    private var showsWeekNumbers: Bool { displayOptions?.showsWeekNumbers == true }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                if showsWeekNumbers {
+                    Text("週").font(.system(size: 9))
+                        .foregroundStyle(palette.secondaryText)
+                        .frame(width: 23)
+                }
                 ForEach(Array(weekStartDay.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.system(.caption, design: .rounded, weight: .bold))
@@ -57,13 +65,25 @@ struct MonthCalendarGrid: View {
             ForEach(0..<(days.count / 7), id: \.self) { week in
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
+                        if showsWeekNumbers {
+                            let number = CalendarDisplayOptions.weekNumber(for: days[week * 7], startingOn: weekStartDay)
+                            Text("\(number)")
+                                .font(.system(size: 9).monospacedDigit())
+                                .foregroundStyle(palette.secondaryText)
+                                .frame(width: 23, height: cellHeight, alignment: .top)
+                                .padding(.top, 6)
+                                .frame(height: cellHeight, alignment: .top)
+                                .accessibilityLabel("第\(number)週")
+                                .accessibilityIdentifier("monthWeekNumber")
+                        }
                         ForEach(week * 7..<week * 7 + 7, id: \.self) { index in
                             dayCell(days[index], index: index, cellHeight: cellHeight)
                                 .frame(minWidth: 0, maxWidth: .infinity)
                         }
                     }
                     if !privacyMode || friendLevel == .busyTimes {
-                        let weekDate = openedDate.flatMap { date in
+                        let agendaDate = !privacyMode && displayOptions?.alwaysShowsAgenda == true ? selectedDate : openedDate
+                        let weekDate = agendaDate.flatMap { date in
                             days[week * 7..<week * 7 + 7].contains(where: { calendar.isDate($0, inSameDayAs: date) }) ? date : nil
                         }
                         InlineDayPanelSlot(date: weekDate) { date in
@@ -77,7 +97,8 @@ struct MonthCalendarGrid: View {
                                     onOpenTimeline: { onOpenTimeline?(date) },
                                     onSelectItem: { onSelectItem?($0) },
                                     workIntervals: workDays.intervals(on: date, rules: baseRules, calendar: calendar),
-                                    workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) }
+                                    workDayAccessory: { AnyView(WorkDayToggle(date: date, palette: palette)) },
+                                    displayOptions: displayOptions
                                 )
                                 .padding(16)
                             }
@@ -139,12 +160,12 @@ struct MonthCalendarGrid: View {
         // Each time/title pair can use three fixed-size lines, without
         // reducing the original two or three previews to make room.
         let pairedRowHeight = CGFloat(friendTitlePreviewLimit) * 40 + 44
-        let regular: CGFloat = hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)
+        let regular: CGFloat = (hasPairedPreviews ? pairedRowHeight : (dayCount > 35 ? 88 : 104)) + rokuyoHeight
         guard palette.isCatSkin, let preferredHeight else { return regular }
         let chrome = 30 + MiraSpacing.lg * 2
         let hasOverflow = cells.contains { date in
             let count = items.filter { $0.overlapsDay(date, calendar: calendar) }.count
-            let hasHoliday = holidays.contains { calendar.isDate($0.date, inSameDayAs: date) }
+            let hasHoliday = showsPublicHolidays && JapanesePublicHolidays.isHoliday(date, calendar: calendar)
             return count > (privacyMode ? (hasHoliday ? 1 : 2) : (hasHoliday ? 0 : 1))
         }
         // Keep the ring, two-line title and overflow link inside each row;
@@ -179,11 +200,14 @@ struct MonthCalendarGrid: View {
         Rectangle().fill(palette.primaryText.opacity(palette.isCatSkin ? 0.07 : 0.11))
     }
 
+    private var rokuyoHeight: CGFloat { displayOptions?.showsRokuyo == true ? 10 : 0 }
+
     private func weekdayColor(for index: Int) -> Color {
         let weekday = (calendar.firstWeekday - 1 + index) % 7 + 1
+        if let displayOptions, displayOptions.daysOff.contains(weekday) { return palette.critical.opacity(0.86) }
         switch weekday {
         case 7: return palette.accent
-        case 1: return palette.critical.opacity(0.86)
+        case 1 where displayOptions == nil: return palette.critical.opacity(0.86)
         default: return palette.secondaryText
         }
     }
@@ -210,10 +234,10 @@ struct MonthCalendarGrid: View {
         let isToday = calendar.isDate(date, inSameDayAs: referenceDate)
         let isInDisplayedMonth = calendar.isDate(date, equalTo: month, toGranularity: .month)
         let column = index % 7
-        let holiday = holidays.first { calendar.isDate($0.date, inSameDayAs: date) }
+        let holiday = showsPublicHolidays ? JapanesePublicHolidays.title(on: date, calendar: calendar) : nil
         // Leave space for the overflow link instead of clipping a third chip
         // when the calendar uses a shorter row on a compact viewport.
-        let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight < 104
+        let isCompact = privacyMode ? palette.isCatSkin && cellHeight < 100 : cellHeight - rokuyoHeight < 104
         let visibleItemLimit = if privacyMode {
             isCompact ? (holiday == nil ? 2 : 1) : (holiday == nil ? 3 : 2)
         } else {
@@ -221,39 +245,40 @@ struct MonthCalendarGrid: View {
         }
 
         VStack(alignment: .leading, spacing: 2) {
+            if rokuyoHeight > 0, let label = CalendarDisplayOptions.rokuyo(for: date) {
+                Text(label)
+                    .font(.system(size: 8))
+                    .foregroundStyle(palette.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 8, alignment: .trailing)
+                    .padding(.trailing, 2)
+                    .accessibilityIdentifier("monthRokuyo")
+            }
             Button {
                 select(date)
             } label: {
                 HStack {
                     Spacer(minLength: 0)
-                    ZStack {
-                        if isToday {
-                            Circle().fill(palette.accent)
-                                .frame(width: 27, height: 27)
-                        } else if isSelected {
-                            RoundedRectangle(cornerRadius: privacyMode ? 12 : 14, style: .continuous)
-                                .fill(palette.primaryText.opacity(0.08))
-                                .frame(width: privacyMode ? 30 : 27, height: privacyMode ? 30 : 27)
-                                .matchedGeometryEffect(id: "selected-date", in: dateSelection)
-                        }
-
-                        Text("\(calendar.component(.day, from: date))")
-                            .font(.system(size: 18, weight: isSelected || isToday ? .semibold : .regular, design: palette.isCatSkin ? .serif : .rounded).monospacedDigit())
-                            .foregroundStyle(dateForeground(
-                                isSelected: isToday,
-                                isInDisplayedMonth: isInDisplayedMonth,
-                                date: date,
-                                isHoliday: holiday != nil
-                            ))
-                    }
-                    .frame(height: 26)
+                    Text("\(calendar.component(.day, from: date))")
+                        .font(.system(
+                            size: 18 + CGFloat(displayOptions?.textSize.rawValue ?? 0),
+                            weight: displayOptions?.textWeight.fontWeight ?? (isSelected || isToday ? .semibold : .regular),
+                            design: palette.isCatSkin ? .serif : .rounded
+                        ).monospacedDigit())
+                        .foregroundStyle(dateForeground(
+                            isToday: isToday,
+                            isInDisplayedMonth: isInDisplayedMonth,
+                            date: date,
+                            isHoliday: holiday != nil
+                        ))
+                        .frame(height: 26)
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
             .frame(height: privacyMode ? 26 : 34)
             .buttonStyle(.plain)
-            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityLabel("\(date.japaneseShortDate)を開く" + (isToday ? "、今日" : "") + (!privacyMode && workDays.isWorkDay(date, rules: baseRules, calendar: calendar) ? "、仕事の日" : ""))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityIdentifier("calendar-date-\(DateFormatter.mira("yyyy-MM-dd").string(from: date))")
             .overlay {
                 if let whitespace, let meterTime {
@@ -270,12 +295,13 @@ struct MonthCalendarGrid: View {
 
             VStack(spacing: 2) {
                 if let holiday {
-                    Text(holiday.title)
+                    Text(holiday)
                         .font(.system(size: 7.5, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.critical)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 2)
+                        .accessibilityIdentifier("monthPublicHoliday")
                 }
 
                 if privacyMode {
@@ -328,12 +354,12 @@ struct MonthCalendarGrid: View {
                 } else {
                     ForEach(dayItems.prefix(visibleItemLimit)) { item in
                         HStack(spacing: 0) {
-                            CalendarEventStrip(item: item, palette: palette)
+                            CalendarEventStrip(item: item, palette: palette, displayOptions: displayOptions)
                             .contentShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
                             .onTapGesture { onSelectItem?(item) }
                             .draggable(allowsDragging ? item.id.uuidString : "")
                             .accessibilityElement(children: .combine)
-                            .accessibilityLabel("\(item.title)、\(item.timeDescription)")
+                            .accessibilityLabel("\(item.title)、\(displayOptions?.timeDescription(for: item) ?? item.timeDescription)")
                             .accessibilityHint("予定の詳細を開く")
                             .accessibilityAddTraits(.isButton)
                             .accessibilityAction { onSelectItem?(item) }
@@ -362,8 +388,8 @@ struct MonthCalendarGrid: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.top, 2)
-        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 2)
+        .padding(.top, privacyMode ? 2 : 5)
+        .padding(.horizontal, privacyMode && friendLevel == .titles ? 0 : 4.5)
         .padding(.bottom, 3)
         .frame(maxWidth: .infinity, minHeight: cellHeight, maxHeight: cellHeight, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
@@ -380,10 +406,17 @@ struct MonthCalendarGrid: View {
             }
         }
         .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(palette.primaryText.opacity(0.025))
+            if isToday || isSelected {
+                let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+                shape.fill(isToday ? palette.accentSoft : .clear)
+                    .overlay {
+                        if isSelected {
+                            shape.strokeBorder(palette.accent, lineWidth: 1.5)
+                        }
+                    }
                     .padding(2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
         .contentShape(Rectangle())
@@ -420,17 +453,17 @@ struct MonthCalendarGrid: View {
     }
 
     private func dateForeground(
-        isSelected: Bool,
+        isToday: Bool,
         isInDisplayedMonth: Bool,
         date: Date,
         isHoliday: Bool
     ) -> Color {
-        if isSelected { return palette.onAccent }
-        if !isInDisplayedMonth { return palette.secondaryText.opacity(0.48) }
+        if !isInDisplayedMonth && !isToday { return palette.secondaryText.opacity(0.48) }
         if isHoliday { return palette.critical.opacity(0.88) }
         let weekday = calendar.component(.weekday, from: date)
+        if let displayOptions, displayOptions.daysOff.contains(weekday) { return palette.critical.opacity(0.88) }
         if weekday == 7 { return palette.accent }
-        if weekday == 1 { return palette.critical.opacity(0.88) }
+        if weekday == 1 && displayOptions == nil { return palette.critical.opacity(0.88) }
         return palette.primaryText
     }
 
@@ -482,6 +515,15 @@ private struct BusyStrip: View {
 private struct CalendarEventStrip: View {
     let item: CalendarItemSnapshot
     let palette: MiraThemePalette
+    let displayOptions: CalendarDisplayOptions?
+
+    private var appearance: CalendarLabelAppearance? {
+        guard let displayOptions, item.kind == .confirmed else { return nil }
+        return CalendarLabelAppearance(
+            options: displayOptions, palette: palette, tag: chipTag,
+            isTimed: !item.isAllDay && item.exactTimeKnown
+        )
+    }
 
     var body: some View {
         HStack(spacing: 2) {
@@ -492,19 +534,22 @@ private struct CalendarEventStrip: View {
             }
 
             Text(chipTitle)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.system(
+                    size: 10 + CGFloat(displayOptions?.textSize.rawValue ?? 0),
+                    weight: displayOptions?.textWeight.fontWeight ?? .semibold, design: .rounded
+                ))
                 .lineLimit(palette.isCatSkin ? 2 : 1)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(palette.isCatSkin ? 1 : 0.72)
         }
-        .foregroundStyle(item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText))
+        .foregroundStyle(appearance?.foreground ?? (item.kind == .confirmed && !item.countsAgainstWhitespace ? palette.secondaryText : (chipTag.map(palette.chipText(for:)) ?? palette.primaryText)))
         .opacity(item.kind == .confirmed && !item.countsAgainstWhitespace ? 0.7 : 1)
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, minHeight: palette.isCatSkin ? 26 : 18, alignment: .center)
         .background(stripBackground)
         .overlay(alignment: .leading) {
-            if item.kind != .margin, let tag = item.colorTag {
+            if appearance == nil, item.kind != .margin, let tag = item.colorTag {
                 palette.bar(for: tag).frame(width: 2.5)
             }
         }
@@ -512,7 +557,7 @@ private struct CalendarEventStrip: View {
             RoundedRectangle(cornerRadius: palette.isCatSkin ? 7 : 2.5, style: .continuous)
                 .stroke(
                     item.kind == .margin && !palette.isCatSkin ? palette.primaryText.opacity(0.28)
-                        : (chipTag?.needsOutline == true ? palette.primaryText.opacity(0.22) : Color.clear),
+                        : (chipTag?.needsOutline == true && appearance?.textOnly != true ? palette.primaryText.opacity(0.22) : Color.clear),
                     style: StrokeStyle(lineWidth: 0.7, dash: item.kind == .margin ? [2, 1.5] : [])
                 )
         }
@@ -531,6 +576,7 @@ private struct CalendarEventStrip: View {
     }
 
     private var stripBackground: Color {
+        if let appearance { return appearance.background }
         if palette.isCatSkin && item.kind == .confirmed && !item.isImportantTime && item.colorTag == nil { return .clear }
         return palette.color(for: item).opacity(item.kind == .margin ? 0.82 : 0.96)
     }

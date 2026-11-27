@@ -30,7 +30,7 @@ struct DayTimelineView: View {
                     if proposal != nil { dayHeader }
 
                     if let holiday {
-                        Label(holiday.title, systemImage: "flag.fill")
+                        Label(holiday, systemImage: "flag.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(palette.critical)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -105,7 +105,7 @@ struct DayTimelineView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if proposal == nil {
                 Button {
-                    store.presentedEventForm = ManualEventDraft(date: date)
+                    store.presentedEventForm = store.calendarDisplayOptions.newEventDraft(on: date)
                 } label: {
                     Image(systemName: "plus")
                         .frame(width: 44, height: 44)
@@ -164,8 +164,8 @@ struct DayTimelineView: View {
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
-    private var holiday: DeviceHolidaySnapshot? {
-        store.deviceHolidays.first { Calendar.mira.isDate($0.date, inSameDayAs: date) }
+    private var holiday: String? {
+        store.visibleHolidayTitle(on: date)
     }
 
     private var allDayItems: [CalendarItemSnapshot] {
@@ -234,8 +234,10 @@ struct DayTimelineView: View {
     private func timeline(hasPinnedAllDayItems: Bool) -> some View {
         HStack(alignment: .top, spacing: MiraSpacing.xs) {
             VStack(spacing: 0) {
-                ForEach(0..<24, id: \.self) { hour in
-                    Text(String(format: "%02d:00", hour))
+                ForEach(timelineHours, id: \.self) { hour in
+                    Text(store.calendarDisplayOptions.uses24HourTime
+                         ? String(format: "%02d:00", hour)
+                         : store.calendarDisplayOptions.time(date.setting(hour: hour)))
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(palette.secondaryText)
                         .frame(width: timeLabelWidth, height: hourHeight, alignment: .topTrailing)
@@ -246,7 +248,7 @@ struct DayTimelineView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     VStack(spacing: 0) {
-                        ForEach(0..<24, id: \.self) { _ in
+                        ForEach(timelineHours, id: \.self) { _ in
                             Rectangle()
                                 .fill(palette.primaryText.opacity(0.10))
                                 .frame(height: 0.5)
@@ -258,8 +260,10 @@ struct DayTimelineView: View {
                     if proposal == nil {
                         let intervals = store.workDayResolver.intervals(on: date, rules: store.fetchBaseRules())
                         ForEach(intervals, id: \.self) { interval in
-                            workBand(interval)
-                                .frame(width: geometry.size.width)
+                            if let visible = ProposalTimeline.overlap(interval, timelineInterval) {
+                                workBand(visible, original: interval)
+                                    .frame(width: geometry.size.width)
+                            }
                         }
                     }
 
@@ -272,37 +276,7 @@ struct DayTimelineView: View {
                         }
                     }
 
-                    ForEach(timelinePlacements) { placement in
-                        let spacing: CGFloat = 4
-                        let eventsWidth = proposal == nil ? geometry.size.width : (geometry.size.width - spacing) * 0.55
-                        let laneWidth = max(
-                            44,
-                            (eventsWidth - spacing * CGFloat(placement.laneCount - 1))
-                                / CGFloat(placement.laneCount)
-                        )
-                        let isDragging = draggingID == placement.item.id
-                        timelineEvent(placement.item, height: placement.height)
-                            .frame(width: laneWidth, height: placement.height)
-                            .scaleEffect(isDragging ? 1.03 : 1)
-                            .shadow(color: isDragging ? palette.shadow : .clear, radius: 10, y: 4)
-                            .overlay(alignment: .topTrailing) {
-                                if isDragging {
-                                    Text(dragTimeLabel(for: placement.item))
-                                        .font(.caption.weight(.bold).monospacedDigit())
-                                        .foregroundStyle(palette.onAccent)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(palette.accent, in: Capsule())
-                                        .offset(y: -26)
-                                }
-                            }
-                            .offset(
-                                x: CGFloat(placement.lane) * (laneWidth + spacing),
-                                y: placement.y + (isDragging ? dragOffset : 0)
-                            )
-                            .zIndex(isDragging ? 1 : 0)
-                            .gesture(timeDragGesture(for: placement.item), including: proposal == nil ? .all : .subviews)
-                    }
+                    timelineLanes(width: proposal == nil ? geometry.size.width : (geometry.size.width - 4) * 0.55)
 
                     if let proposal {
                         proposalBlock(proposal.event)
@@ -326,10 +300,67 @@ struct DayTimelineView: View {
                     }
                 }
             }
-            .frame(height: hourHeight * 24)
+            .frame(height: timelineHeight)
         }
         .padding(.trailing, proposal == nil ? 0 : MiraSpacing.md)
         .accessibilityElement(children: .contain)
+    }
+
+    private var timelineHours: Range<Int> {
+        let options = store.calendarDisplayOptions
+        return proposal == nil ? options.dayStartHour..<options.dayEndHour : 0..<24
+    }
+
+    private var timelineInterval: DateInterval {
+        let start = date.setting(hour: timelineHours.lowerBound)
+        let end = timelineHours.upperBound == 24 ? date.startOfDay().addingDays(1) : date.setting(hour: timelineHours.upperBound)
+        return DateInterval(start: start, end: end)
+    }
+
+    private var timelineHeight: CGFloat { hourHeight * CGFloat(timelineHours.count) }
+
+    @ViewBuilder
+    private func timelineLanes(width: CGFloat) -> some View {
+        let placements = timelinePlacements
+        let contentWidth = TimelinePlacement.contentWidth(for: placements, viewportWidth: width)
+        if contentWidth > width {
+            ScrollView(.horizontal) {
+                timelineCards(placements, viewportWidth: width)
+                    .frame(width: contentWidth, height: timelineHeight, alignment: .topLeading)
+            }
+            .frame(width: width, height: timelineHeight)
+        } else {
+            timelineCards(placements, viewportWidth: width)
+        }
+    }
+
+    private func timelineCards(_ placements: [TimelinePlacement], viewportWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(placements) { placement in
+                let isDragging = draggingID == placement.item.id
+                timelineEvent(placement.item, height: placement.height)
+                    .frame(width: placement.laneWidth(in: viewportWidth), height: placement.height)
+                    .scaleEffect(isDragging ? 1.03 : 1)
+                    .shadow(color: isDragging ? palette.shadow : .clear, radius: 10, y: 4)
+                    .overlay(alignment: .topTrailing) {
+                        if isDragging {
+                            Text(dragTimeLabel(for: placement.item))
+                                .font(.caption.weight(.bold).monospacedDigit())
+                                .foregroundStyle(palette.onAccent)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(palette.accent, in: Capsule())
+                                .offset(y: -26)
+                        }
+                    }
+                    .offset(
+                        x: placement.laneOffset(in: viewportWidth),
+                        y: placement.y + (isDragging ? dragOffset : 0)
+                    )
+                    .zIndex(isDragging ? 1 : 0)
+                    .gesture(timeDragGesture(for: placement.item), including: proposal == nil ? .all : .subviews)
+            }
+        }
     }
 
     private func timelineEvent(_ item: CalendarItemSnapshot, height: CGFloat) -> some View {
@@ -341,7 +372,7 @@ struct DayTimelineView: View {
                             .foregroundStyle((item.kind == .confirmed && !item.countsAgainstWhitespace) ? palette.secondaryText : palette.primaryText)
                     .font(.caption.weight(.semibold))
                     .lineLimit(height >= 62 ? 2 : 1)
-                Text(item.timeDescription)
+                Text(store.calendarDisplayOptions.timeDescription(for: item))
                     .font(.caption2.monospacedDigit())
                     .lineLimit(1)
                 if height >= 82, item.kind == .margin {
@@ -373,7 +404,7 @@ struct DayTimelineView: View {
             .clipShape(RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
         }
         .buttonStyle(MiraPressStyle())
-        .accessibilityLabel("\(item.title)、\(item.timeDescription)")
+        .accessibilityLabel("\(item.title)、\(store.calendarDisplayOptions.timeDescription(for: item))")
         .accessibilityHint(proposal == nil ? "詳細を開く。長押ししてドラッグすると時間を変えられます" : "詳細を開く")
         .accessibilityActions {
             if proposal == nil {
@@ -388,11 +419,12 @@ struct DayTimelineView: View {
         return !ProposalTimeline.overlappingItems([item], proposal: proposal.event).isEmpty
     }
 
-    private func workBand(_ interval: DateInterval) -> some View {
-        Rectangle()
+    private func workBand(_ interval: DateInterval, original: DateInterval) -> some View {
+        let options = store.calendarDisplayOptions
+        return Rectangle()
             .fill(palette.secondaryText.opacity(0.06))
             .overlay(alignment: .topLeading) {
-                Text("仕事  \(DateFormatter.mira("H:mm").string(from: interval.start))–\(DateFormatter.mira("H:mm").string(from: interval.end))")
+                Text("仕事  \(options.time(original.start))–\(options.time(original.end))")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(palette.secondaryText)
                     .padding(MiraSpacing.sm)
@@ -435,19 +467,19 @@ struct DayTimelineView: View {
     private func proposalBlock(_ event: CalendarItemSnapshot) -> some View {
         VStack(alignment: .leading, spacing: MiraSpacing.xs) {
             Text(event.title).font(.caption.bold())
-            Text(event.timeDescription).font(.caption2.monospacedDigit())
+            Text(store.calendarDisplayOptions.timeDescription(for: event)).font(.caption2.monospacedDigit())
         }
         .foregroundStyle(palette.accent)
         .padding(MiraSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: eventHeight(for: event), alignment: .topLeading)
+        .frame(height: TimelinePlacement.eventHeight(for: event, in: timelineInterval, hourHeight: hourHeight), alignment: .topLeading)
         .background(palette.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: MiraRadius.small, style: .continuous)
                 .stroke(palette.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("追加予定 \(event.title)、\(event.timeDescription)")
+        .accessibilityLabel("追加予定 \(event.title)、\(store.calendarDisplayOptions.timeDescription(for: event))")
         .accessibilityIdentifier("proposal.timelineBlock")
         .allowsHitTesting(false)
     }
@@ -496,7 +528,7 @@ struct DayTimelineView: View {
 
     private func dragTimeLabel(for item: CalendarItemSnapshot) -> String {
         let start = item.startDate.addingTimeInterval(TimeInterval(snappedMinutes * 60))
-        return start.formatted(Date.FormatStyle.mira.hour().minute())
+        return store.calendarDisplayOptions.time(start)
     }
 
     private func shift(_ item: CalendarItemSnapshot, minutes: Int) {
@@ -504,70 +536,18 @@ struct DayTimelineView: View {
     }
 
     private var timelinePlacements: [TimelinePlacement] {
-        let sorted = timedItems.sorted { $0.startDate < $1.startDate }
-        var groups: [[CalendarItemSnapshot]] = []
-        var currentGroup: [CalendarItemSnapshot] = []
-        var currentGroupEnd = Date.distantPast
-
-        for item in sorted {
-            if currentGroup.isEmpty || item.startDate < currentGroupEnd {
-                currentGroup.append(item)
-                currentGroupEnd = max(currentGroupEnd, item.endDate)
-            } else {
-                groups.append(currentGroup)
-                currentGroup = [item]
-                currentGroupEnd = item.endDate
-            }
-        }
-        if !currentGroup.isEmpty { groups.append(currentGroup) }
-
-        var result: [TimelinePlacement] = []
-        for group in groups {
-            var laneEnds: [Date] = []
-            var staged: [(CalendarItemSnapshot, Int)] = []
-
-            for item in group {
-                let lane: Int
-                if let reusable = laneEnds.firstIndex(where: { $0 <= item.startDate }) {
-                    lane = reusable
-                    laneEnds[reusable] = item.endDate
-                } else {
-                    lane = laneEnds.count
-                    laneEnds.append(item.endDate)
-                }
-                staged.append((item, lane))
-            }
-
-            let laneCount = max(1, laneEnds.count)
-            result.append(contentsOf: staged.map { item, lane in
-                TimelinePlacement(
-                    item: item,
-                    lane: lane,
-                    laneCount: laneCount,
-                    y: min(yOffset(for: max(Calendar.mira.startOfDay(for: date), item.startDate)), hourHeight * 24 - 44),
-                    height: eventHeight(for: item)
-                )
-            })
-        }
-        return result
+        TimelinePlacement.layout(timedItems, in: timelineInterval, hourHeight: hourHeight, timelineHeight: timelineHeight)
     }
 
     private func yOffset(for value: Date) -> CGFloat {
         let components = Calendar.mira.dateComponents([.hour, .minute], from: value)
         let minutes = CGFloat((components.hour ?? 0) * 60 + (components.minute ?? 0))
-        return minutes / 60 * hourHeight
-    }
-
-    private func eventHeight(for item: CalendarItemSnapshot) -> CGFloat {
-        let dayEnd = Calendar.mira.startOfDay(for: date).addingDays(1)
-        let start = max(Calendar.mira.startOfDay(for: date), item.startDate)
-        let end = min(dayEnd, max(item.endDate, start.addingTimeInterval(30 * 60)))
-        let minutes = max(30, end.timeIntervalSince(start) / 60)
-        return max(44, CGFloat(minutes / 60) * hourHeight)
+        return (minutes / 60 - CGFloat(timelineHours.lowerBound)) * hourHeight
     }
 
     private var currentY: CGFloat? {
         guard Calendar.mira.isDate(date, inSameDayAs: store.now) else { return nil }
+        guard store.now >= timelineInterval.start, store.now < timelineInterval.end else { return nil }
         return yOffset(for: store.now)
     }
 
@@ -582,7 +562,7 @@ struct DayTimelineView: View {
         } else {
             hour = 8
         }
-        return "hour-\(hour)"
+        return "hour-\(min(max(hour, timelineHours.lowerBound), timelineHours.upperBound - 1))"
     }
 
     private func symbol(for item: CalendarItemSnapshot) -> String {
@@ -594,11 +574,74 @@ struct DayTimelineView: View {
     }
 }
 
-private struct TimelinePlacement: Identifiable {
+struct TimelinePlacement: Identifiable {
+    private static let laneSpacing: CGFloat = 4
+    private static let minimumLaneWidth: CGFloat = 44
+
     var id: UUID { item.id }
     let item: CalendarItemSnapshot
     let lane: Int
     let laneCount: Int
     let y: CGFloat
     let height: CGFloat
+
+    func laneWidth(in viewportWidth: CGFloat) -> CGFloat {
+        max(Self.minimumLaneWidth, (viewportWidth - Self.laneSpacing * CGFloat(laneCount - 1)) / CGFloat(laneCount))
+    }
+
+    func laneOffset(in viewportWidth: CGFloat) -> CGFloat {
+        CGFloat(lane) * (laneWidth(in: viewportWidth) + Self.laneSpacing)
+    }
+
+    static func contentWidth(for placements: [TimelinePlacement], viewportWidth: CGFloat) -> CGFloat {
+        guard let laneCount = placements.map(\.laneCount).max() else { return viewportWidth }
+        return max(viewportWidth, minimumLaneWidth * CGFloat(laneCount) + laneSpacing * CGFloat(laneCount - 1))
+    }
+
+    private struct Block {
+        let item: CalendarItemSnapshot
+        let y: CGFloat
+        let height: CGFloat
+    }
+
+    static func eventHeight(for item: CalendarItemSnapshot, in visible: DateInterval, hourHeight: CGFloat) -> CGFloat {
+        let start = max(visible.start, item.startDate)
+        let end = min(visible.end, item.endDate)
+        return max(44, CGFloat(end.timeIntervalSince(start) / 3600) * hourHeight)
+    }
+
+    static func layout(
+        _ items: [CalendarItemSnapshot], in visible: DateInterval, hourHeight: CGFloat, timelineHeight: CGFloat
+    ) -> [TimelinePlacement] {
+        var blocks: [Block] = []
+        for item in items where item.startDate < visible.end && item.endDate > visible.start {
+            let start = max(visible.start, item.startDate)
+            let height = eventHeight(for: item, in: visible, hourHeight: hourHeight)
+            let offset = CGFloat(start.timeIntervalSince(visible.start) / 3600) * hourHeight
+            blocks.append(Block(item: item, y: min(offset, timelineHeight - height), height: height))
+        }
+        blocks.sort { $0.y == $1.y ? $0.item.startDate < $1.item.startDate : $0.y < $1.y }
+        var placements: [TimelinePlacement] = []
+        var group: [(block: Block, lane: Int)] = []
+        var laneEnds: [CGFloat] = []
+
+        func appendGroup() {
+            placements.append(contentsOf: group.map { block, lane in
+                TimelinePlacement(item: block.item, lane: lane, laneCount: laneEnds.count, y: block.y, height: block.height)
+            })
+            group.removeAll()
+            laneEnds.removeAll()
+        }
+
+        for block in blocks {
+            if let lastEnd = laneEnds.max(), block.y >= lastEnd { appendGroup() }
+            let end = block.y + block.height
+            let lane = laneEnds.firstIndex(where: { $0 <= block.y }) ?? laneEnds.count
+            if lane == laneEnds.count { laneEnds.append(end) }
+            else { laneEnds[lane] = end }
+            group.append((block, lane))
+        }
+        appendGroup()
+        return placements
+    }
 }

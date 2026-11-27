@@ -96,14 +96,12 @@ struct SettingsView: View {
             .listRowBackground(palette.surface)
 
             Section {
-                Picker("週の始まり", selection: Binding(
-                    get: { store.weekStartDay },
-                    set: { store.setWeekStartDay($0) }
-                )) {
-                    ForEach(WeekStartDay.allCases) { value in
-                        Text(value.title).tag(value)
-                    }
+                NavigationLink {
+                    CalendarDisplaySettingsView(palette: palette)
+                } label: {
+                    Label("一般設定", systemImage: "calendar")
                 }
+                .accessibilityIdentifier("calendarDisplaySettings")
 
                 Picker("余白メーター", selection: Binding(
                     get: { store.whitespaceMeterDirection },
@@ -115,10 +113,6 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("whitespaceMeterDirection")
 
-                Toggle("iPhoneの祝日を表示", systemImage: "flag.fill", isOn: Binding(
-                    get: { store.deviceHolidaysEnabled },
-                    set: { enabled in Task { await store.setDeviceHolidaysEnabled(enabled) } }
-                ))
                 Toggle("祝日を仕事の日から除く", systemImage: "briefcase.fill", isOn: Binding(
                     get: { store.excludeHolidaysFromWorkDays },
                     set: { store.setExcludeHolidaysFromWorkDays($0) }
@@ -126,7 +120,7 @@ struct SettingsView: View {
             } header: {
                 Text("カレンダー表示")
             } footer: {
-                Text("祝日は、iPhoneで購読している「日本の祝日」カレンダーを使います。購読していない場合は表示されません。仕事の日から除くと、その日の基本時間は空き時間になります。日ごとの指定が優先されます。")
+                Text("Miraが計算する日本の祝日を仕事の日から除くと、その日の基本時間は空き時間になります。祝日の表示とは別の設定で、日ごとの指定が優先されます。")
             }
             .listRowBackground(palette.surface)
 

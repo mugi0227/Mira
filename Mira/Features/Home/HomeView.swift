@@ -59,19 +59,25 @@ struct HomeView: View {
                                 : nil,
                             weekStartDay: store.weekStartDay,
                             whitespaceMeterDirection: store.whitespaceMeterDirection,
-                            holidays: store.deviceHolidays,
+                            displayOptions: isFriendView ? nil : store.calendarDisplayOptions,
+                            showsPublicHolidays: store.showsPublicHolidays,
                             referenceDate: store.now,
+                            showsEventStartTime: store.calendarDisplayOptions.showsStartTime,
                             allowsDragging: !isFriendView,
                             privacyMode: isFriendView,
                             friendLevel: friendLevel,
                             baseRules: store.fetchBaseRules(),
                             openedDate: openedDate,
-                            onAddEvent: { store.presentedEventForm = ManualEventDraft(date: $0) },
+                            onAddEvent: { store.presentedEventForm = store.calendarDisplayOptions.newEventDraft(on: $0) },
                             onOpenTimeline: { selectedDayDestination = DayTimelineDestination(date: $0) },
                             workDays: store.workDayResolver,
                             onMoveItem: { id, date in store.moveItem(id: id, to: date) },
                             onSelectDate: openDay,
                             onSelectItem: { item in if !isFriendView { selectedItem = item } }
+                        )
+                        .simultaneousGesture(
+                            monthSwipe(vertical: false),
+                            isEnabled: palette.isCatSkin || !store.calendarDisplayOptions.pagesVertically
                         )
                         .padding(.horizontal, palette.isCatSkin ? screenInset : 0)
 
@@ -183,7 +189,6 @@ struct HomeView: View {
             if isFriendView { openedDate = nil }
         }
         .task(id: MonthKey(date: store.selectedMonth)) {
-            await store.refreshDeviceHolidays(for: store.selectedMonth)
             await store.refreshDeviceCalendar(around: store.selectedMonth)
         }
     }
@@ -287,16 +292,12 @@ struct HomeView: View {
     }
 
     private var standardMonthHeader: some View {
-        HStack {
+        let vertical = store.calendarDisplayOptions.pagesVertically
+        return HStack {
             Button {
-                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
-                    store.selectedMonth = store.selectedMonth.addingMonths(-1)
-                    store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
-                    store.updateMarginRecommendation(for: store.selectedMonth)
-                    store.recalculateBalance(for: store.selectedMonth)
-                }
+                changeMonth(by: -1)
             } label: {
-                Image(systemName: "chevron.left")
+                Image(systemName: vertical ? "chevron.up" : "chevron.left")
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("前の月")
@@ -306,20 +307,25 @@ struct HomeView: View {
             Spacer()
 
             Button {
-                withAnimation(MiraMotion.selection(reduceMotion: reduceMotion)) {
-                    store.selectedMonth = store.selectedMonth.addingMonths(1)
-                    store.selectedDate = MonthKey(date: store.selectedMonth).firstDay
-                    store.ensurePlan(for: store.selectedMonth)
-                    store.updateMarginRecommendation(for: store.selectedMonth)
-                    store.recalculateBalance(for: store.selectedMonth)
-                }
+                changeMonth(by: 1)
             } label: {
-                Image(systemName: "chevron.right")
+                Image(systemName: vertical ? "chevron.down" : "chevron.right")
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("次の月")
         }
         .foregroundStyle(palette.accent)
+        .contentShape(Rectangle())
+        .highPriorityGesture(monthSwipe(vertical: true), isEnabled: vertical)
+    }
+
+    private func monthSwipe(vertical: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 26).onEnded { drag in
+            let primary = vertical ? drag.translation.height : drag.translation.width
+            let secondary = vertical ? drag.translation.width : drag.translation.height
+            guard abs(primary) > 44, abs(primary) > abs(secondary) * 1.5 else { return }
+            changeMonth(by: primary < 0 ? 1 : -1)
+        }
     }
 
     private var monthHeading: some View {
@@ -485,6 +491,7 @@ struct HomeView: View {
                 palette: palette,
                 weekStartDay: store.weekStartDay,
                 referenceDate: store.now,
+                showsEventStartTime: store.calendarDisplayOptions.showsStartTime,
                 baseRules: store.fetchBaseRules(),
                 level: friendLevel,
                 recipientName: friendRecipient?.name,
@@ -516,7 +523,7 @@ struct HomeView: View {
 
     private var addMenu: some View {
         Menu {
-            Button { store.presentedEventForm = ManualEventDraft(date: store.selectedDate) } label: {
+            Button { store.presentedEventForm = store.calendarDisplayOptions.newEventDraft(on: store.selectedDate) } label: {
                 Label("予定・余白を追加", systemImage: "plus")
             }
             Button { store.startManualScheduling() } label: {
@@ -584,7 +591,7 @@ struct HomeView: View {
                         .foregroundStyle(palette.secondaryText)
                 }
                 Spacer()
-                Button("追加") { store.presentedEventForm = ManualEventDraft(date: store.selectedDate) }
+                Button("追加") { store.presentedEventForm = store.calendarDisplayOptions.newEventDraft(on: store.selectedDate) }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(palette.accent)
                     .frame(minWidth: 60, minHeight: 44)

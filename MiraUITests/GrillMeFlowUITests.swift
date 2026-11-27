@@ -189,6 +189,97 @@ final class GrillMeFlowUITests: XCTestCase {
         add(attachment)
     }
 
+    func testKeyboardTimeRejectsInvalidInputAndSavesCompactTimeWithoutLosingFocus() {
+        app.buttons["miraTab-settings"].tap()
+        let general = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch
+        scrollUntilHittable(general)
+        general.tap()
+        let keyboard = app.switches["時刻設定のキーボード表示"]
+        scrollUntilHittable(keyboard)
+        if keyboard.value as? String != "1" {
+            keyboard.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(keyboard.value as? String, "1")
+
+        app.buttons["miraTab-home"].tap()
+        app.buttons["追加メニュー"].tap()
+        app.buttons["予定・余白を追加"].tap()
+        let saveDraft = app.navigationBars["予定を追加"].buttons["保存して閉じる"]
+        let start = app.textFields.matching(NSPredicate(format: "label == %@ OR identifier == %@", "開始時刻", "eventStartTime")).firstMatch
+        let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
+        let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.66))
+        let caret = start.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5))
+        func replaceStart(with value: String) {
+            scrollUntilHittable(start)
+            for _ in 0..<3 where start.frame.midY > app.frame.midY {
+                lower.press(forDuration: 0.05, thenDragTo: upper)
+            }
+            caret.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 4))
+            for _ in 0..<3 where start.value as? String != start.placeholderValue {
+                start.typeKey("a", modifierFlags: .command)
+                start.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+            }
+            start.typeText(value)
+            XCTAssertEqual(start.value as? String, value)
+        }
+
+        replaceStart(with: "1260")
+        saveDraft.tap()
+        XCTAssertTrue(saveDraft.exists, "Invalid input must not close the draft")
+        XCTAssertEqual(start.value as? String, "1260")
+
+        replaceStart(with: "930")
+        saveDraft.tap()
+        let resume = app.buttons["resumeLatestDraft"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        scrollUntilHittable(resume)
+        resume.tap()
+        scrollUntilHittable(start)
+        XCTAssertEqual(start.value as? String, "9:30")
+
+        replaceStart(with: "1260")
+        let title = app.textFields["例：友達とご飯"]
+        for _ in 0..<4 where !title.isHittable { app.swipeDown() }
+        title.tap()
+        title.typeText("候補を確認\n")
+        let candidate = app.buttons.matching(identifier: "eventAlternativeDate").firstMatch
+        for _ in 0..<8 where !candidate.isHittable { app.swipeUp() }
+        XCTAssertTrue(candidate.isHittable)
+        candidate.tap()
+        for _ in 0..<8 where !start.isHittable { app.swipeDown() }
+        XCTAssertEqual(start.value as? String, "9:30")
+
+        saveDraft.tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        app.buttons["miraTab-settings"].tap()
+        scrollUntilHittable(keyboard)
+        keyboard.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(keyboard.value as? String, "0")
+    }
+
+    func testCatSkinCanStillSwipeHorizontallyWithVerticalPagingSelected() {
+        app.buttons["miraTab-settings"].tap()
+        let general = app.descendants(matching: .any)["calendarDisplaySettings"].firstMatch
+        scrollUntilHittable(general)
+        general.tap()
+        let vertical = app.buttons["縦スクロール（月の見出しを上下に）"]
+        scrollUntilHittable(vertical)
+        vertical.tap()
+        XCTAssertTrue(vertical.isSelected)
+
+        app.buttons["miraTab-home"].tap()
+        let heading = app.descendants(matching: .any)["homeMonthHeading"].firstMatch
+        let grid = app.descendants(matching: .any)["monthCalendar"].firstMatch
+        XCTAssertTrue(grid.waitForExistence(timeout: 4))
+        let month = heading.label
+        let start = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.35))
+        let end = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.35))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        let changedMonth = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", month), object: heading)
+        XCTAssertEqual(XCTWaiter.wait(for: [changedMonth], timeout: 4), .completed)
+    }
+
     func testSettingsFooterScrollsAboveTabsAndWorkHoursAreEditable() throws {
         let tab = app.buttons["設定"].firstMatch
         XCTAssertTrue(tab.waitForExistence(timeout: 5))

@@ -25,28 +25,27 @@ enum AppThemeKind: String, Codable, CaseIterable, Identifiable {
 enum WeekStartDay: String, Codable, CaseIterable, Identifiable {
     case monday
     case sunday
+    case tuesday, wednesday, thursday, friday, saturday
 
     var id: String { rawValue }
 
-    var title: String {
-        switch self {
-        case .monday: "月曜始まり"
-        case .sunday: "日曜始まり"
-        }
-    }
+    static let symbols = ["日", "月", "火", "水", "木", "金", "土"]
+    var title: String { Self.symbols[calendarFirstWeekday - 1] + "曜始まり" }
 
     var calendarFirstWeekday: Int {
         switch self {
         case .monday: 2
         case .sunday: 1
+        case .tuesday: 3
+        case .wednesday: 4
+        case .thursday: 5
+        case .friday: 6
+        case .saturday: 7
         }
     }
 
     var weekdaySymbols: [String] {
-        switch self {
-        case .monday: ["月", "火", "水", "木", "金", "土", "日"]
-        case .sunday: ["日", "月", "火", "水", "木", "金", "土"]
-        }
+        (0..<7).map { Self.symbols[(calendarFirstWeekday - 1 + $0) % 7] }
     }
 }
 

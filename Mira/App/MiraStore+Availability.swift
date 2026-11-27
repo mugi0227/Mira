@@ -54,9 +54,7 @@ extension MiraStore {
             currentMarginRecommendation = recommendation
             autoPlaceMargins(for: selectedMonth, offerUndo: false)
             Task { await refreshProactiveSelfTimeSuggestion() }
-            if useDeviceHolidays {
-                Task { await setDeviceHolidaysEnabled(true) }
-            }
+            setShowsPublicHolidays(useDeviceHolidays)
         } catch {
             toast = "初期設定を保存できませんでした"
         }

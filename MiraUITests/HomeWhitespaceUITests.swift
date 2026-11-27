@@ -72,6 +72,46 @@ final class HomeWhitespaceUITests: XCTestCase {
         capture("whitespace-day-navigation")
     }
 
+    func testTodayAndOpenedDayHaveIndependentHighlights() {
+        launchHome(theme: "softMinimal")
+        let today = app.buttons["calendar-date-2026-09-01"]
+        let otherDay = app.buttons["calendar-date-2026-09-02"]
+        let panel = element("inlineDayPanel")
+
+        XCTAssertTrue(today.label.contains("今日"))
+        XCTAssertFalse(today.isSelected)
+
+        otherDay.tap()
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        XCTAssertTrue(otherDay.isSelected)
+        XCTAssertFalse(otherDay.label.contains("今日"))
+        XCTAssertFalse(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+        capture("soft-minimal-today-and-opened-day")
+
+        today.tap()
+        XCTAssertTrue(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+        XCTAssertFalse(otherDay.isSelected)
+
+        today.tap()
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(today.isSelected)
+        XCTAssertTrue(today.label.contains("今日"))
+
+        app.buttons["前の月"].tap()
+        XCTAssertTrue(element("homeMonthHeading").label.hasPrefix("2026年8月"))
+        XCTAssertTrue(today.waitForExistence(timeout: 5))
+        XCTAssertTrue(today.label.contains("今日"))
+
+        let scroll = app.scrollViews["homeScroll"]
+        for _ in 0..<3 where !today.isHittable || today.frame.maxY > app.tabBars.firstMatch.frame.minY {
+            scroll.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(today.isHittable)
+        capture("soft-minimal-today-in-neighbor-month")
+    }
+
     func testAllDayEventStaysAboveTheScrollingTimeline() {
         launchHome(theme: "softMinimal")
         app.buttons["calendar-date-2026-09-07"].tap()
